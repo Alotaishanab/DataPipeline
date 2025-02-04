@@ -1,0 +1,29 @@
+- name: Deploy Pipeline Scripts to Workers and Host
+  hosts: workers,host
+  become: yes
+  tasks:
+    - name: Create pipeline directory
+      file:
+        path: /opt/data_pipeline
+        state: directory
+        owner: almalinux
+        group: almalinux
+        mode: '0755'
+
+    - name: Copy pipeline_script.py
+      copy:
+        src: /home/almalinux/data-pipeline/ansible/files/pipeline_script.py
+        dest: /opt/data_pipeline/pipeline_script.py
+        owner: almalinux
+        group: almalinux
+        mode: '0755'
+
+    - name: Copy results_parser.py
+      copy:
+        src: /home/almalinux/data-pipeline/ansible/files/results_parser.py
+        dest: /opt/data_pipeline/results_parser.py
+        owner: almalinux
+        group: almalinux
+        mode: '0755'
+
+

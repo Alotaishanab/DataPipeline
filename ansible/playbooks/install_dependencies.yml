@@ -1,0 +1,173 @@
+- name: Install Dependencies on Worker Nodes
+  hosts: workers
+  become: yes
+  vars:
+    merizo_search_repo: https://github.com/psipred/merizo_search.git
+    merizo_search_dest: /opt/merizo_search
+    virtualenv_path: /opt/merizo_search/merizosearch_env
+    python_version: "3.9"
+    torch_version: "2.0.1+cpu"
+    torch_url: "https://download.pytorch.org/whl/cpu/torch_stable.html"
+    user_name: "almalinux"
+    user_home: "/home/almalinux"
+
+  tasks:
+    - name: Upgrade pip to the latest version
+      pip:
+        name: pip
+        executable: pip3
+        state: latest
+
+    - name: Uninstall existing torch if present
+      pip:
+        name: torch
+        state: absent
+        executable: pip3
+
+    - name: Install required Python packages via pip (excluding torch)
+      pip:
+        name:
+          - pandas
+          - numpy
+          - biopython
+          - scipy
+          - faiss-cpu
+          - einops
+          - matplotlib
+          - natsort
+          - networkx
+          - rotary_embedding_torch
+          - setuptools
+        executable: pip3
+        state: present
+
+    - name: Clone Merizo Search Repository
+      git:
+        repo: "{{ merizo_search_repo }}"
+        dest: "{{ merizo_search_dest }}"
+        version: main
+        force: yes
+
+    - name: Remove torch from requirements.txt
+      lineinfile:
+        path: "{{ merizo_search_dest }}/merizo_search/programs/Merizo/requirements.txt"
+        regexp: '^torch==.*$'
+        state: absent
+
+    - name: Create Python Virtual Environment for Merizo Search
+      command: /usr/bin/python3 -m venv "{{ virtualenv_path }}"
+      args:
+        creates: "{{ virtualenv_path }}"
+
+    # **Add Symlink Correction Tasks**
+    - name: Remove incorrect python3 symlink
+      file:
+        path: "{{ virtualenv_path }}/bin/python3"
+        state: absent
+
+    - name: Create correct python3 symlink pointing to /usr/bin/python3
+      file:
+        src: /usr/bin/python3
+        dest: "{{ virtualenv_path }}/bin/python3"
+        state: link
+
+    - name: Ensure python symlink points to python3
+      file:
+        src: python3
+        dest: "{{ virtualenv_path }}/bin/python"
+        state: link
+
+    - name: Install Merizo Search Dependencies without torch in Virtualenv
+      pip:
+        requirements: "{{ merizo_search_dest }}/merizo_search/programs/Merizo/requirements.txt"
+        virtualenv: "{{ virtualenv_path }}"
+        state: present
+
+    - name: Install CPU-only PyTorch in Virtualenv
+      pip:
+        name: "torch=={{ torch_version }}"
+        virtualenv: "{{ virtualenv_path }}"
+        state: present
+        extra_args: "--find-links {{ torch_url }}"
+
+    - name: Make merizo.py Executable
+      file:
+        path: "{{ merizo_search_dest }}/merizo_search/merizo.py"
+        mode: '0755'
+        owner: "{{ user_name }}"
+        group: "{{ user_name }}"
+
+    - name: Set Environment Variable for Merizo Search in .bashrc
+      lineinfile:
+        path: "{{ user_home }}/.bashrc"
+        line: 'export MERIZO_HOME={{ merizo_search_dest }}'
+        create: yes
+        state: present
+
+    - name: Source .bashrc to apply environment variable
+      shell: source {{ user_home }}/.bashrc
+      args:
+        executable: /bin/bash
+
+    - name: Verify PyTorch Installation in Virtualenv
+      shell: |
+        source "{{ virtualenv_path }}/bin/activate"
+        python3 -c "import torch; print(torch.__version__); print(torch.cuda.is_available())"
+      register: torch_check
+      changed_when: false
+      ignore_errors: true
+
+    - name: Display PyTorch Installation Details
+      debug:
+        msg: "PyTorch Version: {{ torch_check.stdout_lines[0] | default('Not Installed') }}, CUDA Available: {{ torch_check.stdout_lines[1] | default('N/A') }}"
+
+    - name: Ensure Ownership of Merizo Search Directory
+      file:
+        path: "{{ merizo_search_dest }}"
+        state: directory
+        recurse: yes
+        owner: "{{ user_name }}"
+        group: "{{ user_name }}"
+
+    - name: Ensure Write Permissions on NFS-mounted Results Directory
+      file:
+        path: "/mnt/results"
+        state: directory
+        owner: "{{ user_name }}"
+        group: "{{ user_name }}"
+        mode: '0775'
+        recurse: yes
+
+
+
+- name: Install Terraform
+  hosts: host
+  become: yes
+  vars:
+    hashicorp_repo_url: "https://rpm.releases.hashicorp.com/RHEL/$releasever/$basearch/stable"
+  
+  tasks:
+    - name: Add HashiCorp GPG key
+      rpm_key:
+        state: present
+        key: "https://rpm.releases.hashicorp.com/gpg"
+
+    - name: Add HashiCorp yum repository
+      yum_repository:
+        name: hashicorp-stable
+        description: "Hashicorp Stable Repo"
+        baseurl: "{{ hashicorp_repo_url }}"
+        gpgcheck: yes
+        enabled: yes
+
+    - name: Install Terraform
+      yum:
+        name: terraform
+        state: latest
+
+- name: Install and Configure Alertmanager on Host
+  hosts: host
+  become: yes
+  roles:
+    - alert_manager
+

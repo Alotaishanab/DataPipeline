@@ -1,0 +1,5 @@
+- name: Cleanup Disk Space on All VMs
+  hosts: all
+  become: yes
+  roles:
+    - cleanup_role

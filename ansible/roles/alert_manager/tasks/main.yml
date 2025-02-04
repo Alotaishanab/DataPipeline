@@ -1,0 +1,85 @@
+- name: Download Alertmanager binary
+  get_url:
+    url: "{{ alertmanager_url }}"
+    dest: "/tmp/{{ alertmanager_tarball }}"
+    mode: '0644'
+    force: yes
+
+- name: Extract Alertmanager
+  unarchive:
+    src: "/tmp/{{ alertmanager_tarball }}"
+    dest: "/opt/"
+    remote_src: yes
+    extra_opts: []  
+
+- name: Remove existing /opt/alertmanager if it exists
+  file:
+    path: /opt/alertmanager
+    state: absent
+
+- name: Create Alertmanager symlink
+  file:
+    src: "{{ alertmanager_extract_dir }}"
+    dest: /opt/alertmanager
+    state: link
+
+- name: Create Alertmanager user
+  user:
+    name: alertmanager
+    shell: /sbin/nologin
+    create_home: no
+
+- name: Create directories for Alertmanager
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: alertmanager
+    group: alertmanager
+    mode: '0755'
+  loop:
+    - /etc/alertmanager
+    - /var/lib/alertmanager
+
+- name: Set ownership for Alertmanager binaries
+  file:
+    path: "{{ item }}"
+    owner: alertmanager
+    group: alertmanager
+    mode: '0755'
+  loop:
+    - "{{ alertmanager_extract_dir }}/alertmanager"
+    - "{{ alertmanager_extract_dir }}/amtool"
+
+- name: Deploy Alertmanager configuration file
+  template:
+    src: alertmanager.yml.j2
+    dest: /etc/alertmanager/alertmanager.yml
+    owner: alertmanager
+    group: alertmanager
+    mode: '0644'
+  notify: Restart Alertmanager
+
+- name: Deploy Alertmanager systemd service file
+  template:
+    src: alertmanager.service.j2
+    dest: /etc/systemd/system/alertmanager.service
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart Alertmanager
+
+- name: Reload systemd daemon
+  systemd:
+    daemon_reload: yes
+  notify: Restart Alertmanager
+
+- name: Start and enable Alertmanager service
+  systemd:
+    name: alertmanager
+    state: started
+    enabled: yes
+  notify: Restart Alertmanager
+
+
+
+
