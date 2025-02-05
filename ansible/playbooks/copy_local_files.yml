@@ -3,7 +3,14 @@
   gather_facts: false
   become: yes
   become_method: sudo
-
+  vars:
+    ansible_ssh_common_args: >-
+      -o StrictHostKeyChecking=no
+      -o UserKnownHostsFile=/dev/null
+      -o GlobalKnownHostsFile=/dev/null
+      -o ProxyJump=condenser-proxy
+      -o BatchMode=yes
+      -o IdentityFile=~/.ssh/ansible_ed25519
   tasks:
     - name: Wipe known_hosts entirely on local
       delegate_to: localhost
@@ -23,9 +30,9 @@
       become_user: almalinux
       wait_for:
         path: /home/almalinux/data-pipeline/ansible/inventories
-        state: present   # <-- Changed from "directory" to "present"
-        delay: 5         # Wait 5 seconds before first check
-        timeout: 120     # Keep checking up to 120 seconds
+        state: present
+        delay: 5
+        timeout: 120
         msg: "data-pipeline/ansible/inventories folder never appeared on the mgmt node."
 
     - name: Copy updated inventory.json to mgmt node
