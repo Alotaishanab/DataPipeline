@@ -22,25 +22,20 @@
         path: /usr/local/bin/terraform-inventory
       register: terraform_inventory_stat
 
-    - name: Install terraform-inventory from GitHub if not installed
-      block:
-        - name: Clone terraform-inventory repo from GitHub
-          git:
-            repo: "https://github.com/adammck/terraform-inventory.git"
-            dest: /tmp/terraform-inventory
-            version: master
-            force: yes
+    - name: Clone terraform-inventory repo from GitHub
+      git:
+        repo: "https://github.com/adammck/terraform-inventory.git"
+        dest: /tmp/terraform-inventory
+        version: master
+        force: yes
+      when: not terraform_inventory_stat.stat.exists
 
-        - name: Create symlink for terraform-inventory script
-          file:
-            src: /tmp/terraform-inventory/terraform_inventory.py
-            dest: /usr/local/bin/terraform-inventory
-            state: link
-
-        - name: Ensure terraform-inventory is executable
-          file:
-            path: /usr/local/bin/terraform-inventory
-            mode: "0755"
+    - name: Create symlink for terraform-inventory script
+      file:
+        src: /tmp/terraform-inventory/terraform-inventory.py
+        dest: /usr/local/bin/terraform-inventory
+        state: link
+        force: yes
       when: not terraform_inventory_stat.stat.exists
 
     - name: Check if Terraform is installed at /usr/local/bin/terraform
