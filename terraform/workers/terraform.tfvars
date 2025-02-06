@@ -3,8 +3,8 @@ provider_token     = "kubeconfig-u-fhgdi4zayztbpvr:dwrdmsvv68wbnq7vp7sb25bgl9qgm
 provider_namespace = "ucabbaa-comp0235-ns"
 username           = "ucabbaa@ucl.ac.uk"   
 
-keyfile       = "../keys/id_rsa.pub"
-marker_keyfile = "../keys/lecturer_key.pub"
+id_rsa_pub       = "../keys/id_rsa.pub"
+marker_pub  = "../keys/lecturer_key.pub"
 
 image_name      = "image-bp52g"
 image_namespace = "harvester-public"
