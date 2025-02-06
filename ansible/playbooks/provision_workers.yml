@@ -48,9 +48,10 @@
 
     - name: Copy terraform-inventory binary to /usr/local/bin/terraform-inventory
       copy:
-        src: "/tmp/terraform-inventory/terraform-inventory_v0.10_linux_amd64"
+        src: "/tmp/terraform-inventory/terraform-inventory"
         dest: "/usr/local/bin/terraform-inventory"
         mode: '0755'
+        remote_src: yes
 
     - name: Check if Terraform is installed at /usr/local/bin/terraform
       command: /usr/local/bin/terraform version
