@@ -17,12 +17,33 @@
         name: python3-pip
         state: present
 
-    - name: Install terraform-inventory dynamic inventory tool via pip from GitHub
-      pip:
-        name: "git+https://github.com/adammck/terraform-inventory.git"
-        executable: pip3
+    - name: Check if terraform-inventory is installed
+      stat:
+        path: /usr/local/bin/terraform-inventory
+      register: terraform_inventory_stat
 
-    - name: Check if Terraform is installed
+    - name: Install terraform-inventory from GitHub if not installed
+      block:
+        - name: Clone terraform-inventory repo from GitHub
+          git:
+            repo: "https://github.com/adammck/terraform-inventory.git"
+            dest: /tmp/terraform-inventory
+            version: master
+            force: yes
+
+        - name: Create symlink for terraform-inventory script
+          file:
+            src: /tmp/terraform-inventory/terraform_inventory.py
+            dest: /usr/local/bin/terraform-inventory
+            state: link
+
+        - name: Ensure terraform-inventory is executable
+          file:
+            path: /usr/local/bin/terraform-inventory
+            mode: "0755"
+      when: not terraform_inventory_stat.stat.exists
+
+    - name: Check if Terraform is installed at /usr/local/bin/terraform
       command: /usr/local/bin/terraform version
       register: terraform_installed
       ignore_errors: yes
