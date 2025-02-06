@@ -17,9 +17,9 @@
         name: python3-pip
         state: present
 
-    - name: Install terraform-inventory dynamic inventory tool via pip
+    - name: Install terraform-inventory dynamic inventory tool via pip from GitHub
       pip:
-        name: terraform-inventory
+        name: "git+https://github.com/adammck/terraform-inventory.git"
         executable: pip3
 
     - name: Check if Terraform is installed
