@@ -1,6 +1,4 @@
 ---
 plugin: terraform
-# Path to the Terraform state file for your workers
 path: /home/almalinux/DataPipeline/terraform/workers/terraform.tfstate
-# (Optional) You can also use host_pattern if needed:
-# host_pattern: "worker*"
+host_pattern: worker_vm_ips
