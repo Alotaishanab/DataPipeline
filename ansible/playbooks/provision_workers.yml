@@ -22,7 +22,7 @@
         path: /usr/local/bin/terraform-inventory
         state: absent
 
-    - name: Remove existing /tmp/terraform-inventory directory if it exists
+    - name: Remove any existing /tmp/terraform-inventory directory
       file:
         path: /tmp/terraform-inventory
         state: absent
@@ -34,15 +34,15 @@
         mode: '0644'
         force: yes
 
-    - name: Unarchive terraform-inventory binary
+    - name: Unarchive terraform-inventory binary into /tmp/terraform-inventory
       unarchive:
         src: "/tmp/terraform-inventory.zip"
-        dest: "/tmp/"
+        dest: "/tmp/terraform-inventory"
         remote_src: yes
 
     - name: Copy terraform-inventory binary to /usr/local/bin/terraform-inventory
       copy:
-        src: "/tmp/terraform-inventory_v0.10_linux_amd64"
+        src: "/tmp/terraform-inventory/terraform-inventory_v0.10_linux_amd64"
         dest: "/usr/local/bin/terraform-inventory"
         mode: '0755'
 
