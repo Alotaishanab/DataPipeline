@@ -1,4 +1,4 @@
 ---
 plugin: terraform
 path: /home/almalinux/DataPipeline/terraform/workers/terraform.tfstate
-host_pattern: worker_vm_ips
+host_pattern: worker_inventory
