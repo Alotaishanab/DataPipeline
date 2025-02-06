@@ -5,6 +5,13 @@
   gather_facts: no
 
   tasks:
+    - name: Ensure DataPipeline directory is owned by almalinux
+      file:
+        path: /home/almalinux/DataPipeline
+        recurse: yes
+        owner: almalinux
+        group: almalinux
+
     - name: Check if Terraform is installed
       command: /usr/local/bin/terraform version
       register: terraform_installed
