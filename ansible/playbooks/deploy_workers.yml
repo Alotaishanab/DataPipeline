@@ -1,3 +1,4 @@
+---
 - name: Provision Worker VMs using Terraform
   hosts: localhost
   become: yes
@@ -5,27 +6,27 @@
 
   tasks:
     - name: Check if Terraform is installed
-      command: terraform version
+      command: /usr/local/bin/terraform version
       register: terraform_installed
       ignore_errors: yes
 
     - name: Install Terraform if not installed
       shell: |
         echo "Terraform not found. Installing Terraform..."
-        yum install -y wget unzip && \
-        TERRAFORM_VERSION="1.5.0" && \
-        wget -O /tmp/terraform.zip "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip" && \
-        unzip /tmp/terraform.zip -d /usr/local/bin && \
-        rm /tmp/terraform.zip && \
+        yum install -y wget unzip
+        TERRAFORM_VERSION="1.5.0"
+        wget -O /tmp/terraform.zip "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip"
+        unzip /tmp/terraform.zip -d /usr/local/bin
+        rm /tmp/terraform.zip
         echo "Terraform installed."
       when: terraform_installed.rc != 0
 
     - name: Initialize Terraform in workers directory
-      shell: terraform init
+      shell: /usr/local/bin/terraform init
       args:
         chdir: /home/almalinux/DataPipeline/terraform/workers
 
     - name: Apply Terraform configuration for workers
-      shell: terraform apply -auto-approve
+      shell: /usr/local/bin/terraform apply -auto-approve
       args:
         chdir: /home/almalinux/DataPipeline/terraform/workers
