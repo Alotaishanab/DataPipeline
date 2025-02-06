@@ -67,7 +67,7 @@ resource "harvester_virtualmachine" "worker" {
   cloudinit {
     type      = "noCloud"
     user_data = templatefile(
-      "${path.module}/templates/worker-cloud-config.yaml",
+      "${path.module}/templates/cloud-config.yaml",
       {
         public_key_1 = file(var.id_rsa_pub),
         public_key_2 = file(var.marker_pub),
