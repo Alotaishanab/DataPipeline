@@ -17,25 +17,23 @@
         name: python3-pip
         state: present
 
-    - name: Check if terraform-inventory is installed
-      stat:
+    - name: Remove any existing terraform-inventory file at /usr/local/bin/terraform-inventory
+      file:
         path: /usr/local/bin/terraform-inventory
-      register: terraform_inventory_stat
+        state: absent
 
-    - name: Clone terraform-inventory repo from GitHub
+    - name: Clone terraform-inventory repo from GitHub unconditionally
       git:
         repo: "https://github.com/adammck/terraform-inventory.git"
         dest: /tmp/terraform-inventory
         version: master
         force: yes
-      when: not terraform_inventory_stat.stat.exists
 
-    - name: Copy terraform-inventory script to /usr/local/bin
+    - name: Copy terraform-inventory script to /usr/local/bin/terraform-inventory
       copy:
         src: /tmp/terraform-inventory/terraform-inventory.py
         dest: /usr/local/bin/terraform-inventory
         mode: '0755'
-      when: not terraform_inventory_stat.stat.exists
 
     - name: Check if Terraform is installed at /usr/local/bin/terraform
       command: /usr/local/bin/terraform version
