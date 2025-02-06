@@ -17,22 +17,29 @@
         name: python3-pip
         state: present
 
+    # Install terraform-inventory using prebuilt binary
     - name: Remove any existing terraform-inventory file at /usr/local/bin/terraform-inventory
       file:
         path: /usr/local/bin/terraform-inventory
         state: absent
 
-    - name: Clone terraform-inventory repo from GitHub unconditionally
-      git:
-        repo: "https://github.com/adammck/terraform-inventory.git"
-        dest: /tmp/terraform-inventory
-        version: master
+    - name: Download terraform-inventory prebuilt binary for Linux
+      get_url:
+        url: "https://github.com/adammck/terraform-inventory/releases/download/v0.9.1/terraform-inventory-linux-amd64.zip"
+        dest: "/tmp/terraform-inventory.zip"
+        mode: '0644'
         force: yes
 
-    - name: Copy terraform-inventory script to /usr/local/bin/terraform-inventory
+    - name: Unarchive terraform-inventory binary
+      unarchive:
+        src: "/tmp/terraform-inventory.zip"
+        dest: "/tmp/"
+        remote_src: yes
+
+    - name: Copy terraform-inventory binary to /usr/local/bin/terraform-inventory
       copy:
-        src: /tmp/terraform-inventory/terraform-inventory.py
-        dest: /usr/local/bin/terraform-inventory
+        src: "/tmp/terraform-inventory-linux-amd64"
+        dest: "/usr/local/bin/terraform-inventory"
         mode: '0755'
 
     - name: Check if Terraform is installed at /usr/local/bin/terraform
