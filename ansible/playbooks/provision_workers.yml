@@ -12,6 +12,16 @@
         owner: almalinux
         group: almalinux
 
+    - name: Ensure python3-pip is installed
+      yum:
+        name: python3-pip
+        state: present
+
+    - name: Install terraform-inventory dynamic inventory tool via pip
+      pip:
+        name: terraform-inventory
+        executable: pip3
+
     - name: Check if Terraform is installed
       command: /usr/local/bin/terraform version
       register: terraform_installed
