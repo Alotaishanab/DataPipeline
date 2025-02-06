@@ -1,4 +1,4 @@
 ---
-plugin: terraform
+plugin: community.general.terraform
 path: /home/almalinux/DataPipeline/terraform/workers/terraform.tfstate
 host_pattern: worker_inventory
