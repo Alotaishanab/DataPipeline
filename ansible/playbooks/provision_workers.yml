@@ -22,6 +22,11 @@
         path: /usr/local/bin/terraform-inventory
         state: absent
 
+    - name: Remove existing /tmp/terraform-inventory directory if it exists
+      file:
+        path: /tmp/terraform-inventory
+        state: absent
+
     - name: Download terraform-inventory prebuilt binary for Linux (amd64)
       get_url:
         url: "https://github.com/adammck/terraform-inventory/releases/download/v0.10/terraform-inventory_v0.10_linux_amd64.zip"
