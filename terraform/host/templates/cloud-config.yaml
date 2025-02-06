@@ -10,6 +10,22 @@ users:
       - ${public_key_3}
 
 runcmd:
+  # Ensure all files in /home/almalinux are owned by almalinux
+  - chown -R almalinux:almalinux /home/almalinux
+
+  # --- Install Terraform if not already present ---
+  - |
+    if ! command -v terraform >/dev/null 2>&1; then
+      echo "Terraform not found. Installing Terraform..."
+      yum install -y wget unzip
+      TERRAFORM_VERSION="${TERRAFORM_VERSION}"
+      wget -O /tmp/terraform.zip "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip"
+      unzip /tmp/terraform.zip -d /usr/local/bin
+      rm /tmp/terraform.zip
+      echo "Terraform installed."
+    else
+      echo "Terraform is already installed."
+    fi
   - yum install -y epel-release
   - yum install -y ansible git
   - git clone https://github.com/Alotaishanab/DataPipeline.git /home/almalinux/DataPipeline

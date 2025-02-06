@@ -69,16 +69,17 @@ resource "harvester_virtualmachine" "mgmt" {
   }
 
   cloudinit {
-    type      = "noCloud"
-    user_data = templatefile(
-      "${path.module}/templates/cloud-config.yaml",
-      {
-        public_key_1     = file(var.id_rsa_pub),
-        public_key_2     = file(var.marker_pub),
-        public_key_3 = tls_private_key.ansible_v1.public_key_openssh
-      }
-    )
-  }
+  type      = "noCloud"
+  user_data = templatefile(
+    "${path.module}/templates/cloud-config.yaml",
+    {
+      public_key_1     = file(var.id_rsa_pub),
+      public_key_2     = file(var.marker_pub),
+      public_key_3     = tls_private_key.ansible_v1.public_key_openssh,
+      TERRAFORM_VERSION = "1.5.0"
+    }
+  )
+}
   timeouts {
     create = "5m"
   }
