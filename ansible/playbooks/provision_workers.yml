@@ -17,15 +17,14 @@
         name: python3-pip
         state: present
 
-    # Install terraform-inventory using prebuilt binary
     - name: Remove any existing terraform-inventory file at /usr/local/bin/terraform-inventory
       file:
         path: /usr/local/bin/terraform-inventory
         state: absent
 
-    - name: Download terraform-inventory prebuilt binary for Linux
+    - name: Download terraform-inventory prebuilt binary for Linux (amd64)
       get_url:
-        url: "https://github.com/adammck/terraform-inventory/releases/download/v0.9.1/terraform-inventory-linux-amd64.zip"
+        url: "https://github.com/adammck/terraform-inventory/releases/download/v0.10/terraform-inventory_v0.10_linux_amd64.zip"
         dest: "/tmp/terraform-inventory.zip"
         mode: '0644'
         force: yes
@@ -38,7 +37,7 @@
 
     - name: Copy terraform-inventory binary to /usr/local/bin/terraform-inventory
       copy:
-        src: "/tmp/terraform-inventory-linux-amd64"
+        src: "/tmp/terraform-inventory_v0.10_linux_amd64"
         dest: "/usr/local/bin/terraform-inventory"
         mode: '0755'
 
