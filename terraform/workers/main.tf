@@ -45,7 +45,7 @@ resource "harvester_virtualmachine" "worker" {
   hostname        = "${local.sanitized_username}-worker-${count.index + 1}-${random_id.secret.hex}"
   reserved_memory = "100Mi"
   machine_type    = "q35"
-  tags            = worker_vm_tags_full
+  tags            = local.worker_vm_tags_full
 
   network_interface {
     name           = "nic-1"
@@ -69,8 +69,8 @@ resource "harvester_virtualmachine" "worker" {
     user_data = templatefile(
       "${path.module}/templates/worker-cloud-config.yaml",
       {
-        public_key_1     = file(var.id_rsa_pub),
-        public_key_2     = file(var.marker_pub),
+        public_key_1 = file(var.id_rsa_pub),
+        public_key_2 = file(var.marker_pub),
         public_key_3 = tls_private_key.ansible_v2.public_key_openssh
       }
     )
