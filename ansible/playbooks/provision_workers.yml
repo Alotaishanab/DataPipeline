@@ -30,12 +30,11 @@
         force: yes
       when: not terraform_inventory_stat.stat.exists
 
-    - name: Create symlink for terraform-inventory script
-      file:
+    - name: Copy terraform-inventory script to /usr/local/bin
+      copy:
         src: /tmp/terraform-inventory/terraform-inventory.py
         dest: /usr/local/bin/terraform-inventory
-        state: link
-        force: yes
+        mode: '0755'
       when: not terraform_inventory_stat.stat.exists
 
     - name: Check if Terraform is installed at /usr/local/bin/terraform
