@@ -34,6 +34,12 @@
         mode: '0644'
         force: yes
 
+    - name: Create /tmp/terraform-inventory directory
+      file:
+        path: /tmp/terraform-inventory
+        state: directory
+        mode: '0755'
+
     - name: Unarchive terraform-inventory binary into /tmp/terraform-inventory
       unarchive:
         src: "/tmp/terraform-inventory.zip"
