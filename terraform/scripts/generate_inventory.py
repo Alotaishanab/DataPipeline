@@ -5,8 +5,9 @@ import sys
 
 def get_terraform_outputs():
     try:
+        # Use the full path to terraform so that it is found
         result = subprocess.run(
-            ["terraform", "output", "-json"],
+            ["/usr/local/bin/terraform", "output", "-json"],
             capture_output=True,
             text=True,
             check=True
@@ -36,7 +37,7 @@ def generate_inventory(outputs):
 if __name__ == "__main__":
     outputs = get_terraform_outputs()
     inv = generate_inventory(outputs)
-    inventory_file = "inventory.json"  # You can adjust the path as needed
+    inventory_file = "/home/almalinux/DataPipeline/ansible/inventory/inventory.json"  # adjust as needed
     with open(inventory_file, "w") as f:
         json.dump(inv, f, indent=2)
     print(f"Inventory written to {inventory_file}")
