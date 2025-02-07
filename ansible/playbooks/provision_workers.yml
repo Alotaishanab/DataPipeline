@@ -1,5 +1,5 @@
 ---
-- name: Provision Worker VMs using Terraform
+- name: Provision Worker VMs using Terraform and generate static inventory
   hosts: localhost
   become: yes
   gather_facts: no
@@ -49,7 +49,7 @@
     - name: Copy terraform-inventory binary to /usr/local/bin/terraform-inventory
       copy:
         src: "/tmp/terraform-inventory/terraform-inventory"
-        dest: "/usr/local/bin/terraform-inventory"
+        dest: /usr/local/bin/terraform-inventory
         mode: '0755'
         remote_src: yes
 
@@ -78,3 +78,13 @@
       shell: /usr/local/bin/terraform apply -auto-approve
       args:
         chdir: /home/almalinux/DataPipeline/terraform/workers
+
+    - name: Generate static inventory from Terraform outputs
+      command: python3 generate_inventory.py
+      args:
+        chdir: /home/almalinux/DataPipeline/terraform/scripts
+      register: inventory_generation
+      changed_when: "'Inventory written to' in inventory_generation.stdout"
+
+    - debug:
+        msg: "Static inventory generated successfully."
