@@ -6,7 +6,7 @@ import sys
 
 def get_terraform_outputs():
     try:
-        # Use the full path to terraform and set cwd so that the correct state file is used.
+        # Run terraform in the workers directory so it picks up the correct state file.
         result = subprocess.run(
             ["/usr/local/bin/terraform", "output", "-json"],
             capture_output=True,
@@ -18,26 +18,36 @@ def get_terraform_outputs():
     except Exception as e:
         sys.exit(f"Error obtaining Terraform outputs: {e}")
 
-def generate_inventory(outputs):
-    inventory = {"_meta": {"hostvars": {}}}
-    # Look for the Terraform output named "worker_inventory"
+def generate_static_inventory(outputs):
+    # Get the output named "worker_inventory" (make sure your Terraform config outputs this)
     worker_inventory = outputs.get("worker_inventory", {}).get("value", {})
     if not worker_inventory:
         sys.exit("Error: No worker_inventory found in Terraform outputs.")
-    inventory["worker_inventory"] = {"hosts": []}
-    for host, vars in worker_inventory.items():
-        inventory["worker_inventory"]["hosts"].append(host)
-        inventory["_meta"]["hostvars"][host] = vars
-    # Also add localhost (if needed)
-    inventory["localhost"] = {"hosts": ["localhost"]}
-    inventory["_meta"]["hostvars"]["localhost"] = {"ansible_connection": "local"}
+    
+    # worker_inventory should be a dictionary mapping host names to variables.
+    inventory = {
+        "all": {
+            "children": {
+                "worker_inventory": {
+                    "hosts": worker_inventory
+                },
+                "localhost": {
+                    "hosts": {
+                        "localhost": {
+                            "ansible_connection": "local"
+                        }
+                    }
+                }
+            }
+        }
+    }
     return inventory
 
 if __name__ == "__main__":
     outputs = get_terraform_outputs()
-    inv = generate_inventory(outputs)
+    inv = generate_static_inventory(outputs)
     inventory_file = "/home/almalinux/DataPipeline/ansible/inventory/inventory.json"
-    # Ensure the directory exists
+    # Ensure the directory exists.
     os.makedirs(os.path.dirname(inventory_file), exist_ok=True)
     with open(inventory_file, "w") as f:
         json.dump(inv, f, indent=2)
