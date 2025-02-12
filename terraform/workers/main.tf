@@ -79,3 +79,15 @@ resource "harvester_virtualmachine" "worker" {
     create = "5m"
   }
 }
+
+resource "null_resource" "generate_inventory" {
+  # Ensure that all worker VMs are created first.
+  depends_on = [harvester_virtualmachine.worker]
+
+  provisioner "local-exec" {
+    # Run the generate_inventory.py script.
+    # The script uses the state file from the workers directory and writes
+    # the static inventory file to /home/almalinux/DataPipeline/ansible/inventory/inventory.json.
+    command = "python3 ${path.module}/../scripts/generate_inventory.py"
+  }
+}
