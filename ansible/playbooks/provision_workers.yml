@@ -79,12 +79,5 @@
       args:
         chdir: /home/almalinux/DataPipeline/terraform/workers
 
-    - name: Generate static inventory from Terraform outputs
-      command: python3 generate_inventory.py
-      args:
-        chdir: /home/almalinux/DataPipeline/terraform/scripts
-      register: inventory_generation
-      changed_when: "'Inventory written to' in inventory_generation.stdout"
-
     - debug:
         msg: "Static inventory generated successfully."
