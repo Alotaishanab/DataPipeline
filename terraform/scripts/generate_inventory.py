@@ -6,7 +6,6 @@ import sys
 
 def get_terraform_outputs():
     try:
-        # Run terraform in the workers directory so it picks up the correct state file.
         result = subprocess.run(
             ["/usr/local/bin/terraform", "output", "-json"],
             capture_output=True,
@@ -19,24 +18,17 @@ def get_terraform_outputs():
         sys.exit(f"Error obtaining Terraform outputs: {e}")
 
 def generate_static_inventory(outputs):
-    # Get the output named "worker_inventory" (make sure your Terraform config outputs this)
+    # Expect Terraform to output "worker_inventory" as a mapping of host names to host variables.
     worker_inventory = outputs.get("worker_inventory", {}).get("value", {})
     if not worker_inventory:
         sys.exit("Error: No worker_inventory found in Terraform outputs.")
     
-    # worker_inventory should be a dictionary mapping host names to variables.
+    # Build an inventory that contains only the worker hosts.
     inventory = {
         "all": {
             "children": {
                 "worker_inventory": {
                     "hosts": worker_inventory
-                },
-                "localhost": {
-                    "hosts": {
-                        "localhost": {
-                            "ansible_connection": "local"
-                        }
-                    }
                 }
             }
         }
@@ -47,7 +39,6 @@ if __name__ == "__main__":
     outputs = get_terraform_outputs()
     inv = generate_static_inventory(outputs)
     inventory_file = "/home/almalinux/DataPipeline/ansible/inventory/inventory.json"
-    # Ensure the directory exists.
     os.makedirs(os.path.dirname(inventory_file), exist_ok=True)
     with open(inventory_file, "w") as f:
         json.dump(inv, f, indent=2)
