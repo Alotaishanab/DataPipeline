@@ -66,6 +66,18 @@
           - python3-certbot-nginx
         state: present
       when: ansible_os_family == "RedHat"
+
+
+    - name: Install Apache httpd
+      yum:
+        name: httpd
+        state: present
+
+    - name: Start and enable Apache httpd
+      systemd:
+        name: httpd
+        state: started
+        enabled: yes
   
   handlers:
     - name: reload firewalld
