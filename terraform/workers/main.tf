@@ -20,10 +20,11 @@ resource "tls_private_key" "ansible_v2" {
 
 resource "local_file" "ansible_v2_private" {
   content              = tls_private_key.ansible_v2.private_key_openssh
-  filename             = pathexpand("~/.ssh/ansible_v2")
+  filename             = "/home/almalinux/.ssh/ansible_v2"
   file_permission      = "0600"
   directory_permission = "0700"
 }
+
 
 data "harvester_image" "img" {
   name      = var.image_name
@@ -80,14 +81,4 @@ resource "harvester_virtualmachine" "worker" {
   }
 }
 
-resource "null_resource" "generate_inventory" {
-  # Ensure that all worker VMs are created first.
-  depends_on = [harvester_virtualmachine.worker]
 
-  provisioner "local-exec" {
-    # Run the generate_inventory.py script.
-    # The script uses the state file from the workers directory and writes
-    # the static inventory file to /home/almalinux/DataPipeline/ansible/inventory/inventory.json.
-    command = "python3 ${path.module}/../scripts/generate_inventory.py"
-  }
-}
