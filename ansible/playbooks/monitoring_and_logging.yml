@@ -1,13 +1,18 @@
 - name: Setup Monitoring and Logging on All Hosts
   hosts: all,localhost
   become: yes
+  gather_facts: yes
   tasks:
     - name: Install EPEL repository
       yum:
         name: epel-release
         state: present
 
-    
+    - name: Install firewalld
+      yum:
+        name: firewalld
+        state: present
+
     - name: Ensure firewalld is running and enabled
       systemd:
         name: firewalld
@@ -340,7 +345,7 @@
         state: enabled
       when: ansible_service_mgr == 'systemd'
 
-    - name: Reload firewalld to apply changes for Grafana
+    - name: Reload systemd daemon to apply changes for Grafana
       service:
         name: firewalld
         state: reloaded
@@ -423,11 +428,10 @@
       systemd:
         name: grafana-server
         state: restarted
-      when: ansible_os_family == "RedHat"  
-
+      when: ansible_os_family == "RedHat"
 
 - name: Configure Logging on All Hosts
-  hosts: all
+  hosts: all,localhost
   become: yes
   tasks:
     - name: Install rsyslog
