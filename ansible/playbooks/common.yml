@@ -3,12 +3,6 @@
   become: yes
   vars:
   tasks:
-    - name: Update and upgrade packages on Debian-based systems
-      apt:
-        update_cache: yes
-        upgrade: dist
-      when: ansible_os_family == "Debian"
-
     - name: Update and upgrade packages on RedHat-based systems
       yum:
         name: "*"
