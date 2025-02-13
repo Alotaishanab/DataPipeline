@@ -1,5 +1,5 @@
 - name: Setup Monitoring and Logging on All Hosts
-  hosts: all
+  hosts: all,localhost
   become: yes
   tasks:
     - name: Install EPEL repository
