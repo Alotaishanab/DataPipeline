@@ -2,9 +2,7 @@ locals {
   sanitized_username = replace(replace(var.username, "@", "-"), ".", "-")
   worker_vm_tags_full = {
     for key, suffix in var.worker_vm_tags :
-    key => contains([
-      "datapipeline_ingress_node_hostname"
-    ], key)
+    key => contains(["datapipeline_ingress_node_hostname"], key)
       ? "${local.sanitized_username}${suffix}"
       : suffix
   }
@@ -20,11 +18,19 @@ resource "tls_private_key" "ansible_v2" {
 
 resource "local_file" "ansible_v2_private" {
   content              = tls_private_key.ansible_v2.private_key_openssh
+  # Use an absolute path so that it always writes to the intended user's home
   filename             = "/home/almalinux/.ssh/ansible_v2"
   file_permission      = "0600"
   directory_permission = "0700"
 }
 
+# Fix ownership of the generated key so that the key is owned by the 'almalinux' user.
+resource "null_resource" "chown_ansible_v2" {
+  depends_on = [local_file.ansible_v2_private]
+  provisioner "local-exec" {
+    command = "chown almalinux:almalinux /home/almalinux/.ssh/ansible_v2"
+  }
+}
 
 data "harvester_image" "img" {
   name      = var.image_name
@@ -80,5 +86,4 @@ resource "harvester_virtualmachine" "worker" {
     create = "5m"
   }
 }
-
 
