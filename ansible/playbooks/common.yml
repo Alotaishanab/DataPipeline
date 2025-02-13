@@ -1,5 +1,5 @@
 - name: Common Configuration for All Machines
-  hosts: all
+  hosts: all,localhost
   become: yes
   vars:
   tasks:
@@ -14,18 +14,6 @@
         name: "*"
         state: latest
       when: ansible_os_family == "RedHat"
-
-    - name: Install essential packages on Debian-based systems
-      apt:
-        name:
-          - git
-          - vim
-          - curl
-          - wget
-          - python3
-          - python3-pip
-        state: present
-      when: ansible_os_family == "Debian"
 
     - name: Install essential packages on RedHat-based systems
       yum:
