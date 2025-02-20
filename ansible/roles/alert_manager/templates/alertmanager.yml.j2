@@ -1,5 +1,4 @@
-global:
-  resolve_timeout: 5m
+resolve_timeout: 5m
 
 route:
   receiver: "webhook_receiver"
@@ -14,5 +13,4 @@ route:
 receivers:
   - name: "webhook_receiver"
     webhook_configs:
-      - url: "http://{{ hostvars[ groups['mgmtnode'][0] ].ansible_host }}:8080/alertmanager-webhook"
-
+      - url: "http://localhost:8080/alertmanager-webhook"
