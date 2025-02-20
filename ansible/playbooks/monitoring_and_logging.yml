@@ -231,14 +231,13 @@
             - job_name: 'node_exporter'
               static_configs:
                 - targets:
-    {% raw %}
-    {% for host in (groups['all'] + ['localhost']) %}
-      - {% if host == "localhost" %}"localhost:9100"{% else %}"{{ hostvars[host].ansible_default_ipv4.address }}:9100"{% endif %}
+    {% for host in groups['all'] + ['localhost'] %}
+                  - {% if host == "localhost" %}"localhost:9100"{% else %}"{{ hostvars[host].ansible_default_ipv4.address }}:9100"{% endif %}
     {% endfor %}
-    {% endraw %}
-        owner: prometheus
-        group: prometheus
-        mode: '0644'
+      owner: prometheus
+      group: prometheus
+      mode: '0644'
+
 
 
     - name: Set ownership of Prometheus binaries
