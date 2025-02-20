@@ -214,7 +214,7 @@
     - name: Generate Prometheus configuration file
       copy:
         dest: /etc/prometheus/prometheus.yml
-        content: |-
+        content: |
           global:
             scrape_interval: 15s
 
@@ -231,14 +231,13 @@
             - job_name: 'node_exporter'
               static_configs:
                 - targets:
-      {% for host in groups['worker_inventory'] %}
+                    {% for host in groups['worker_inventory'] %}
                     - "{{ hostvars[host].ansible_host }}:9100"
-      {% endfor %}
-                  - "localhost:9100"
+                    {% endfor %}
+                    - "localhost:9100"
         owner: prometheus
         group: prometheus
         mode: '0644'
-
 
 
     - name: Set ownership of Prometheus binaries
