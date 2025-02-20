@@ -231,12 +231,15 @@
             - job_name: 'node_exporter'
               static_configs:
                 - targets:
-                    {% for host in groups['all'] + ['localhost'] %}
-                    - "{% if host == 'localhost' %}localhost:9100{% else %}{{ hostvars[host].ansible_default_ipv4.address }}:9100{% endif %}"
+                    {% for host in groups['all'] %}
+                    - "{{ hostvars[host].ansible_host }}:9100"
                     {% endfor %}
+                    # Optionally include localhost separately if desired
+                    - "localhost:9100"
         owner: prometheus
         group: prometheus
         mode: '0644'
+
 
 
 
