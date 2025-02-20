@@ -214,7 +214,7 @@
     - name: Generate Prometheus configuration file
       copy:
         dest: /etc/prometheus/prometheus.yml
-        content: |
+        content: |-
           global:
             scrape_interval: 15s
 
@@ -231,11 +231,9 @@
             - job_name: 'node_exporter'
               static_configs:
                 - targets:
-    {% for host in groups['worker_inventory'] %}
-    {% if hostvars[host].ansible_host is defined and hostvars[host].ansible_host|length > 0 %}
-                  - "{{ hostvars[host].ansible_host }}:9100"
-    {% endif %}
-    {% endfor %}
+      {% for host in groups['worker_inventory'] %}
+                    - "{{ hostvars[host].ansible_host }}:9100"
+      {% endfor %}
                   - "localhost:9100"
         owner: prometheus
         group: prometheus
