@@ -1,4 +1,3 @@
----
 - name: Provision Worker VMs using Terraform and generate static inventory
   hosts: localhost
   become: yes
@@ -15,6 +14,11 @@
     - name: Ensure python3-pip is installed
       yum:
         name: python3-pip
+        state: present
+
+    - name: Ensure unzip is installed
+      yum:
+        name: unzip
         state: present
 
     - name: Remove any existing terraform-inventory file at /usr/local/bin/terraform-inventory

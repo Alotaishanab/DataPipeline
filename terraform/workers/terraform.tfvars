@@ -18,8 +18,8 @@ worker_disk_size = "50Gi"
 
 # Instance Tags for Worker VMs (new labels)
 worker_vm_tags = {
-  "datapipeline_ingress_node_hostname" = "-dp-no"
-  "datapipeline_ingress_node_port"     = "9100"
-  "datapipeline_ingress_isAllowed"     = "true"
-  "datapipeline_ingress_isEnabled"     = "true"
+  "condenser_ingress_node_hostname" = "worker-nodeexporter"   
+  "condenser_ingress_node_port"     = "9100"
+  "condenser_ingress_isAllowed"     = "true"
+  "condenser_ingress_isEnabled"     = "true"
 }
