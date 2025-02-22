@@ -5,7 +5,6 @@
   tasks:
     - name: Ensure community.general collection is available
       ansible.builtin.meta: noop
-      # (Make sure the community.general collection is installed: ansible-galaxy collection install community.general)
 
     - name: Create ext4 filesystem on /dev/vdb if not present
       community.general.filesystem:
@@ -13,7 +12,7 @@
         fstype: ext4
       register: fs_status
 
-    - name: Debug: Filesystem creation result
+    - name: Filesystem creation result
       debug:
         msg: "Filesystem on /dev/vdb: {{ fs_status }}"
 
