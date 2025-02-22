@@ -1,36 +1,34 @@
 ---
-- name: Install Ansible Galaxy Dependencies on Control Node
+- name: Ensure Ansible Galaxy Dependencies and Essential Packages on Control Node
   hosts: localhost
   gather_facts: no
   become: yes
   tasks:
-    - name: Install community.general collection
+    - name: Check if ricsanfre.minio role is installed in roles/
+      stat:
+        path: "./roles/ricsanfre.minio"
+      register: minio_role
+
+    - name: Install ricsanfre.minio role if not present
+      command: ansible-galaxy role install ricsanfre.minio -p ./roles
+      when: not minio_role.stat.exists
+      register: role_install
+
+    - name: Check if community.general collection is installed
+      stat:
+        path: "{{ lookup('env','HOME') }}/.ansible/collections/ansible_collections/community/general"
+      register: community_collection
+
+    - name: Install community.general collection if not present
       command: ansible-galaxy collection install community.general
-      register: community_result
+      when: not community_collection.stat.exists
+      register: collection_install
 
-    - name: Show community.general install output
-      debug:
-        msg: "{{ community_result.stdout }}"
+    - name: Install and Configure Alertmanager on Host
+      import_role:
+        name: alert_manager
 
-    - name: Install ricsanfre.minio role
-      command: ansible-galaxy role install ricsanfre.minio
-      register: minio_role_result
-
-    - name: Show ricsanfre.minio role install output
-      debug:
-        msg: "{{ minio_role_result.stdout }}"
-
-- name: Install and Configure Alertmanager on Host
-  hosts: localhost
-  become: yes
-  roles:
-    - alert_manager
-
-- name: Install System Packages and Python Tools for ESM on Host
-  hosts: localhost
-  become: yes
-  tasks:
-    - name: Ensure required system packages are installed
+    - name: Install essential system packages for ESM on Host
       apt:
         name:
           - git
