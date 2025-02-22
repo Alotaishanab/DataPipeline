@@ -71,6 +71,16 @@ resource "harvester_virtualmachine" "worker" {
     auto_delete = true
   }
 
+  # Additional 200GB disk (HDD2)
+  disk {
+    name        = "datadisk"
+    type        = "disk"
+    size        = var.worker_extra_disk_size
+    bus         = "virtio"
+    boot_order  = 2
+    auto_delete = true
+  }
+
   cloudinit {
     type      = "noCloud"
     user_data = templatefile(
@@ -82,8 +92,10 @@ resource "harvester_virtualmachine" "worker" {
       }
     )
   }
+
   timeouts {
     create = "5m"
   }
 }
+
 

@@ -64,6 +64,13 @@ variable "worker_disk_size" {
   type        = string
 }
 
+variable "worker_extra_disk_size" {
+  description = "Extra disk size for worker VMs (e.g. 200Gi for the additional data disk)"
+  type        = string
+  default     = "200Gi"
+}
+
+
 variable "worker_vm_tags" {
   description = "Tags for the worker VMs"
   type        = map(string)

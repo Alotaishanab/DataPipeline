@@ -1,6 +1,7 @@
 
 - import_playbook: provision_workers.yml
 - import_playbook: common.yml
-- import_playbook: install_dependencies.yml
+#- import_playbook: install_dependencies.yml
+#- import_playbook: install_minio.yml   
 - import_playbook: monitoring_and_logging.yml
 

@@ -15,6 +15,8 @@ worker_count     = 4         # Four workers as per specification
 worker_cpu       = 4
 worker_memory    = "32Gi"
 worker_disk_size = "50Gi"
+worker_extra_disk_size = "200Gi"
+
 
 # Instance Tags for Worker VMs (new labels)
 worker_vm_tags = {
