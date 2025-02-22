@@ -1,0 +1,26 @@
+---
+- name: Upload Protein Dataset to MinIO Storage
+  hosts: localhost
+  become: yes
+  vars:
+    dataset_local_path: "/data/protein_dataset/uniref50.fasta.gz"
+    minio_bucket: "protein-data"
+    minio_alias: "minio"
+  tasks:
+    - name: Check if dataset file exists
+      stat:
+        path: "{{ dataset_local_path }}"
+      register: dataset_file
+
+    - name: Fail if dataset file does not exist
+      fail:
+        msg: "Dataset file not found at {{ dataset_local_path }}"
+      when: not dataset_file.stat.exists
+
+    - name: Upload dataset to MinIO bucket 'protein-data'
+      command: "mc cp {{ dataset_local_path }} {{ minio_alias }}/{{ minio_bucket }}/"
+      register: upload_output
+
+    - name: Show upload output
+      debug:
+        msg: "{{ upload_output.stdout }}"

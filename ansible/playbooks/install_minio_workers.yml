@@ -1,17 +1,13 @@
 ---
 - name: Install and Configure Distributed MinIO on Workers
-  hosts: worker_inventory   # Ensure your inventory groups your worker nodes under 'worker_inventory'
+  hosts: worker_inventory
   become: true
   vars:
-    # MinIO administrative credentials
     minio_root_user: "admin"
     minio_root_password: "Min10S3P@ss"  # Replace with a secure password
-
-    # Data directory on each worker (ensure this matches the extra 200GB disk's mount point)
+    # Use the extra disk mounted at /mnt/data
     minio_server_datadirs:
       - "/mnt/data"
-    
-    # Role-specific flags for installation; adjust as per the chosen MinIO role documentation
     minio_install_server: true
     minio_install_client: true
   pre_tasks:

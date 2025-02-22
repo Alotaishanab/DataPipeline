@@ -1,0 +1,31 @@
+---
+- name: Mount Extra Disk on Worker Nodes
+  hosts: worker_inventory
+  become: yes
+  tasks:
+    - name: Ensure community.general collection is available
+      ansible.builtin.meta: noop
+      # (Make sure the community.general collection is installed: ansible-galaxy collection install community.general)
+
+    - name: Create ext4 filesystem on /dev/vdb if not present
+      community.general.filesystem:
+        dev: /dev/vdb
+        fstype: ext4
+      register: fs_status
+
+    - name: Debug: Filesystem creation result
+      debug:
+        msg: "Filesystem on /dev/vdb: {{ fs_status }}"
+
+    - name: Create mount point for extra disk
+      file:
+        path: /mnt/data
+        state: directory
+        mode: '0755'
+
+    - name: Mount /dev/vdb on /mnt/data if not already mounted
+      mount:
+        path: /mnt/data
+        src: /dev/vdb
+        fstype: ext4
+        state: mounted

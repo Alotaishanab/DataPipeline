@@ -1,10 +1,32 @@
+---
+- name: Install Ansible Galaxy Dependencies on Control Node
+  hosts: localhost
+  gather_facts: no
+  become: yes
+  tasks:
+    - name: Install community.general collection
+      command: ansible-galaxy collection install community.general
+      register: community_result
+
+    - name: Show community.general install output
+      debug:
+        msg: "{{ community_result.stdout }}"
+
+    - name: Install ricsanfre.minio role
+      command: ansible-galaxy role install ricsanfre.minio
+      register: minio_role_result
+
+    - name: Show ricsanfre.minio role install output
+      debug:
+        msg: "{{ minio_role_result.stdout }}"
+
 - name: Install and Configure Alertmanager on Host
   hosts: localhost
   become: yes
   roles:
     - alert_manager
 
-- name: Install System Packages and Python Tools for ESM
+- name: Install System Packages and Python Tools for ESM on Host
   hosts: localhost
   become: yes
   tasks:
@@ -17,52 +39,3 @@
           - python3-pip
         state: present
         update_cache: yes
-
-- name: Setup ESM Pretrained Model Environment and Download Dataset
-  hosts: localhost
-  become: yes
-  vars:
-    esm_repo: "https://github.com/facebookresearch/esm.git"
-    esm_dest: "/opt/esm"
-    esm_model: "esm1b_t33_650M_UR50S"   # You can change this to esm2_t33_650M_UR50D() if preferred
-    dataset_url: "https://example.com/uniref50_subset.fasta"  # Replace with the actual dataset URL
-    dataset_dest: "/data/protein_dataset/uniref50_subset.fasta"
-  tasks:
-    - name: Clone the ESM repository
-      git:
-        repo: "{{ esm_repo }}"
-        dest: "{{ esm_dest }}"
-        version: "main"
-      tags: esm
-
-    - name: Create Python virtual environment for ESM
-      command: python3 -m venv {{ esm_dest }}/venv
-      args:
-        creates: "{{ esm_dest }}/venv/bin/activate"
-      tags: esm
-
-    - name: Install ESM Python dependencies
-      pip:
-        requirements: "{{ esm_dest }}/requirements.txt"
-        virtualenv: "{{ esm_dest }}/venv"
-      tags: esm
-
-    - name: Download pretrained ESM model ({{ esm_model }})
-      command: "{{ esm_dest }}/venv/bin/python -m esm.pretrained download {{ esm_model }}"
-      args:
-        chdir: "{{ esm_dest }}"
-      tags: esm
-
-    - name: Create directory for protein dataset
-      file:
-        path: /data/protein_dataset
-        state: directory
-        mode: '0755'
-      tags: dataset
-
-    - name: Download protein dataset (UniRef50 subset)
-      get_url:
-        url: "{{ dataset_url }}"
-        dest: "{{ dataset_dest }}"
-        mode: '0644'
-      tags: dataset

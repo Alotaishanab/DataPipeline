@@ -1,7 +1,7 @@
+---
 - name: Common Configuration for All Machines
-  hosts: all,localhost
+  hosts: all, localhost
   become: yes
-  vars:
   tasks:
     - name: Update and upgrade packages on RedHat-based systems
       yum:
@@ -18,7 +18,7 @@
           - wget
           - python3
           - python3-pip
-          - python3-devel    # Provides development headers for building virtual environments
+          - python3-devel
           - pigz
           - firewalld
           - python3-firewall
@@ -67,7 +67,6 @@
         state: present
       when: ansible_os_family == "RedHat"
 
-
     - name: Install Apache httpd
       yum:
         name: httpd
@@ -84,5 +83,3 @@
       systemd:
         name: firewalld
         state: reloaded
-
-  

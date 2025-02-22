@@ -1,0 +1,39 @@
+---
+- name: Setup ESM Pretrained Model Environment on Host
+  hosts: localhost
+  become: yes
+  vars:
+    esm_repo: "https://github.com/facebookresearch/esm.git"
+    esm_dest: "/opt/esm"
+    esm_model: "esm1b_t33_650M_UR50S"
+  tasks:
+    - name: Ensure required system packages are installed for ESM
+      apt:
+        name:
+          - git
+          - python3
+          - python3-venv
+          - python3-pip
+        state: present
+        update_cache: yes
+
+    - name: Clone the ESM repository
+      git:
+        repo: "{{ esm_repo }}"
+        dest: "{{ esm_dest }}"
+        version: "main"
+
+    - name: Create Python virtual environment for ESM
+      command: python3 -m venv {{ esm_dest }}/venv
+      args:
+        creates: "{{ esm_dest }}/venv/bin/activate"
+
+    - name: Install ESM Python dependencies
+      pip:
+        requirements: "{{ esm_dest }}/requirements.txt"
+        virtualenv: "{{ esm_dest }}/venv"
+
+    - name: Download pretrained ESM model (esm1b_t33_650M_UR50S)
+      command: "{{ esm_dest }}/venv/bin/python -m esm.pretrained download {{ esm_model }}"
+      args:
+        chdir: "{{ esm_dest }}"
