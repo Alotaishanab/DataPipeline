@@ -1,0 +1,6 @@
+- import_playbook: common.yml              # Common configuration for all machines
+- import_playbook: mount_extra_disk.yml      # Worker-specific disk mounting tasks
+- import_playbook: install_minio_workers.yml # Deploy distributed MinIO on workers using /mnt/data as storage
+- import_playbook: install_esm.yml           # Setup ESM environment on host (pretrained model)
+- import_playbook: upload_dataset_to_minio.yml  # Upload dataset to MinIO bucket on workers
+- import_playbook: monitoring_and_logging.yml
