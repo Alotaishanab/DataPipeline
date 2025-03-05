@@ -1,2 +1,0 @@
-- import_playbook: provision_workers.yml
-- import_playbook: install_dependencies.yml

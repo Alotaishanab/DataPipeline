@@ -1,4 +1,3 @@
----
 - name: Ensure Ansible Galaxy Dependencies and Essential Packages on Control Node
   hosts: localhost
   gather_facts: no

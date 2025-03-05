@@ -1,4 +1,3 @@
----
 - name: Install and Configure Distributed MinIO on Workers
   hosts: worker_inventory
   become: true
@@ -17,5 +16,7 @@
           | map('extract', hostvars, 'ansible_host') 
           | map('regex_replace', '^(.*)$', 'http://\\1:9090/mnt/data') 
           | list }}"
-  roles:
-    - role: ricsanfre.minio
+  tasks:
+    - name: Dynamically include the ricsanfre.minio role
+      include_role:
+        name: ricsanfre.minio
