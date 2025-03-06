@@ -4,13 +4,14 @@
   vars:
     minio_root_user: "admin"
     minio_root_password: "Min10S3P@ss"  # Replace with a secure password
-    # Use the extra disk mounted at /mnt/data
     minio_server_datadirs:
       - "/mnt/data"
     minio_install_server: true
     minio_install_client: true
     minio_server_port: 9090
     minio_unsecure_url: "http://127.0.0.1:9090"
+    # If the role supports disabling pip installation, set it here:
+    minio_install_pip: false
   pre_tasks:
     - name: Build MinIO cluster endpoints from inventory
       set_fact:
@@ -23,6 +24,10 @@
         name: epel-release
         state: present
   tasks:
+    - name: Pre-install virtualenv using pip on worker nodes
+      pip:
+        name: virtualenv
+      become: yes
     - name: Install wheel via pip (fallback for python3-wheel)
       pip:
         name: wheel
