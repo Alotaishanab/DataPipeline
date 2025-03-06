@@ -9,6 +9,9 @@
       - "/mnt/data"
     minio_install_server: true
     minio_install_client: true
+    # Explicitly set the server port and URL for the alias command
+    minio_server_port: 9090
+    minio_unsecure_url: "http://127.0.0.1:9090"
   pre_tasks:
     - name: Build MinIO cluster endpoints from inventory
       set_fact:
