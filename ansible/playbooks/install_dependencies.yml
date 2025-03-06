@@ -1,6 +1,6 @@
 - name: Ensure Ansible Galaxy Dependencies and Essential Packages on Control Node
   hosts: localhost
-  gather_facts: no
+  gather_facts: yes
   become: yes
   tasks:
     - name: Check if ricsanfre.minio role is installed in roles/
@@ -27,8 +27,8 @@
       import_role:
         name: alert_manager
 
-    - name: Install essential system packages for ESM on Host
-      apt:
+    - name: Install essential system packages for ESM on Host (AlmaLinux)
+      dnf:
         name:
           - git
           - python3
