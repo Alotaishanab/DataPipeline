@@ -18,6 +18,10 @@
           | map('extract', hostvars, 'ansible_host') 
           | map('regex_replace', '^(.*)$', 'http://\\1:9090/mnt/data') 
           | list }}"
+    - name: Ensure EPEL repository is installed on AlmaLinux workers
+      dnf:
+        name: epel-release
+        state: present
   tasks:
     - name: Install python3-wheel (required for python3-virtualenv)
       dnf:

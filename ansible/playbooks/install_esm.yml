@@ -45,6 +45,11 @@
         name: .
       when: not esm_req_file.stat.exists
 
+    - name: Install PyTorch in the ESM virtual environment
+      pip:
+        name: torch
+        virtualenv: "{{ esm_dest }}/venv"
+
     - name: Download pretrained ESM model (esm1b_t33_650M_UR50S)
       command: "{{ esm_dest }}/venv/bin/python -m esm.pretrained download {{ esm_model }}"
       args:
