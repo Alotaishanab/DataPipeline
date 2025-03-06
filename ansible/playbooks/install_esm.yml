@@ -26,10 +26,24 @@
       args:
         creates: "{{ esm_dest }}/venv/bin/activate"
 
-    - name: Install ESM Python dependencies
+    - name: Check if ESM requirements file exists
+      stat:
+        path: "{{ esm_dest }}/requirements.txt"
+      register: esm_req_file
+
+    - name: Install ESM Python dependencies (if requirements file exists)
       pip:
         requirements: "{{ esm_dest }}/requirements.txt"
         virtualenv: "{{ esm_dest }}/venv"
+      when: esm_req_file.stat.exists
+
+    - name: (Alternative) Install ESM repository as an editable package if no requirements file exists
+      pip:
+        chdir: "{{ esm_dest }}"
+        virtualenv: "{{ esm_dest }}/venv"
+        editable: yes
+        name: .
+      when: not esm_req_file.stat.exists
 
     - name: Download pretrained ESM model (esm1b_t33_650M_UR50S)
       command: "{{ esm_dest }}/venv/bin/python -m esm.pretrained download {{ esm_model }}"
