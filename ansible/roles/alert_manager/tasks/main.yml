@@ -10,7 +10,6 @@
     src: "/tmp/{{ alertmanager_tarball }}"
     dest: "/opt/"
     remote_src: yes
-    extra_opts: []  
 
 - name: Remove existing /opt/alertmanager if it exists
   file:
@@ -79,7 +78,3 @@
     state: started
     enabled: yes
   notify: Restart Alertmanager
-
-
-
-

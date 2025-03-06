@@ -6,11 +6,10 @@ After=network.target
 User=alertmanager
 Group=alertmanager
 Type=simple
-ExecStart=/opt/alertmanager/alertmanager \
-  --config.file=/etc/alertmanager/alertmanager.yml \
-  --storage.path=/var/lib/alertmanager/
-
+WorkingDirectory=/opt/alertmanager
+ExecStart=/opt/alertmanager/alertmanager --config.file=/etc/alertmanager/alertmanager.yml --storage.path=/var/lib/alertmanager
 Restart=on-failure
+RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
