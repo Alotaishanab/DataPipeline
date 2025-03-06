@@ -23,10 +23,10 @@
         name: epel-release
         state: present
   tasks:
-    - name: Install python3-wheel (required for python3-virtualenv)
-      dnf:
-        name: python3-wheel
-        state: present
+    - name: Install wheel via pip (fallback for python3-wheel)
+      pip:
+        name: wheel
+      become: yes
     - name: Dynamically include the ricsanfre.minio role
       include_role:
         name: ricsanfre.minio
