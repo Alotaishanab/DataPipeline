@@ -50,7 +50,8 @@
         name: torch
         virtualenv: "{{ esm_dest }}/venv"
       environment:
-        TMPDIR: /var/tmp  # Make sure /var/tmp has enough space
+        TMPDIR: /var/tmp       # Ensure /var/tmp has enough free space
+        PIP_CACHE_DIR: /var/tmp/pip-cache
 
     - name: Download pretrained ESM model (esm1b_t33_650M_UR50S)
       command: "{{ esm_dest }}/venv/bin/python -m esm.pretrained download {{ esm_model }}"
