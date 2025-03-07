@@ -1,19 +1,24 @@
+---
 - name: Install and Configure Distributed MinIO on Workers
   hosts: worker_inventory
-  become: true
+  become: yes
 
   vars:
     minio_root_user: "admin"
     minio_root_password: "Min10S3P@ss"  # Replace with a secure password
     minio_server_datadirs:
       - "/mnt/data"
-    # Prevent ricsanfre.minio from installing pip/system pkgs (EPEL conflict)
+    # Prevent the role from installing system pip packages (avoiding EPEL conflicts)
     minio_install_pip: false
 
-    # Tells ricsanfre.minio to install server & client but skip the built-in alias config
+    # Instruct the role to install the server and client but skip built-in alias configuration
     minio_install_server: true
     minio_install_client: true
     minio_configure_client: false
+
+    # Desired port and URL (ensure consistency across tasks)
+    minio_server_port: 9090
+    minio_unsecure_url: "http://127.0.0.1:9090"
 
   pre_tasks:
     - name: Build MinIO cluster endpoints from inventory
@@ -45,10 +50,7 @@
         name: ricsanfre.minio
 
   post_tasks:
-    #######################################################################
-    # 1) Force /etc/minio/minio.conf to specify :9090 so MinIO actually listens
-    #######################################################################
-    - name: Override MINIO_OPTS in /etc/minio/minio.conf
+    - name: Override MINIO_OPTS in /etc/minio/minio.conf to force port 9090
       lineinfile:
         path: /etc/minio/minio.conf
         regexp: '^MINIO_OPTS='
@@ -56,25 +58,23 @@
       notify:
         - restart minio
 
-    #######################################################################
-    # 2) Wait for MinIO to start on port 9090
-    #######################################################################
-    - name: Wait for MinIO to start listening on 9090
+    - name: (Optional) Debug /etc/minio/minio.conf content
+      command: cat /etc/minio/minio.conf
+      register: minio_conf_content
+      changed_when: false
+
+    - debug:
+        msg: "MinIO config file content: {{ minio_conf_content.stdout }}"
+
+    - name: Wait for MinIO to start listening on port 9090
       wait_for:
         host: 127.0.0.1
         port: 9090
         timeout: 30
       delegate_to: "{{ inventory_hostname }}"
 
-    #######################################################################
-    # 3) Manually set MinIO alias
-    #######################################################################
     - name: Configure MinIO alias on port 9090
-      shell: >
-        /usr/local/bin/mc alias set myminio
-        http://127.0.0.1:9090
-        "{{ minio_root_user }}"
-        "{{ minio_root_password }}"
+      shell: /usr/local/bin/mc alias set myminio {{ minio_unsecure_url }} "{{ minio_root_user }}" "{{ minio_root_password }}"
       register: mc_alias_result
       changed_when: mc_alias_result.rc == 0
       failed_when: mc_alias_result.rc not in [0]
