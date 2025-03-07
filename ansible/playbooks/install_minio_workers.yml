@@ -5,35 +5,26 @@
 
   vars:
     minio_root_user: "admin"
-    minio_root_password: "Min10S3P@ss"  # Replace with a secure password
+    minio_root_password: "Min10S3P@ss"  # Replace with your secure password
     minio_server_datadirs:
       - "/mnt/data"
-    # Avoid extra system packages (avoids EPEL conflicts)
+    # We disable extra pip installation to avoid conflicts
     minio_install_pip: false
-    # Instruct the role to install server and client but skip built-in alias configuration
+    # We want the role to install the MinIO server, but we disable its built‐in client (alias) configuration
     minio_install_server: true
-    minio_install_client: true
+    minio_install_client: false
     minio_configure_client: false
 
-    # Default port for MinIO (we want it on 9090)
+    # We want MinIO to listen on port 9090
     minio_default_port: "9090"
 
   pre_tasks:
-    - name: Build MINIO_VOLUMES endpoints list
+    - name: Build MINIO_VOLUMES endpoints from worker IPs
       set_fact:
-        minio_volumes_list: >-
-          {% set eps = [] %}
-          {% for host in groups['worker_inventory'] %}
-            {% set hostname = hostvars[host]['tag.harvesterhci.io/minio_ingress_hostname'] 
-               | default(hostvars[host].ansible_host) | trim %}
-            {% set port = hostvars[host]['tag.harvesterhci.io/minio_ingress_port'] 
-               | default(minio_default_port) | trim %}
-            {% set _ = eps.append("http://{}:{}/mnt/data".format(hostname, port)) %}
-          {% endfor %}
-          {{ eps }}
-    - name: Set MINIO_VOLUMES as a clean space-separated string
-      set_fact:
-        minio_volumes: "{{ minio_volumes_list | join(' ') | regex_replace('\\s+', ' ') | trim | string }}"
+        minio_volumes: >-
+          {{ groups['worker_inventory'] | map('extract', hostvars, 'ansible_host')
+             | map('regex_replace', '^(.*)$', 'http://\\1:' ~ minio_default_port ~ '/mnt/data')
+             | join(' ') }}
     - name: Debug MINIO_VOLUMES
       debug:
         msg: "MINIO_VOLUMES: {{ minio_volumes }}"
@@ -54,12 +45,12 @@
         name: wheel
       become: yes
 
-    - name: Dynamically include the ricsanfre.minio role
+    - name: Include the ricsanfre.minio role (server installation)
       include_role:
         name: ricsanfre.minio
 
   post_tasks:
-    - name: Override MINIO_VOLUMES in /etc/minio/minio.conf with proper endpoints
+    - name: Override MINIO_VOLUMES in /etc/minio/minio.conf
       lineinfile:
         path: /etc/minio/minio.conf
         regexp: '^MINIO_VOLUMES='
