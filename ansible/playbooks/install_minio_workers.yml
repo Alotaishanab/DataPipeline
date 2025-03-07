@@ -8,14 +8,14 @@
     minio_root_password: "Min10S3P@ss"  # Replace with a secure password
     minio_server_datadirs:
       - "/mnt/data"
-    # Prevent the role from installing system packages (avoids EPEL conflicts)
+    # Prevent the role from installing system packages (avoid EPEL conflicts)
     minio_install_pip: false
-    # Instruct the role to install the server and client but skip its built‐in alias configuration
+    # Instruct the role to install the server and client but skip its built‐in alias config
     minio_install_server: true
     minio_install_client: true
     minio_configure_client: false
 
-    # Default port for MinIO service
+    # Default port for MinIO service (we want 9090)
     minio_default_port: "9090"
 
   pre_tasks:
@@ -24,9 +24,9 @@
         minio_volumes_list: >
           {% set eps = [] %}
           {% for host in groups['worker_inventory'] %}
-            {% set hostname = hostvars[host]['tag.harvesterhci.io/minio_ingress_hostname'] | default(hostvars[host].ansible_host) %}
-            {% set port = hostvars[host]['tag.harvesterhci.io/minio_ingress_port'] | default(minio_default_port) %}
-            {% set _ = eps.append('http://{}:{}/mnt/data'.format(hostname, port)) %}
+            {% set hostname = hostvars[host]['tag.harvesterhci.io/minio_ingress_hostname'] | default(hostvars[host].ansible_host) | trim %}
+            {% set port = hostvars[host]['tag.harvesterhci.io/minio_ingress_port'] | default(minio_default_port) | trim %}
+            {% set _ = eps.append("http://{}:{}/mnt/data".format(hostname, port)) %}
           {% endfor %}
           {{ eps }}
     - name: Set MINIO_VOLUMES as a space-separated string
@@ -61,7 +61,7 @@
       lineinfile:
         path: /etc/minio/minio.conf
         regexp: '^MINIO_VOLUMES='
-        line: 'MINIO_VOLUMES="{{ minio_volumes }}"'
+        line: "MINIO_VOLUMES={{ minio_volumes }}"
       notify:
         - restart minio
 
@@ -69,7 +69,7 @@
       lineinfile:
         path: /etc/minio/minio.conf
         regexp: '^MINIO_OPTS='
-        line: 'MINIO_OPTS="--address :{{ minio_default_port }} /mnt/data"'
+        line: "MINIO_OPTS=--address :{{ minio_default_port }} /mnt/data"
       notify:
         - restart minio
 
