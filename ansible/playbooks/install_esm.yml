@@ -7,12 +7,12 @@
     esm_repo: "https://github.com/facebookresearch/esm.git"
     esm_dest: "/opt/esm"
 
-    # Example variables for CPU-only torch:
-    # Adjust version as needed
-    torch_version: "2.0.0+cpu"
-    torch_url: "https://download.pytorch.org/whl/cpu"
+    # CPU Torch Settings
+    torch_version: "2.0.1+cpu"
+    torch_url: "https://download.pytorch.org/whl/cpu/torch_stable.html"
 
-    # ESM model name
+    # We assume ESM might not have Torch pinned, but let's remove it if it does.
+    # ESM model you want to download:
     esm_model: "esm1b_t33_650M_UR50S"
 
   tasks:
@@ -25,49 +25,66 @@
         state: present
         update_cache: yes
 
+    - name: Upgrade system pip to the latest version
+      pip:
+        name: pip
+        executable: pip3
+        state: latest
+
+    - name: Uninstall existing torch if present (on system pip)
+      pip:
+        name: torch
+        state: absent
+        executable: pip3
+
     - name: Clone the ESM repository
       git:
         repo: "{{ esm_repo }}"
         dest: "{{ esm_dest }}"
         version: "main"
 
-    - name: Create Python virtual environment for ESM
-      command: python3 -m venv {{ esm_dest }}/venv
-      args:
-        creates: "{{ esm_dest }}/venv/bin/activate"
-
-    - name: Check if ESM requirements file exists
-      stat:
+    - name: Remove any Torch lines in ESM's requirements.txt (if present)
+      lineinfile:
         path: "{{ esm_dest }}/requirements.txt"
-      register: esm_req_file
+        regexp: '^torch==.*$'
+        state: absent
+      # Some forks might have ESM requirements pinned with Torch.
+      # If that file doesn't exist, this task is just skipped.
+      ignore_errors: yes
 
-    - name: Install ESM Python dependencies (if requirements file exists)
+    - name: Create Python virtual environment for ESM
+      command: /usr/bin/python3 -m venv "{{ esm_dest }}/venv"
+      args:
+        creates: "{{ esm_dest }}/venv"
+
+    ##############################################################################
+    # Optional: fix symlinks if your environment incorrectly sets python3 -> python
+    ##############################################################################
+    - name: Remove incorrect python3 symlink (if any)
+      file:
+        path: "{{ esm_dest }}/venv/bin/python3"
+        state: absent
+
+    - name: Create correct python3 symlink pointing to /usr/bin/python3
+      file:
+        src: /usr/bin/python3
+        dest: "{{ esm_dest }}/venv/bin/python3"
+        state: link
+
+    - name: Ensure 'python' symlink points to 'python3'
+      file:
+        src: python3
+        dest: "{{ esm_dest }}/venv/bin/python"
+        state: link
+
+    - name: Install ESM dependencies (except Torch) inside virtualenv
       pip:
         requirements: "{{ esm_dest }}/requirements.txt"
         virtualenv: "{{ esm_dest }}/venv"
-      when: esm_req_file.stat.exists
+        state: present
+      # If no requirements.txt or no Torch lines, this is just ESM’s default libs.
 
-    - name: (Alternative) Install ESM repository as an editable package if no requirements file exists
-      pip:
-        chdir: "{{ esm_dest }}"
-        virtualenv: "{{ esm_dest }}/venv"
-        editable: yes
-        name: .
-      when: not esm_req_file.stat.exists
-
-    ######################################################################
-    # 1) Upgrade pip inside the virtual environment (strongly recommended)
-    ######################################################################
-    - name: Upgrade pip in the ESM virtual environment
-      pip:
-        name: pip
-        virtualenv: "{{ esm_dest }}/venv"
-        state: latest
-
-    ######################################################################
-    # 2) Install CPU-only PyTorch exactly how you requested
-    ######################################################################
-    - name: Install CPU-only PyTorch in Virtualenv
+    - name: Install CPU-only PyTorch in the ESM virtual environment
       pip:
         name: "torch=={{ torch_version }}"
         virtualenv: "{{ esm_dest }}/venv"

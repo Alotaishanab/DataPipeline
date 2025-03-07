@@ -8,8 +8,9 @@
     minio_root_password: "Min10S3P@ss"  # Replace with a secure password
     minio_server_datadirs:
       - "/mnt/data"
-    # The key setting: Tells the ricsanfre.minio role NOT to install pip/system python pkgs
+    # Tells ricsanfre.minio role NOT to install pip/system python pkgs
     minio_install_pip: false
+
     minio_install_server: true
     minio_install_client: true
     minio_server_port: 9090
@@ -30,9 +31,6 @@
         state: present
 
   tasks:
-    # ---------------------------------------------------------------------
-    # Because we set minio_install_pip: false, we do our own pip installs:
-    # ---------------------------------------------------------------------
     - name: Pre-install virtualenv using pip on worker nodes
       pip:
         name: virtualenv
@@ -43,10 +41,21 @@
         name: wheel
       become: yes
 
-    # ---------------------------------------------------------------------
-    # Now include the ricsanfre.minio role, which will skip system pip installs
-    # thanks to minio_install_pip: false.
-    # ---------------------------------------------------------------------
     - name: Dynamically include the ricsanfre.minio role
       include_role:
         name: ricsanfre.minio
+
+  # Post-tasks to ensure MinIO is actually listening on port 9090
+  # BEFORE configuring any mc alias. Some roles do that in their tasks,
+  # so we wait for the service to come up (on one node or all if needed).
+  post_tasks:
+    - name: Wait for MinIO to start listening on 9090
+      wait_for:
+        host: 127.0.0.1
+        port: 9090
+        delay: 2
+        timeout: 30
+      delegate_to: "{{ inventory_hostname }}"
+      when: inventory_hostname == groups['worker_inventory'][0]
+      # ^ If the "configure_server.yml" runs only on the first worker,
+      #   you might only need to wait on that node. Adjust as needed.
