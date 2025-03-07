@@ -11,8 +11,6 @@
     torch_version: "2.0.1+cpu"
     torch_url: "https://download.pytorch.org/whl/cpu/torch_stable.html"
 
-    # We assume ESM might not have Torch pinned, but let's remove it if it does.
-    # ESM model you want to download:
     esm_model: "esm1b_t33_650M_UR50S"
 
   tasks:
@@ -43,23 +41,24 @@
         dest: "{{ esm_dest }}"
         version: "main"
 
-    - name: Remove any Torch lines in ESM's requirements.txt (if present)
+    - name: Check if ESM requirements file exists
+      stat:
+        path: "{{ esm_dest }}/requirements.txt"
+      register: esm_req_file
+
+    - name: Remove any Torch lines if requirements.txt is present
       lineinfile:
         path: "{{ esm_dest }}/requirements.txt"
         regexp: '^torch==.*$'
         state: absent
-      # Some forks might have ESM requirements pinned with Torch.
-      # If that file doesn't exist, this task is just skipped.
-      ignore_errors: yes
+      when: esm_req_file.stat.exists
 
     - name: Create Python virtual environment for ESM
       command: /usr/bin/python3 -m venv "{{ esm_dest }}/venv"
       args:
         creates: "{{ esm_dest }}/venv"
 
-    ##############################################################################
-    # Optional: fix symlinks if your environment incorrectly sets python3 -> python
-    ##############################################################################
+    # Optional steps to fix Python symlinks if your environment sets them incorrectly:
     - name: Remove incorrect python3 symlink (if any)
       file:
         path: "{{ esm_dest }}/venv/bin/python3"
@@ -82,7 +81,7 @@
         requirements: "{{ esm_dest }}/requirements.txt"
         virtualenv: "{{ esm_dest }}/venv"
         state: present
-      # If no requirements.txt or no Torch lines, this is just ESM’s default libs.
+      when: esm_req_file.stat.exists
 
     - name: Install CPU-only PyTorch in the ESM virtual environment
       pip:

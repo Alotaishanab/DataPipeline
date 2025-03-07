@@ -8,12 +8,16 @@
     minio_root_password: "Min10S3P@ss"  # Replace with a secure password
     minio_server_datadirs:
       - "/mnt/data"
-    # Tells ricsanfre.minio role NOT to install pip/system python pkgs
+
+    # Prevent the role from installing pip/system packages that cause EPEL conflicts
     minio_install_pip: false
 
     minio_install_server: true
     minio_install_client: true
+    minio_configure_client: false  # <--- We skip the role's own alias config
+
     minio_server_port: 9090
+    # Access via 127.0.0.1 on each node OR use ansible_host if you want external access
     minio_unsecure_url: "http://127.0.0.1:9090"
 
   pre_tasks:
@@ -41,14 +45,13 @@
         name: wheel
       become: yes
 
+    # -- Include the MinIO role. It will NOT configure mc alias (we set minio_configure_client: false).
     - name: Dynamically include the ricsanfre.minio role
       include_role:
         name: ricsanfre.minio
 
-  # Post-tasks to ensure MinIO is actually listening on port 9090
-  # BEFORE configuring any mc alias. Some roles do that in their tasks,
-  # so we wait for the service to come up (on one node or all if needed).
   post_tasks:
+    # 1) Ensure MinIO is actually listening on each worker's port 9090
     - name: Wait for MinIO to start listening on 9090
       wait_for:
         host: 127.0.0.1
@@ -56,6 +59,18 @@
         delay: 2
         timeout: 30
       delegate_to: "{{ inventory_hostname }}"
-      when: inventory_hostname == groups['worker_inventory'][0]
-      # ^ If the "configure_server.yml" runs only on the first worker,
-      #   you might only need to wait on that node. Adjust as needed.
+      # By default, run on all workers so each local MinIO is up.
+
+    # 2) Configure the MinIO alias AFTER the server is up
+    - name: Set MinIO alias via mc on each worker
+      shell: >
+        /usr/local/bin/mc alias set myminio
+        {{ minio_unsecure_url }}
+        {{ minio_root_user }}
+        {{ minio_root_password }}
+      args:
+        warn: false
+      register: mc_alias_result
+      failed_when: mc_alias_result.rc not in [0]
+      changed_when: mc_alias_result.rc == 0
+      # This will succeed now that MinIO is definitely listening.
