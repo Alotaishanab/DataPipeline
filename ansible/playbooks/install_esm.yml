@@ -1,10 +1,20 @@
+---
 - name: Setup ESM Pretrained Model Environment on Host
   hosts: localhost
   become: yes
+
   vars:
     esm_repo: "https://github.com/facebookresearch/esm.git"
     esm_dest: "/opt/esm"
+
+    # Example variables for CPU-only torch:
+    # Adjust version as needed
+    torch_version: "2.0.0+cpu"
+    torch_url: "https://download.pytorch.org/whl/cpu"
+
+    # ESM model name
     esm_model: "esm1b_t33_650M_UR50S"
+
   tasks:
     - name: Ensure required system packages are installed for ESM
       dnf:
@@ -45,15 +55,29 @@
         name: .
       when: not esm_req_file.stat.exists
 
-    - name: Install PyTorch in the ESM virtual environment
+    ######################################################################
+    # 1) Upgrade pip inside the virtual environment (strongly recommended)
+    ######################################################################
+    - name: Upgrade pip in the ESM virtual environment
       pip:
-        name: torch
+        name: pip
         virtualenv: "{{ esm_dest }}/venv"
+        state: latest
+
+    ######################################################################
+    # 2) Install CPU-only PyTorch exactly how you requested
+    ######################################################################
+    - name: Install CPU-only PyTorch in Virtualenv
+      pip:
+        name: "torch=={{ torch_version }}"
+        virtualenv: "{{ esm_dest }}/venv"
+        state: present
+        extra_args: "--find-links {{ torch_url }}"
       environment:
-        TMPDIR: /var/tmp       # Ensure /var/tmp has enough free space
+        TMPDIR: /var/tmp
         PIP_CACHE_DIR: /var/tmp/pip-cache
 
-    - name: Download pretrained ESM model (esm1b_t33_650M_UR50S)
+    - name: Download pretrained ESM model ({{ esm_model }})
       command: "{{ esm_dest }}/venv/bin/python -m esm.pretrained download {{ esm_model }}"
       args:
         chdir: "{{ esm_dest }}"

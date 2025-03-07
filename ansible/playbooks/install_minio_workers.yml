@@ -1,37 +1,52 @@
+---
 - name: Install and Configure Distributed MinIO on Workers
   hosts: worker_inventory
   become: true
+
   vars:
     minio_root_user: "admin"
     minio_root_password: "Min10S3P@ss"  # Replace with a secure password
     minio_server_datadirs:
       - "/mnt/data"
+    # The key setting: Tells the ricsanfre.minio role NOT to install pip/system python pkgs
+    minio_install_pip: false
     minio_install_server: true
     minio_install_client: true
     minio_server_port: 9090
     minio_unsecure_url: "http://127.0.0.1:9090"
-    # Instruct the role to skip installing pip/virtualenv (if supported by the role)
-    minio_install_pip: false
+
   pre_tasks:
     - name: Build MinIO cluster endpoints from inventory
       set_fact:
-        minio_server_cluster_nodes: "{{ groups['worker_inventory'] 
-          | map('extract', hostvars, 'ansible_host') 
-          | map('regex_replace', '^(.*)$', 'http://\\1:9090/mnt/data') 
-          | list }}"
+        minio_server_cluster_nodes: >-
+          {{ groups['worker_inventory']
+             | map('extract', hostvars, 'ansible_host')
+             | map('regex_replace', '^(.*)$', 'http://\\1:9090/mnt/data')
+             | list }}
+
     - name: Ensure EPEL repository is installed on AlmaLinux workers
       dnf:
         name: epel-release
         state: present
+
   tasks:
+    # ---------------------------------------------------------------------
+    # Because we set minio_install_pip: false, we do our own pip installs:
+    # ---------------------------------------------------------------------
     - name: Pre-install virtualenv using pip on worker nodes
       pip:
         name: virtualenv
       become: yes
+
     - name: Install wheel via pip (fallback for python3-wheel)
       pip:
         name: wheel
       become: yes
+
+    # ---------------------------------------------------------------------
+    # Now include the ricsanfre.minio role, which will skip system pip installs
+    # thanks to minio_install_pip: false.
+    # ---------------------------------------------------------------------
     - name: Dynamically include the ricsanfre.minio role
       include_role:
         name: ricsanfre.minio
