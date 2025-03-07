@@ -1,7 +1,7 @@
 ---
 - name: Install and Configure Distributed MinIO on Workers
   hosts: worker_inventory
-  become: yes
+  become: true
 
   vars:
     minio_root_user: "admin"
@@ -15,10 +15,6 @@
     minio_install_server: true
     minio_install_client: true
     minio_configure_client: false
-
-    # Some roles use minio_server_port, but we also force address in a post-task
-    # in case the role doesn't pick it up.
-    # minio_server_port: 9090  # (Optional if your role respects this)
 
   pre_tasks:
     - name: Build MinIO cluster endpoints from inventory
@@ -62,7 +58,7 @@
         - restart minio
 
     #######################################################################
-    # 2) Wait for MinIO to actually start on port 9090
+    # 2) Wait for MinIO to start on port 9090
     #######################################################################
     - name: Wait for MinIO to start listening on 9090
       wait_for:
@@ -70,10 +66,9 @@
         port: 9090
         timeout: 30
       delegate_to: "{{ inventory_hostname }}"
-      # If you prefer to wait on each node, remove any "when:" condition
 
     #######################################################################
-    # 3) Manually set MinIO alias via the mc client
+    # 3) Manually set MinIO alias
     #######################################################################
     - name: Configure MinIO alias on port 9090
       shell: >
