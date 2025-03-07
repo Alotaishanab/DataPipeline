@@ -58,7 +58,9 @@
       args:
         creates: "{{ esm_dest }}/venv"
 
-    # Optional steps to fix Python symlinks if your environment sets them incorrectly:
+    #########################################################################
+    # If your environment sets "python3 -> python2", fix symlinks (optional)
+    #########################################################################
     - name: Remove incorrect python3 symlink (if any)
       file:
         path: "{{ esm_dest }}/venv/bin/python3"
@@ -76,13 +78,19 @@
         dest: "{{ esm_dest }}/venv/bin/python"
         state: link
 
-    - name: Install ESM dependencies (except Torch) inside virtualenv
+    #########################################################################
+    # Install ESM dependencies if a requirements.txt exists (Torch removed)
+    #########################################################################
+    - name: Install ESM dependencies (except Torch)
       pip:
         requirements: "{{ esm_dest }}/requirements.txt"
         virtualenv: "{{ esm_dest }}/venv"
         state: present
       when: esm_req_file.stat.exists
 
+    #########################################################################
+    # Install CPU-only PyTorch from PyTorch's CPU wheels index
+    #########################################################################
     - name: Install CPU-only PyTorch in the ESM virtual environment
       pip:
         name: "torch=={{ torch_version }}"
@@ -93,6 +101,9 @@
         TMPDIR: /var/tmp
         PIP_CACHE_DIR: /var/tmp/pip-cache
 
+    #########################################################################
+    # Finally, download the pretrained ESM model
+    #########################################################################
     - name: Download pretrained ESM model ({{ esm_model }})
       command: "{{ esm_dest }}/venv/bin/python -m esm.pretrained download {{ esm_model }}"
       args:
