@@ -8,28 +8,33 @@
     minio_root_password: "Min10S3P@ss"  # Replace with a secure password
     minio_server_datadirs:
       - "/mnt/data"
-    # Prevent the role from installing pip/system packages (avoid EPEL conflicts)
+    # Prevent the role from installing system packages (avoids EPEL conflicts)
     minio_install_pip: false
-    # Instruct the role to install the server and client but skip built‐in alias config
+    # Instruct the role to install the server and client but skip its built‐in alias configuration
     minio_install_server: true
     minio_install_client: true
     minio_configure_client: false
 
-    # Default port for MinIO service (we want 9090)
+    # Default port for MinIO service
     minio_default_port: "9090"
 
   pre_tasks:
-    - name: Build MINIO_VOLUMES endpoints using MinIO tags from Terraform
+    - name: Build MINIO_VOLUMES endpoints list
       set_fact:
-        # Build a list and then join them with a space
-        minio_server_cluster_nodes: >-
-          {% set endpoints = [] %}
+        minio_volumes_list: >
+          {% set eps = [] %}
           {% for host in groups['worker_inventory'] %}
             {% set hostname = hostvars[host]['tag.harvesterhci.io/minio_ingress_hostname'] | default(hostvars[host].ansible_host) %}
             {% set port = hostvars[host]['tag.harvesterhci.io/minio_ingress_port'] | default(minio_default_port) %}
-            {% set _ = endpoints.append("http://{}:{}/mnt/data".format(hostname, port)) %}
+            {% set _ = eps.append('http://{}:{}/mnt/data'.format(hostname, port)) %}
           {% endfor %}
-          {{ endpoints | join(" ") }}
+          {{ eps }}
+    - name: Set MINIO_VOLUMES as a space-separated string
+      set_fact:
+        minio_volumes: "{{ minio_volumes_list | join(' ') | trim }}"
+    - name: Debug MINIO_VOLUMES
+      debug:
+        msg: "MINIO_VOLUMES: {{ minio_volumes }}"
 
     - name: Ensure EPEL repository is installed on AlmaLinux workers
       dnf:
@@ -52,6 +57,14 @@
         name: ricsanfre.minio
 
   post_tasks:
+    - name: Override MINIO_VOLUMES in /etc/minio/minio.conf with proper endpoints
+      lineinfile:
+        path: /etc/minio/minio.conf
+        regexp: '^MINIO_VOLUMES='
+        line: 'MINIO_VOLUMES="{{ minio_volumes }}"'
+      notify:
+        - restart minio
+
     - name: Override MINIO_OPTS in /etc/minio/minio.conf to force port {{ minio_default_port }}
       lineinfile:
         path: /etc/minio/minio.conf
