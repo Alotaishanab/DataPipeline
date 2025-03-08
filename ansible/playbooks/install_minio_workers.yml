@@ -5,12 +5,12 @@
 
   vars:
     minio_root_user: "admin"
-    minio_root_password: "Min10S3P@ss"  # Replace with your secure password
+    minio_root_password: "Min10S3P@ss"  # Replace with a secure password
     minio_server_datadirs:
       - "/mnt/data"
-    # We disable extra pip installation to avoid conflicts
+    # Disable extra pip installation to avoid conflicts
     minio_install_pip: false
-    # We want the role to install the MinIO server, but we disable its built‐in client (alias) configuration
+    # We want the role to install only the server (not the built‐in client/alias configuration)
     minio_install_server: true
     minio_install_client: false
     minio_configure_client: false
@@ -22,9 +22,12 @@
     - name: Build MINIO_VOLUMES endpoints from worker IPs
       set_fact:
         minio_volumes: >-
-          {{ groups['worker_inventory'] | map('extract', hostvars, 'ansible_host')
-             | map('regex_replace', '^(.*)$', 'http://\\1:' ~ minio_default_port ~ '/mnt/data')
-             | join(' ') }}
+          {% set eps = [] %}
+          {% for host in groups['worker_inventory'] %}
+            {% set ip = hostvars[host].ansible_host %}
+            {% set _ = eps.append("http://" ~ ip ~ ":" ~ minio_default_port ~ "/mnt/data") %}
+          {% endfor %}
+          {{ eps | join(" ") }}
     - name: Debug MINIO_VOLUMES
       debug:
         msg: "MINIO_VOLUMES: {{ minio_volumes }}"
@@ -50,7 +53,7 @@
         name: ricsanfre.minio
 
   post_tasks:
-    - name: Override MINIO_VOLUMES in /etc/minio/minio.conf
+    - name: Override MINIO_VOLUMES in /etc/minio/minio.conf with our endpoints
       lineinfile:
         path: /etc/minio/minio.conf
         regexp: '^MINIO_VOLUMES='
