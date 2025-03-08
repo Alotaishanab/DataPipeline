@@ -14,6 +14,15 @@
     esm_model: "esm1b_t33_650M_UR50S"
 
   tasks:
+    #########################################################################
+    # 1) Prepare a Larger Temporary Directory for pip
+    #########################################################################
+    - name: Create a directory on a larger partition for pip temp/cache
+      file:
+        path: "/mnt/data/pip-tmp"
+        state: directory
+        mode: '0777'
+
     - name: Ensure required system packages are installed for ESM
       dnf:
         name:
@@ -59,7 +68,7 @@
         creates: "{{ esm_dest }}/venv"
 
     #########################################################################
-    # If your environment sets "python3 -> python2", fix symlinks (optional)
+    # (Optional) Fix Python Symlinks
     #########################################################################
     - name: Remove incorrect python3 symlink (if any)
       file:
@@ -89,7 +98,7 @@
       when: esm_req_file.stat.exists
 
     #########################################################################
-    # Install CPU-only PyTorch from PyTorch's CPU wheels index
+    # 2) Install CPU-only PyTorch with a Larger Temp/Cache Directory
     #########################################################################
     - name: Install CPU-only PyTorch in the ESM virtual environment
       pip:
@@ -98,11 +107,11 @@
         state: present
         extra_args: "--find-links {{ torch_url }}"
       environment:
-        TMPDIR: /var/tmp
-        PIP_CACHE_DIR: /var/tmp/pip-cache
+        TMPDIR: "/mnt/data/pip-tmp"
+        PIP_CACHE_DIR: "/mnt/data/pip-tmp"
 
     #########################################################################
-    # Finally, download the pretrained ESM model
+    # 3) Finally, download the pretrained ESM model
     #########################################################################
     - name: Download pretrained ESM model ({{ esm_model }})
       command: "{{ esm_dest }}/venv/bin/python -m esm.pretrained download {{ esm_model }}"
