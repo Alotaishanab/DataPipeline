@@ -4,20 +4,35 @@
   become: yes
   vars:
     dataset_local_path: "/data/protein_dataset/uniref50.fasta.gz"
+    # Use the URL from UniProt FTP for UniRef50
+    dataset_download_url: "https://ftp.uniprot.org/pub/databases/uniprot/uniref/uniref50/uniref50.fasta.gz"
     minio_bucket: "protein-data"
     minio_alias: "minio"
   tasks:
+    - name: Ensure dataset directory exists
+      file:
+        path: "{{ dataset_local_path | dirname }}"
+        state: directory
+        mode: '0755'
+
     - name: Check if dataset file exists
       stat:
         path: "{{ dataset_local_path }}"
       register: dataset_file
 
-    - name: Fail if dataset file does not exist
-      fail:
-        msg: "Dataset file not found at {{ dataset_local_path }}"
+    - name: Download dataset if not present
+      get_url:
+        url: "{{ dataset_download_url }}"
+        dest: "{{ dataset_local_path }}"
+        mode: '0644'
       when: not dataset_file.stat.exists
 
-    - name: Upload dataset to MinIO bucket 'protein-data'
+    - name: Fail if dataset file does not exist after download attempt
+      fail:
+        msg: "Dataset file not found at {{ dataset_local_path }}. Please check the download URL or manually place the file."
+      when: not dataset_file.stat.exists
+
+    - name: Upload dataset to MinIO bucket '{{ minio_bucket }}'
       command: "mc cp {{ dataset_local_path }} {{ minio_alias }}/{{ minio_bucket }}/"
       register: upload_output
 
