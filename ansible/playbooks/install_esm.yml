@@ -1,6 +1,6 @@
 ---
-- name: Setup ESM Pretrained Model Environment on Host
-  hosts: localhost
+- name: Setup ESM Pretrained Model Environment on worker1
+  hosts: worker1
   become: yes
 
   vars:
@@ -15,7 +15,7 @@
 
   tasks:
     #########################################################################
-    # 1) Prepare a Larger Temporary Directory for pip
+    # 1) Prepare a Larger Directory for pip Temp and Cache
     #########################################################################
     - name: Create a directory on a larger partition for pip temp/cache
       file:
@@ -44,6 +44,9 @@
         state: absent
         executable: pip3
 
+    #########################################################################
+    # 2) Clone ESM & Check Requirements
+    #########################################################################
     - name: Clone the ESM repository
       git:
         repo: "{{ esm_repo }}"
@@ -68,7 +71,7 @@
         creates: "{{ esm_dest }}/venv"
 
     #########################################################################
-    # (Optional) Fix Python Symlinks
+    # (Optional) Fix Python Symlinks if your environment sets python3->python2
     #########################################################################
     - name: Remove incorrect python3 symlink (if any)
       file:
@@ -88,7 +91,7 @@
         state: link
 
     #########################################################################
-    # Install ESM dependencies if a requirements.txt exists (Torch removed)
+    # 3) Install ESM Dependencies (Minus Torch)
     #########################################################################
     - name: Install ESM dependencies (except Torch)
       pip:
@@ -98,7 +101,7 @@
       when: esm_req_file.stat.exists
 
     #########################################################################
-    # 2) Install CPU-only PyTorch with a Larger Temp/Cache Directory
+    # 4) Install CPU-only PyTorch with Enough Space
     #########################################################################
     - name: Install CPU-only PyTorch in the ESM virtual environment
       pip:
@@ -111,7 +114,7 @@
         PIP_CACHE_DIR: "/mnt/data/pip-tmp"
 
     #########################################################################
-    # 3) Finally, download the pretrained ESM model
+    # 5) Download the Pretrained ESM Model
     #########################################################################
     - name: Download pretrained ESM model ({{ esm_model }})
       command: "{{ esm_dest }}/venv/bin/python -m esm.pretrained download {{ esm_model }}"
