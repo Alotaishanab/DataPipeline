@@ -46,10 +46,11 @@
   post_tasks:
     - name: Deploy custom MinIO configuration file using template
       template:
-        src: minio.conf.j2
+        src: ../templates/minio.conf.j2
         dest: /etc/minio/minio.conf
       notify:
         - restart minio
+
 
     - name: (Optional) Debug /etc/minio/minio.conf content
       command: cat /etc/minio/minio.conf
