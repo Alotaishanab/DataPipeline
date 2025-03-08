@@ -12,17 +12,16 @@
     minio_install_server: true
     minio_install_client: false
     minio_configure_client: false
+    # Use port 9090 for MinIO
     minio_default_port: "9090"
 
   pre_tasks:
     - name: Build MINIO_VOLUMES endpoints from worker IPs
       set_fact:
         minio_volumes: "{{ groups['worker_inventory'] | map('extract', hostvars, 'ansible_host') | map('regex_replace', '^(.*)$', 'http://\\1:' ~ minio_default_port ~ '/mnt/data') | join(' ') | trim }}"
-
     - name: Debug MINIO_VOLUMES
       debug:
         msg: "MINIO_VOLUMES: {{ minio_volumes }}"
-
     - name: Ensure EPEL repository is installed on AlmaLinux workers
       dnf:
         name: epel-release
@@ -33,12 +32,10 @@
       pip:
         name: virtualenv
       become: yes
-
     - name: Install wheel via pip (fallback for python3-wheel)
       pip:
         name: wheel
       become: yes
-
     - name: Include the ricsanfre.minio role (server installation)
       include_role:
         name: ricsanfre.minio
@@ -47,18 +44,21 @@
     - name: Deploy custom MinIO configuration file using template
       template:
         src: ../templates/minio.conf.j2
-        dest: /etc/minio/minio.conf
+        dest: /etc/default/minio
       notify:
         - restart minio
 
-
-    - name: (Optional) Debug /etc/minio/minio.conf content
-      command: cat /etc/minio/minio.conf
+    - name: (Optional) Debug /etc/default/minio content after override
+      command: cat /etc/default/minio
       register: minio_conf_content
       changed_when: false
 
     - debug:
         msg: "MinIO config file content: {{ minio_conf_content.stdout }}"
+
+    - name: Reload systemd daemon
+      command: systemctl daemon-reload
+      become: yes
 
     - name: Wait for MinIO to start listening on port {{ minio_default_port }}
       wait_for:
