@@ -12,6 +12,7 @@
     minio_install_server: true
     minio_install_client: false
     minio_configure_client: false
+    minio_generate_envfile: false
     # Use port 9090 for MinIO
     minio_default_port: "9090"
 
