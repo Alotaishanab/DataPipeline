@@ -8,26 +8,17 @@
     minio_root_password: "Min10S3P@ss"  # Replace with your secure password
     minio_server_datadirs:
       - "/mnt/data"
-    # Disable extra pip installation to avoid conflicts
     minio_install_pip: false
-    # We want only the server installed; disable the role’s built-in client/alias tasks.
     minio_install_server: true
     minio_install_client: false
     minio_configure_client: false
-
-    # We want MinIO to listen on port 9090.
     minio_default_port: "9090"
 
   pre_tasks:
     - name: Build MINIO_VOLUMES endpoints from worker IPs
       set_fact:
-        minio_volumes: >
-          {% set eps = [] %}
-          {% for host in groups['worker_inventory'] %}
-            {% set ip = hostvars[host].ansible_host %}
-            {% set _ = eps.append("http://" ~ ip ~ ":" ~ minio_default_port ~ "/mnt/data") %}
-          {% endfor %}
-          {{ eps | join(" ") | trim }}
+        minio_volumes: "{{ groups['worker_inventory'] | map('extract', hostvars, 'ansible_host') | map('regex_replace', '^(.*)$', 'http://\\1:' ~ minio_default_port ~ '/mnt/data') | join(' ') | trim }}"
+
     - name: Debug MINIO_VOLUMES
       debug:
         msg: "MINIO_VOLUMES: {{ minio_volumes }}"
@@ -53,20 +44,14 @@
         name: ricsanfre.minio
 
   post_tasks:
-    - name: Create custom /etc/minio/minio.conf with our configuration
-      copy:
+    - name: Deploy custom MinIO configuration file using template
+      template:
+        src: minio.conf.j2
         dest: /etc/minio/minio.conf
-        content: |
-          # MinIO configuration file (managed by Ansible)
-          MINIO_VOLUMES={{ minio_volumes | trim }}
-          MINIO_OPTS="--address :{{ minio_default_port }} /mnt/data"
-          MINIO_ROOT_USER="{{ minio_root_user }}"
-          MINIO_ROOT_PASSWORD="{{ minio_root_password }}"
-          MINIO_SITE_REGION="eu-west-1"
       notify:
         - restart minio
 
-    - name: (Optional) Debug /etc/minio/minio.conf content after override
+    - name: (Optional) Debug /etc/minio/minio.conf content
       command: cat /etc/minio/minio.conf
       register: minio_conf_content
       changed_when: false
