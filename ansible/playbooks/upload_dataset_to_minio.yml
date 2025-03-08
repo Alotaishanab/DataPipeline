@@ -1,10 +1,11 @@
 ---
 - name: Upload Protein Dataset to MinIO Storage
-  hosts: localhost
+  hosts: worker1
   become: yes
   vars:
+    # The local path on worker1 where the dataset will be stored.
     dataset_local_path: "/data/protein_dataset/uniref50.fasta.gz"
-    # Use the URL from UniProt FTP for UniRef50
+    # URL for downloading the UniRef50 dataset.
     dataset_download_url: "https://ftp.uniprot.org/pub/databases/uniprot/uniref/uniref50/uniref50.fasta.gz"
     minio_bucket: "protein-data"
     minio_alias: "minio"
@@ -25,11 +26,14 @@
         url: "{{ dataset_download_url }}"
         dest: "{{ dataset_local_path }}"
         mode: '0644'
+      environment:
+        TMPDIR: "/mnt/data"          # Use a partition with ample free space.
+        PIP_CACHE_DIR: "/mnt/data"     # (Not directly used by get_url, but helps for large downloads)
       when: not dataset_file.stat.exists
 
-    - name: Fail if dataset file does not exist after download attempt
+    - name: Fail if dataset file still does not exist
       fail:
-        msg: "Dataset file not found at {{ dataset_local_path }}. Please check the download URL or manually place the file."
+        msg: "Dataset file not found at {{ dataset_local_path }}. Please check the URL or manually place the file."
       when: not dataset_file.stat.exists
 
     - name: Upload dataset to MinIO bucket '{{ minio_bucket }}'
