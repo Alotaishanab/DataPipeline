@@ -70,19 +70,21 @@
       notify:
         - restart minio
 
-    - name: Debug /etc/minio/minio.conf content after override
-      command: cat /etc/minio/minio.conf
-      register: minio_conf_content
-      changed_when: false
-
-    - debug:
-        msg: "MinIO config file content: {{ minio_conf_content.stdout }}"
+    - name: Install MinIO client (mc) on all workers
+      hosts: worker_inventory
+      become: yes
+      tasks:
+        - name: Download and install mc binary
+          get_url:
+            url: "https://dl.min.io/client/mc/release/linux-amd64/mc"
+            dest: "/usr/local/bin/mc"
+            mode: '0755'
 
     - name: Reload systemd daemon
       command: systemctl daemon-reload
       become: yes
 
-    - name: Restart MinIO
+    - name: Restart MinIO service
       service:
         name: minio
         state: restarted
@@ -92,7 +94,7 @@
       wait_for:
         host: 127.0.0.1
         port: "{{ minio_default_port }}"
-        timeout: 30
+        timeout: 60
       delegate_to: "{{ inventory_hostname }}"
 
     - name: Configure MinIO alias on port {{ minio_default_port }}
@@ -100,6 +102,7 @@
       register: mc_alias_result
       changed_when: mc_alias_result.rc == 0
       failed_when: mc_alias_result.rc not in [0]
+
 
   handlers:
     - name: restart minio
