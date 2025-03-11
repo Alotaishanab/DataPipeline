@@ -1,7 +1,7 @@
-#- import_playbook: provision_workers.yml
-#- import_playbook: common.yml              # Common configuration for all machines
-#- import_playbook: install_dependencies.yml  # Installs Galaxy dependencies, Alertmanager, etc. on host
-#- import_playbook: mount_extra_disk.yml      # Worker-specific disk mounting tasks
+- import_playbook: provision_workers.yml
+- import_playbook: common.yml              # Common configuration for all machines
+- import_playbook: install_dependencies.yml  # Installs Galaxy dependencies, Alertmanager, etc. on host
+- import_playbook: mount_extra_disk.yml      # Worker-specific disk mounting tasks
 - import_playbook: install_minio_workers.yml # Deploy distributed MinIO on workers using /mnt/data as storage
 - import_playbook: install_esm.yml           # Setup ESM environment on host (pretrained model)
 - import_playbook: upload_dataset_to_minio.yml  # Upload dataset to MinIO bucket on workers

@@ -20,11 +20,11 @@ worker_extra_disk_size = "200Gi"
 
 # Instance Tags for Worker VMs (new labels)
 worker_vm_tags = {
-  "condenser_ingress_node_hostname" = "worker-nodeexporter"   # Existing node exporter hostname
+  "condenser_ingress_node_hostname" = "ucabbaa-nodeexporter"   # Existing node exporter hostname
   "condenser_ingress_node_port"     = "9100"                  # Existing node exporter port
   "condenser_ingress_isAllowed"     = "true"
   "condenser_ingress_isEnabled"     = "true"
   # New tags for MinIO access
-  "minio_ingress_hostname"          = "minio-worker"         # Set as desired; could be a DNS name or unique value
+  "minio_ingress_hostname"          = "ucabbaa-minio"         # Set as desired; could be a DNS name or unique value
   "minio_ingress_port"              = "9090"                 # Port where MinIO will be exposed
 }
