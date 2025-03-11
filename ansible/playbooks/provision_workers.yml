@@ -92,3 +92,8 @@
 
     - debug:
         msg: "Static inventory generated successfully."
+
+- name: Refresh inventory after provisioning workers
+  hosts: localhost
+  tasks:
+    - meta: refresh_inventory
