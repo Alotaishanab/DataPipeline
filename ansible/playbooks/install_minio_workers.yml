@@ -2,7 +2,6 @@
 - name: Install and Configure Distributed MinIO on Workers
   hosts: worker_inventory
   become: yes
-
   vars:
     minio_root_user: "admin"
     minio_root_password: "Min10S3P@ss"  # Replace with your secure password
@@ -14,7 +13,6 @@
     minio_configure_client: false
     minio_default_port: "9090"
 
-  # ----- 1) Pre-Tasks -----
   pre_tasks:
     - name: Remove leftover /etc/minio/minio.conf or old env file
       file:
@@ -35,7 +33,7 @@
             {% set _ = eps.append("http://" ~ ip ~ ":" ~ minio_default_port ~ "/mnt/data") %}
           {% endfor %}
           {{ eps | join(" ") | trim }}
-
+    
     - name: Debug MINIO_VOLUMES
       debug:
         msg: "MINIO_VOLUMES: {{ minio_volumes }}"
@@ -45,7 +43,6 @@
         name: epel-release
         state: present
 
-  # ----- 2) Main Role + Overwrite Tasks -----
   tasks:
     - name: Pre-install virtualenv using pip on worker nodes
       pip:
@@ -61,7 +58,6 @@
       include_role:
         name: ricsanfre.minio
 
-  # ----- 3) Post-Tasks: Deploy Our Custom Config -----
   post_tasks:
     - name: Deploy custom MinIO configuration file using template
       template:
@@ -69,16 +65,6 @@
         dest: "/etc/minio/minio.conf"
       notify:
         - restart minio
-
-    - name: Install MinIO client (mc) on all workers
-      hosts: worker_inventory
-      become: yes
-      tasks:
-        - name: Download and install mc binary
-          get_url:
-            url: "https://dl.min.io/client/mc/release/linux-amd64/mc"
-            dest: "/usr/local/bin/mc"
-            mode: '0755'
 
     - name: Reload systemd daemon
       command: systemctl daemon-reload
@@ -103,9 +89,18 @@
       changed_when: mc_alias_result.rc == 0
       failed_when: mc_alias_result.rc not in [0]
 
-
   handlers:
     - name: restart minio
       service:
         name: minio
         state: restarted
+
+- name: Install MinIO Client (mc) on all Workers
+  hosts: worker_inventory
+  become: yes
+  tasks:
+    - name: Download and install mc binary
+      get_url:
+        url: "https://dl.min.io/client/mc/release/linux-amd64/mc"
+        dest: "/usr/local/bin/mc"
+        mode: '0755'
