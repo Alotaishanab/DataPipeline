@@ -4,6 +4,7 @@
   become: yes
 
   vars:
+    clean_minio_data: true   # set to false if you do not want to wipe /mnt/data
     minio_root_user: "admin"
     minio_root_password: "Min10S3P@ss"
     minio_server_datadirs:
@@ -15,6 +16,11 @@
     minio_default_port: "9090"
 
   pre_tasks:
+    - name: Remove leftover MinIO data on /mnt/data if fresh deployment
+      shell: rm -rf /mnt/data/*
+      when: clean_minio_data | bool
+      ignore_errors: true  # In case /mnt/data/* doesn't exist yet
+
     - name: Remove leftover /etc/minio/minio.conf or old env file
       file:
         path: /etc/minio/minio.conf
@@ -48,12 +54,10 @@
     - name: Pre-install virtualenv using pip on worker nodes
       pip:
         name: virtualenv
-      become: yes
 
     - name: Install wheel via pip (fallback for python3-wheel)
       pip:
         name: wheel
-      become: yes
 
     - name: Include the ricsanfre.minio role (server installation)
       include_role:
@@ -69,13 +73,11 @@
 
     - name: Reload systemd daemon
       command: systemctl daemon-reload
-      become: yes
 
     - name: Restart MinIO service
       service:
         name: minio
         state: restarted
-      become: yes
 
     - name: Wait for MinIO to start listening on port {{ minio_default_port }}
       wait_for:
@@ -89,7 +91,6 @@
       service:
         name: minio
         state: restarted
-
 
 - name: Install MinIO Client (mc) on all Workers
   hosts: worker_inventory
@@ -106,7 +107,6 @@
         url: "https://dl.min.io/client/mc/release/linux-amd64/mc"
         dest: "/usr/local/bin/mc"
         mode: '0755'
-
 
 - name: Configure MinIO alias on all Workers
   hosts: worker_inventory
