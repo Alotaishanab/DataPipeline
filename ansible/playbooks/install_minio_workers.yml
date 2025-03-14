@@ -4,22 +4,16 @@
   become: yes
 
   vars:
-    clean_minio_data: true   # set to false if you do not want to wipe /mnt/data
+    clean_minio_data: true  # Toggle to false if you do NOT want to wipe /mnt/data
     minio_root_user: "admin"
     minio_root_password: "Min10S3P@ss"
-    minio_server_datadirs:
-      - "/mnt/data"
-    minio_install_pip: false
-    minio_install_server: true
-    minio_install_client: false
-    minio_configure_client: false
     minio_default_port: "9090"
 
   pre_tasks:
     - name: Remove leftover MinIO data on /mnt/data if fresh deployment
       shell: rm -rf /mnt/data/*
       when: clean_minio_data | bool
-      ignore_errors: true  # In case /mnt/data/* doesn't exist yet
+      ignore_errors: true
 
     - name: Remove leftover /etc/minio/minio.conf or old env file
       file:
@@ -29,7 +23,7 @@
 
     - name: Debug info about removed file
       debug:
-        msg: "Removed old /etc/minio/minio.conf to remove any \\1 references."
+        msg: "Removed old /etc/minio/minio.conf if it existed."
 
     - name: Build MINIO_VOLUMES endpoints from worker IPs
       set_fact:
@@ -40,8 +34,8 @@
             {% set _ = eps.append("http://" ~ ip ~ ":" ~ minio_default_port ~ "/mnt/data") %}
           {% endfor %}
           {{ eps | join(" ") | trim }}
-    
-    - name: Debug MINIO_VOLUMES
+
+    - name: Show final MINIO_VOLUMES
       debug:
         msg: "MINIO_VOLUMES: {{ minio_volumes }}"
 
@@ -74,16 +68,13 @@
     - name: Reload systemd daemon
       command: systemctl daemon-reload
 
-    - name: Restart MinIO service
-      service:
-        name: minio
-        state: restarted
+    # NOTE: We do NOT directly restart minio here, we rely on the handler below
 
     - name: Wait for MinIO to start listening on port {{ minio_default_port }}
       wait_for:
         host: 127.0.0.1
         port: "{{ minio_default_port }}"
-        timeout: 60
+        timeout: 120   # Increase to 120 for slower nodes
       delegate_to: "{{ inventory_hostname }}"
 
   handlers:
@@ -91,6 +82,7 @@
       service:
         name: minio
         state: restarted
+
 
 - name: Install MinIO Client (mc) on all Workers
   hosts: worker_inventory
@@ -107,6 +99,7 @@
         url: "https://dl.min.io/client/mc/release/linux-amd64/mc"
         dest: "/usr/local/bin/mc"
         mode: '0755'
+
 
 - name: Configure MinIO alias on all Workers
   hosts: worker_inventory
