@@ -53,9 +53,16 @@
       pip:
         name: wheel
 
+    ####################################################################
+    # KEY FIX: Override the role's default data directory
+    ####################################################################
     - name: Include the ricsanfre.minio role (server installation)
       include_role:
         name: ricsanfre.minio
+      vars:
+        # Tells the role to use /mnt/data instead of /var/lib/minio
+        minio_server_datadirs:
+          - "/mnt/data"
 
   post_tasks:
     - name: Deploy custom MinIO configuration file using template
@@ -68,13 +75,16 @@
     - name: Reload systemd daemon
       command: systemctl daemon-reload
 
-    # NOTE: We do NOT directly restart minio here, we rely on the handler below
+    ####################################################################
+    # Let the restart minio handler do the actual restart
+    # Then we do a single wait_for below
+    ####################################################################
 
     - name: Wait for MinIO to start listening on port {{ minio_default_port }}
       wait_for:
         host: 127.0.0.1
         port: "{{ minio_default_port }}"
-        timeout: 120   # Increase to 120 for slower nodes
+        timeout: 120   # extended for slower nodes
       delegate_to: "{{ inventory_hostname }}"
 
   handlers:
@@ -82,7 +92,6 @@
       service:
         name: minio
         state: restarted
-
 
 - name: Install MinIO Client (mc) on all Workers
   hosts: worker_inventory
@@ -99,7 +108,6 @@
         url: "https://dl.min.io/client/mc/release/linux-amd64/mc"
         dest: "/usr/local/bin/mc"
         mode: '0755'
-
 
 - name: Configure MinIO alias on all Workers
   hosts: worker_inventory
