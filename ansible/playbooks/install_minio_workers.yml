@@ -2,13 +2,12 @@
   hosts: worker_inventory
   become: yes
   vars:
-    clean_minio_data: true           # Set to true on fresh machines to wipe /mnt/data
+    clean_minio_data: true           # Set true for a fresh deployment (wipes /mnt/data)
     minio_root_user: "admin"
     minio_root_password: "Min10S3P@ss"
     minio_default_port: "9090"
     # Override role defaults:
-    minio_install_pip: false         # Skip installing pip/virtualenv from the role (avoids depsolve error)
-    # Tell the role to use /mnt/data as the drive
+    minio_install_pip: false         # Skip role's pip installation (avoids dependency issues)
     minio_server_datadirs:
       - "/mnt/data"
     minio_install_server: true
@@ -16,8 +15,8 @@
     minio_configure_client: false
 
   pre_tasks:
-    - name: Remove leftover MinIO data on /mnt/data if fresh deployment
-      shell: rm -rf /mnt/data/*
+    - name: Clean /mnt/data directory completely
+      shell: "find /mnt/data -mindepth 1 -delete"
       when: clean_minio_data | bool
       ignore_errors: true
 
@@ -82,7 +81,7 @@
       wait_for:
         host: 127.0.0.1
         port: "{{ minio_default_port }}"
-        timeout: 120
+        timeout: 180
       delegate_to: "{{ inventory_hostname }}"
 
   handlers:
@@ -90,7 +89,6 @@
       service:
         name: minio
         state: restarted
-
 
 - name: Install MinIO Client (mc) on all Workers
   hosts: worker_inventory
@@ -105,7 +103,6 @@
         url: "https://dl.min.io/client/mc/release/linux-amd64/mc"
         dest: "/usr/local/bin/mc"
         mode: '0755'
-
 
 - name: Configure MinIO alias on all Workers
   hosts: worker_inventory
