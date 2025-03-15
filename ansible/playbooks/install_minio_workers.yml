@@ -5,8 +5,8 @@
     clean_minio_data: true           # Set to true to wipe /mnt/data on fresh deployments
     minio_root_user: "admin"
     minio_root_password: "Min10S3P@ss"
-    minio_default_port: "9090"       # This is the base port provided to MinIO (--address)
-    # Role parameters for the included role:
+    minio_default_port: "9090"       # Base port provided to MinIO (--address)
+    # Additional role parameters (if using an included role)
     minio_install_pip: false
     minio_server_datadirs: ["/mnt/data"]
     minio_install_server: true
@@ -16,6 +16,13 @@
   pre_tasks:
     - name: Clean /mnt/data directory completely (if fresh deployment)
       shell: "find /mnt/data -mindepth 1 -delete"
+      when: clean_minio_data | bool
+      ignore_errors: true
+
+    - name: Remove MinIO metadata (.minio.sys) from /mnt/data (fresh deployment)
+      file:
+        path: /mnt/data/.minio.sys
+        state: absent
       when: clean_minio_data | bool
       ignore_errors: true
 
@@ -80,11 +87,11 @@
       become: yes
 
     - name: Wait for MinIO to start listening on the API port (base+1)
-      # Because when you set --address :9090, MinIO binds API on port 9091 and WebUI on 9092.
+      # When using --address :9090, MinIO serves the API on port 9091 and WebUI on 9092.
       wait_for:
         host: "127.0.0.1"
         port: "{{ (minio_default_port | int) + 1 }}"
-        timeout: 10
+        timeout: 180
       delegate_to: "{{ inventory_hostname }}"
 
   handlers:
