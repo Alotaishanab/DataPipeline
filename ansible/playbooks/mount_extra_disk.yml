@@ -1,4 +1,3 @@
----
 - name: Mount Extra Disk on Worker Nodes
   hosts: worker_inventory
   become: yes
@@ -6,10 +5,10 @@
     - name: Ensure community.general collection is available
       ansible.builtin.meta: noop
 
-    - name: Create ext4 filesystem on /dev/vdb if not present
+    - name: Create XFS filesystem on /dev/vdb if not present
       community.general.filesystem:
         dev: /dev/vdb
-        fstype: ext4
+        fstype: xfs
       register: fs_status
 
     - name: Filesystem creation result
@@ -26,5 +25,5 @@
       mount:
         path: /mnt/data
         src: /dev/vdb
-        fstype: ext4
+        fstype: xfs
         state: mounted
