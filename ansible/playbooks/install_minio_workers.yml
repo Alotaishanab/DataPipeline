@@ -1,8 +1,6 @@
----
 - name: Install and Configure Distributed MinIO on Workers
   hosts: worker_inventory
   become: yes
-
   vars:
     clean_minio_data: true           # Set to true on fresh machines to wipe /mnt/data
     minio_root_user: "admin"
@@ -10,6 +8,7 @@
     minio_default_port: "9090"
     # Override role defaults:
     minio_install_pip: false         # Skip installing pip/virtualenv from the role (avoids depsolve error)
+    # Tell the role to use /mnt/data as the drive
     minio_server_datadirs:
       - "/mnt/data"
     minio_install_server: true
@@ -32,13 +31,13 @@
       debug:
         msg: "Removed old /etc/minio/minio.conf if it existed."
 
-    - name: Build MINIO_VOLUMES endpoints from worker IPs
+    - name: Build MINIO_VOLUMES endpoints from worker IPs (without port)
       set_fact:
         minio_volumes: >
           {% set eps = [] %}
           {% for host in groups['worker_inventory'] %}
             {% set ip = hostvars[host].ansible_host %}
-            {% set _ = eps.append("http://" ~ ip ~ ":" ~ minio_default_port ~ "/mnt/data") %}
+            {% set _ = eps.append("http://" ~ ip ~ "/mnt/data") %}
           {% endfor %}
           {{ eps | join(" ") | trim }}
 
@@ -77,6 +76,7 @@
 
     - name: Reload systemd daemon
       command: systemctl daemon-reload
+      become: yes
 
     - name: Wait for MinIO to start listening on port {{ minio_default_port }}
       wait_for:
@@ -91,15 +91,14 @@
         name: minio
         state: restarted
 
+
 - name: Install MinIO Client (mc) on all Workers
   hosts: worker_inventory
   become: yes
-
   vars:
     minio_default_port: "9090"
     minio_root_user: "admin"
     minio_root_password: "Min10S3P@ss"
-
   tasks:
     - name: Download and install mc binary
       get_url:
@@ -107,15 +106,14 @@
         dest: "/usr/local/bin/mc"
         mode: '0755'
 
+
 - name: Configure MinIO alias on all Workers
   hosts: worker_inventory
   become: yes
-
   vars:
     minio_default_port: "9090"
     minio_root_user: "admin"
     minio_root_password: "Min10S3P@ss"
-
   tasks:
     - name: Configure MinIO alias on port "{{ minio_default_port }}"
       shell: >
