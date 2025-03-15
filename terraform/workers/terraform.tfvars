@@ -24,7 +24,4 @@ worker_vm_tags = {
   "condenser_ingress_node_port"     = "9100"                  # Existing node exporter port
   "condenser_ingress_isAllowed"     = "true"
   "condenser_ingress_isEnabled"     = "true"
-  # New tags for MinIO access
-  "minio_ingress_hostname"          = "ucabbaa-minio"         # Set as desired; could be a DNS name or unique value
-  "minio_ingress_port"              = "9090"                 # Port where MinIO will be exposed
 }

@@ -91,7 +91,7 @@
       wait_for:
         host: "127.0.0.1"
         port: "{{ (minio_default_port | int) + 1 }}"
-        timeout: 180
+        timeout: 10
       delegate_to: "{{ inventory_hostname }}"
 
   handlers:
