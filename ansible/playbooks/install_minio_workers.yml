@@ -81,7 +81,7 @@
       wait_for:
         host: 127.0.0.1
         port: "{{ minio_default_port }}"
-        timeout: 180
+        timeout: 20
       delegate_to: "{{ inventory_hostname }}"
 
   handlers:
