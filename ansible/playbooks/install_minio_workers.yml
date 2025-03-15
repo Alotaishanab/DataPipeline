@@ -5,7 +5,7 @@
     clean_minio_data: true           # Set to true to wipe /mnt/data on fresh deployments
     minio_root_user: "admin"
     minio_root_password: "Min10S3P@ss"
-    minio_default_port: "9090"       # Base port passed in MINIO_OPTS; API will bind on port 9091, WebUI on 9092.
+    minio_default_port: "9090"       # Use 9090 for both API and WebUI
     # Role parameters for the included role:
     minio_install_pip: false
     minio_server_datadirs: ["/mnt/data"]
@@ -106,10 +106,10 @@
         state: restarted
       become: yes
 
-    - name: Wait for MinIO to start listening on the API port (base+1)
+    - name: Wait for MinIO to start listening on port {{ minio_default_port }}
       wait_for:
         host: "{{ ansible_host }}"
-        port: "{{ (minio_default_port | int) + 1 }}"
+        port: "{{ minio_default_port }}"
         timeout: 30
 
   handlers:

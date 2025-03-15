@@ -1,6 +1,6 @@
 # /etc/minio/minio.conf – Managed by Ansible
 MINIO_VOLUMES={{ minio_volumes | trim }}
-MINIO_OPTS="--address :{{ minio_default_port }} /mnt/data"
+MINIO_OPTS="--address :{{ minio_default_port }} --console-address :{{ minio_default_port }}"
 MINIO_ROOT_USER="{{ minio_root_user }}"
 MINIO_ROOT_PASSWORD="{{ minio_root_password }}"
 MINIO_SITE_REGION="eu-west-1"
