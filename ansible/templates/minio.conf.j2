@@ -1,5 +1,5 @@
-MINIO_VOLUMES="{{ minio_volumes | trim }}"
-MINIO_OPTS="--address 0.0.0.0:{{ minio_default_port }} /mnt/data"
+MINIO_VOLUMES={{ minio_volumes | trim }}
+MINIO_OPTS="--address :{{ minio_default_port }} /mnt/data"
 MINIO_ROOT_USER="{{ minio_root_user }}"
 MINIO_ROOT_PASSWORD="{{ minio_root_password }}"
 MINIO_SITE_REGION="eu-west-1"
