@@ -142,9 +142,9 @@
     minio_root_password: "Min10S3P@ss"
   tasks:
     - name: Configure MinIO alias on port "{{ minio_default_port }}"
-        shell: "/usr/local/bin/mc alias set myminio http://{{ ansible_host }}:{{ minio_default_port }} {{ minio_root_user }} {{ minio_root_password }}"
-        register: mc_alias_result
-        retries: 1
-        delay: 30
-        until: mc_alias_result.rc == 0
+      shell: "/usr/local/bin/mc alias set myminio http://{{ ansible_host }}:{{ minio_default_port }} {{ minio_root_user }} {{ minio_root_password }}"
+      register: mc_alias_result
+      retries: 10
+      delay: 30
+      until: mc_alias_result.rc == 0
 
