@@ -1,0 +1,95 @@
+- name: Setup MinIO on Worker Nodes
+  hosts: worker_inventory
+  become: yes
+  vars:
+    minio_root_user: "myminioadmin"           # Use non-default credentials
+    minio_root_password: "YourSuperSecretPass"  # Replace with a secure, random string
+    minio_storage_path: "/mnt/data/minio"       # Where MinIO will store its data
+    minio_api_port: 9000                        # API port for MinIO
+    minio_console_port: 9001                    # Web console port for MinIO
+    minio_env_file: "/etc/default/minio"
+    minio_service_file: "/etc/systemd/system/minio.service"
+
+  tasks:
+    - name: Create minio group
+      ansible.builtin.group:
+        name: minio-user
+        state: present
+
+    - name: Create minio user
+      ansible.builtin.user:
+        name: minio-user
+        group: minio-user
+        system: yes
+        create_home: no
+        state: present
+
+    - name: Create MinIO storage directory
+      ansible.builtin.file:
+        path: "{{ minio_storage_path }}"
+        state: directory
+        owner: minio-user
+        group: minio-user
+        mode: "0755"
+
+    - name: Generate self-signed TLS certificate for MinIO
+      ansible.builtin.command: >
+        openssl req -x509 -newkey rsa:4096 -nodes -sha256 -days 3650
+        -subj "/CN={{ inventory_hostname }}" -keyout /tmp/minio.key -out /tmp/minio.crt
+      args:
+        creates: /tmp/minio.crt
+
+    - name: Create MinIO certificate directory
+      ansible.builtin.file:
+        path: "/home/minio-user/.minio/certs"
+        state: directory
+        owner: minio-user
+        group: minio-user
+        mode: "0755"
+
+    - name: Copy TLS certificate to MinIO cert directory
+      ansible.builtin.copy:
+        src: /tmp/minio.crt
+        dest: "/home/minio-user/.minio/certs/public.crt"
+        owner: minio-user
+        group: minio-user
+        mode: "0644"
+
+    - name: Copy TLS key to MinIO cert directory
+      ansible.builtin.copy:
+        src: /tmp/minio.key
+        dest: "/home/minio-user/.minio/certs/private.key"
+        owner: minio-user
+        group: minio-user
+        mode: "0600"
+
+    - name: Deploy MinIO environment file
+      ansible.builtin.template:
+        src: "templates/minio.j2"
+        dest: "{{ minio_env_file }}"
+        owner: root
+        group: minio-user
+        mode: "0640"
+
+    - name: Deploy MinIO systemd service file
+      ansible.builtin.template:
+        src: "templates/minio.service.j2"
+        dest: "{{ minio_service_file }}"
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Reload systemd daemon
+      ansible.builtin.command: systemctl daemon-reload
+
+    - name: Enable and start MinIO service
+      ansible.builtin.service:
+        name: minio
+        state: started
+        enabled: yes
+
+    - name: Wait for MinIO API to be reachable
+      ansible.builtin.wait_for:
+        host: "127.0.0.1"
+        port: "{{ minio_api_port }}"
+        timeout: 60
