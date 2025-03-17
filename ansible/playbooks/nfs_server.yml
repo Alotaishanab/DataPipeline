@@ -1,6 +1,6 @@
 ---
 - name: Configure NFS Server on Host
-  hosts: host
+  hosts: localhost
   become: yes
   tasks:
     - name: Install NFS utilities and rpcbind

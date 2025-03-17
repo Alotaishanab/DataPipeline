@@ -1,6 +1,6 @@
 ---
 - name: Setup Symbolic Links for Application Data
-  hosts: host, workers
+  hosts: all, localhost
   become: yes
   tasks:
     - name: Ensure parent directory for dataset symlink exists

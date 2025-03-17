@@ -1,6 +1,6 @@
 ---
 - name: Configure NFS Clients on Host and Workers
-  hosts: host, workers
+  hosts: all, localhost
   become: yes
   vars:
     # The storage IP is taken from the host node in the inventory.
