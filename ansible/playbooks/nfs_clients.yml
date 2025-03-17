@@ -1,26 +1,25 @@
----
-- name: Configure NFS Clients on Host and Workers
-  hosts: all, localhost
+- name: Configure NFS Clients on Management and Worker Nodes
+  hosts: localhost, worker_inventory
   become: yes
   vars:
-    # The storage IP is taken from the host node in the inventory.
-    storage_ip: "{{ hostvars['host']['ansible_host'] }}"
+    # Use the management node's IP (if not localhost, adjust accordingly)
+    nfs_server_ip: "{{ hostvars['localhost']['ansible_default_ipv4']['address'] }}"
     nfs_mounts:
       - { mount_point: '/mnt/datasets', remote_path: '/mnt/datasets' }
       - { mount_point: '/mnt/results', remote_path: '/mnt/results' }
   tasks:
-    - name: Install NFS utilities
-      yum:
+    - name: Ensure NFS utilities are installed
+      package:
         name: nfs-utils
         state: present
 
-    - name: Ensure stale NFS mounts are unmounted
+    - name: Unmount stale NFS mounts (if any)
       ansible.posix.mount:
         path: "{{ item.mount_point }}"
         state: unmounted
         fstype: nfs
       loop: "{{ nfs_mounts }}"
-      ignore_errors: true
+      ignore_errors: yes
 
     - name: Create mount points for NFS shares
       file:
@@ -29,9 +28,9 @@
         mode: '0755'
       loop: "{{ nfs_mounts }}"
 
-    - name: Mount NFS shares
+    - name: Mount NFS shares from management node
       ansible.posix.mount:
-        src: "{{ storage_ip }}:{{ item.remote_path }}"
+        src: "{{ nfs_server_ip }}:{{ item.remote_path }}"
         path: "{{ item.mount_point }}"
         fstype: nfs
         opts: "vers=4,rw,noatime,rsize=65536,wsize=65536"

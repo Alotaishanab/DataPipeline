@@ -1,19 +1,17 @@
----
 - name: Upload Protein Dataset to NFS Share
-  hosts: host
+  hosts: worker_inventory
   become: yes
   vars:
-    dataset_local_path: "/data/protein_dataset/uniref50.fasta.gz"
+    dataset_local_path: "/mnt/datasets/protein_dataset/uniref50.fasta.gz"
     dataset_download_url: "https://ftp.uniprot.org/pub/databases/uniprot/uniref/uniref50/uniref50.fasta.gz"
-    nfs_share: "/mnt/datasets"
   tasks:
-    - name: Ensure dataset directory exists locally
+    - name: Ensure dataset directory exists
       file:
         path: "{{ dataset_local_path | dirname }}"
         state: directory
         mode: '0755'
 
-    - name: Check if dataset file exists locally
+    - name: Check if dataset file exists
       stat:
         path: "{{ dataset_local_path }}"
       register: dataset_file
@@ -25,12 +23,7 @@
         mode: '0644'
       when: not dataset_file.stat.exists
 
-    - name: Fail if dataset file does not exist after download
+    - name: Fail if dataset file still does not exist
       fail:
-        msg: "Dataset file not found at {{ dataset_local_path }}."
+        msg: "Dataset file not found at {{ dataset_local_path }}. Please check the URL or manually place the file."
       when: not dataset_file.stat.exists
-
-    - name: Copy dataset to NFS share
-      copy:
-        src: "{{ dataset_local_path }}"
-        dest: "{{ nfs_share }}/"

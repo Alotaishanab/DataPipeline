@@ -1,22 +1,21 @@
----
 - name: Setup Symbolic Links for Application Data
-  hosts: all, localhost
+  hosts: localhost, worker_inventory
   become: yes
   tasks:
-    - name: Ensure parent directory for dataset symlink exists
+    - name: Ensure parent directory exists for application data
       file:
-        path: /home/almalinux/merizo_search/examples/database
+        path: /home/almalinux/merizo_search/examples/database/
         state: directory
         owner: almalinux
         group: almalinux
         mode: '0755'
         recurse: yes
 
-    - name: Create symbolic link for dataset file (example .pt file)
+    - name: Create symbolic link for the CATH Foldclass Database (.pt)
       file:
         src: /mnt/datasets/cath_foldclassdb/cath-4.3-foldclassdb.pt
         dest: /home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb.pt
         state: link
+        force: yes
         owner: almalinux
         group: almalinux
-        force: yes

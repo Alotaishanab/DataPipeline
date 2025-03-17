@@ -1,19 +1,34 @@
-- name: Mount Extra Disk on Worker Nodes
+- name: Partition, Format, and Mount Extra Disk on Worker Nodes
   hosts: worker_inventory
   become: yes
   tasks:
     - name: Ensure community.general collection is available
       ansible.builtin.meta: noop
 
-    - name: Create XFS filesystem on /dev/vdb if not present
+    - name: Partition /dev/vdb if not already partitioned
+      community.general.parted:
+        device: /dev/vdb
+        number: 1
+        state: present
+        part_type: primary
+        fs_type: xfs
+        align: optimal
+      register: partition_result
+
+    - name: Debug partition result
+      debug:
+        msg: "Partition result: {{ partition_result }}"
+
+    - name: Create XFS filesystem on /dev/vdb1 if not present
       community.general.filesystem:
-        dev: /dev/vdb
+        dev: /dev/vdb1
         fstype: xfs
+        force: yes
       register: fs_status
 
-    - name: Filesystem creation result
+    - name: Debug filesystem creation result
       debug:
-        msg: "Filesystem on /dev/vdb: {{ fs_status }}"
+        msg: "Filesystem on /dev/vdb1: {{ fs_status }}"
 
     - name: Create mount point for extra disk
       file:
@@ -21,9 +36,9 @@
         state: directory
         mode: '0755'
 
-    - name: Mount /dev/vdb on /mnt/data if not already mounted
+    - name: Mount /dev/vdb1 on /mnt/data if not already mounted
       mount:
         path: /mnt/data
-        src: /dev/vdb
+        src: /dev/vdb1
         fstype: xfs
         state: mounted

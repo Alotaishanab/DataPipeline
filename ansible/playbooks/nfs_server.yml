@@ -1,9 +1,8 @@
----
-- name: Configure NFS Server on Host
+- name: Configure NFS Server on Management Node
   hosts: localhost
   become: yes
   tasks:
-    - name: Install NFS utilities and rpcbind
+    - name: Ensure nfs-utils and rpcbind are installed
       yum:
         name:
           - nfs-utils
@@ -14,6 +13,7 @@
       yum:
         name: firewalld
         state: present
+      notify: reload firewalld
 
     - name: Start and enable firewalld
       systemd:
@@ -32,7 +32,7 @@
         - mountd
       notify: reload firewalld
 
-    - name: Start and enable rpcbind
+    - name: Start and enable rpcbind service
       systemd:
         name: rpcbind
         state: started
@@ -53,39 +53,47 @@
         fs_type: xfs
         part_start: "0%"
         part_end: "100%"
-      ignore_errors: true
+        force: true
 
-    - name: Create XFS filesystem on /dev/vdb1
+    - name: Create XFS filesystem on /dev/vdb1 (force if needed)
       community.general.filesystem:
         dev: /dev/vdb1
         fstype: xfs
-      ignore_errors: true
+        force: true
 
     - name: Create mount point for datasets
       file:
         path: /mnt/datasets
         state: directory
-        mode: '0755'
 
-    - name: Create mount point for results
-      file:
-        path: /mnt/results
-        state: directory
-        mode: '0755'
-
-    - name: Mount /dev/vdb1 on /mnt/datasets
+    - name: Mount the data partition on /mnt/datasets
       mount:
         path: /mnt/datasets
         src: /dev/vdb1
         fstype: xfs
         state: mounted
 
+    - name: Create mount point for results
+      file:
+        path: /mnt/results
+        state: directory
+
+    - name: Set permissions on datasets and results directories
+      file:
+        path: "{{ item }}"
+        owner: nfsnobody
+        group: nfsnobody
+        mode: '0777'
+      loop:
+        - /mnt/datasets
+        - /mnt/results
+
     - name: Configure NFS exports
       copy:
-        dest: /etc/exports
         content: |
           /mnt/datasets *(rw,sync,no_root_squash)
           /mnt/results *(rw,sync,no_root_squash)
+        dest: /etc/exports
         owner: root
         group: root
         mode: '0644'
