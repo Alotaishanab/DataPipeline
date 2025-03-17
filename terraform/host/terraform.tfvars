@@ -20,8 +20,5 @@ mgmt_vm_tags = {
   "condenser_ingress_webserver_hostname"       = "ucabbaa-webserver"
   "condenser_ingress_isAllowed"                = "true"
   "condenser_ingress_isEnabled"                = "true"
-  # Add the MinIO ingress tags:
-  "minio_ingress_hostname"                     = "ucabbaa-minio"
-  "minio_ingress_port"                         = "9090"
 }
 

@@ -1,0 +1,100 @@
+---
+- name: Configure NFS Server on Host
+  hosts: host
+  become: yes
+  tasks:
+    - name: Install NFS utilities and rpcbind
+      yum:
+        name:
+          - nfs-utils
+          - rpcbind
+        state: present
+
+    - name: Ensure firewalld is installed
+      yum:
+        name: firewalld
+        state: present
+
+    - name: Start and enable firewalld
+      systemd:
+        name: firewalld
+        state: started
+        enabled: yes
+
+    - name: Allow NFS related services in firewall
+      firewalld:
+        service: "{{ item }}"
+        state: enabled
+        permanent: yes
+      loop:
+        - nfs
+        - rpc-bind
+        - mountd
+      notify: reload firewalld
+
+    - name: Start and enable rpcbind
+      systemd:
+        name: rpcbind
+        state: started
+        enabled: yes
+
+    - name: Start and enable NFS server
+      systemd:
+        name: nfs-server
+        state: started
+        enabled: yes
+
+    - name: Partition /dev/vdb (if not already partitioned)
+      community.general.parted:
+        device: /dev/vdb
+        number: 1
+        state: present
+        part_type: primary
+        fs_type: xfs
+        part_start: "0%"
+        part_end: "100%"
+      ignore_errors: true
+
+    - name: Create XFS filesystem on /dev/vdb1
+      community.general.filesystem:
+        dev: /dev/vdb1
+        fstype: xfs
+      ignore_errors: true
+
+    - name: Create mount point for datasets
+      file:
+        path: /mnt/datasets
+        state: directory
+        mode: '0755'
+
+    - name: Create mount point for results
+      file:
+        path: /mnt/results
+        state: directory
+        mode: '0755'
+
+    - name: Mount /dev/vdb1 on /mnt/datasets
+      mount:
+        path: /mnt/datasets
+        src: /dev/vdb1
+        fstype: xfs
+        state: mounted
+
+    - name: Configure NFS exports
+      copy:
+        dest: /etc/exports
+        content: |
+          /mnt/datasets *(rw,sync,no_root_squash)
+          /mnt/results *(rw,sync,no_root_squash)
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Export NFS shares
+      command: exportfs -rav
+
+  handlers:
+    - name: reload firewalld
+      systemd:
+        name: firewalld
+        state: reloaded
