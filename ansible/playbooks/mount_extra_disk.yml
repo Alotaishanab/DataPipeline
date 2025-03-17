@@ -1,9 +1,13 @@
 - name: Partition, Format, and Mount Extra Disk on Worker Nodes
   hosts: worker_inventory
   become: yes
+  vars:
+    clean_minio_data: true  # Set to true to wipe the disk on fresh deployments
   tasks:
-    - name: Ensure community.general collection is available
-      ansible.builtin.meta: noop
+    - name: Wipe existing filesystem signatures from /dev/vdb
+      command: wipefs -a /dev/vdb
+      when: clean_minio_data | bool
+      ignore_errors: yes
 
     - name: Partition /dev/vdb if not already partitioned
       community.general.parted:
