@@ -1,6 +1,6 @@
 ---
-- name: Configure NFS Server on NFS Server Node
-  hosts: worker1
+- name: Configure NFS Server on Management Node
+  hosts: worker1  # Change this to whichever node you want to act as the NFS server
   become: yes
   vars:
     nfs_datasets_dir: "/mnt/datasets"
@@ -17,6 +17,7 @@
       yum:
         name: firewalld
         state: present
+      notify: reload_firewalld
 
     - name: Start and enable firewalld
       systemd:
@@ -46,6 +47,20 @@
         name: nfs-server
         state: started
         enabled: yes
+
+    # NEW TASKS: Ensure that the "nfsnobody" group and user exist.
+    - name: Ensure nfsnobody group exists
+      group:
+        name: nfsnobody
+        state: present
+
+    - name: Ensure nfsnobody user exists
+      user:
+        name: nfsnobody
+        group: nfsnobody
+        shell: /sbin/nologin
+        comment: "Anonymous NFS User"
+        state: present
 
     - name: Create export directory for datasets
       file:
