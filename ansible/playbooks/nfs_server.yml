@@ -53,13 +53,11 @@
         fs_type: xfs
         part_start: "0%"
         part_end: "100%"
-        force: true
 
     - name: Create XFS filesystem on /dev/vdb1 (force if needed)
       community.general.filesystem:
         dev: /dev/vdb1
         fstype: xfs
-        force: true
 
     - name: Create mount point for datasets
       file:
