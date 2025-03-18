@@ -7,5 +7,6 @@
     - name: Enable ufw
       ansible.builtin.shell: "echo y | ufw enable"
     - name: Allow traffic from cluster hosts
-      ansible.builtin.shell: "ufw allow from {{ item }}"
-      loop: "{{ query('inventory_hostnames', 'all') }}"
+      ansible.builtin.shell: "ufw allow from {{ hostvars[item].ansible_host }}"
+      loop: "{{ groups['worker_inventory'] }}"
+
