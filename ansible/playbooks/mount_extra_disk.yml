@@ -2,7 +2,7 @@
   hosts: worker_inventory
   become: yes
   vars:
-    clean_minio_data: true  # Set to true to wipe the disk on fresh deployments
+    clean_minio_data: true  # Set true to wipe the disk on fresh deployments
   tasks:
     - name: Unmount all partitions on /dev/vdb
       shell: "umount /dev/vdb* || true"
@@ -20,9 +20,9 @@
         state: present
         part_type: primary
         fs_type: xfs
-        align: optimal
+        part_start: "0%"
+        part_end: "100%"
       register: partition_result
-
 
     - name: Debug partition result
       debug:
