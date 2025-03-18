@@ -1,5 +1,5 @@
 - name: Install and configure spark
-  hosts: all
+  hosts: all, localhost
   tasks: 
   - name: Download spark .jar
     ansible.builtin.get_url:

@@ -1,6 +1,6 @@
 ---
 - name: Set up firewall
-  hosts: all
+  hosts: all, localhost
   become: true
   become_user: root
   tasks:

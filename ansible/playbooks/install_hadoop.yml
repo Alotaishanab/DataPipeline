@@ -1,5 +1,5 @@
 - name: Install and configure hadoop
-  hosts: all
+  hosts: all, localhost
   tasks: 
   - name: Download hadoop
     ansible.builtin.get_url:
