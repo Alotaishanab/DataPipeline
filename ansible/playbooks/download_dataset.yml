@@ -1,0 +1,36 @@
+---
+- name: Download and Upload Protein Dataset into HDFS
+  hosts: worker1
+  become: yes
+  vars:
+    dataset_local_path: "/mnt/datasets/uniref50.fasta.gz"
+    dataset_download_url: "https://ftp.uniprot.org/pub/databases/uniprot/uniref/uniref50/uniref50.fasta.gz"
+    hdfs_target_dir: "/user/almalinux/datasets"
+  tasks:
+    - name: Ensure local dataset directory exists
+      file:
+        path: "{{ dataset_local_path | dirname }}"
+        state: directory
+        mode: '0755'
+
+    - name: Download Protein Dataset if not present
+      get_url:
+        url: "{{ dataset_download_url }}"
+        dest: "{{ dataset_local_path }}"
+        mode: '0644'
+      when: not (lookup('file', dataset_local_path, errors='ignore') | bool)
+
+    - name: Fail if dataset file still does not exist after download
+      fail:
+        msg: "Dataset file not found at {{ dataset_local_path }}"
+      when: not (lookup('file', dataset_local_path, errors='ignore') | bool)
+
+    - name: Create HDFS target directory
+      ansible.builtin.shell: "hdfs dfs -mkdir -p {{ hdfs_target_dir }}"
+      args:
+        warn: false
+
+    - name: Upload Protein Dataset to HDFS
+      ansible.builtin.shell: "hdfs dfs -put -f {{ dataset_local_path }} {{ hdfs_target_dir }}/"
+      register: hdfs_put
+      changed_when: "'put' in hdfs_put.stdout"

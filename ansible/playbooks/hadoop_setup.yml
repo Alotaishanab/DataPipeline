@@ -1,0 +1,44 @@
+---
+- name: Install and configure Hadoop on Management Node
+  hosts: localhost
+  become: true
+  become_user: root
+  tasks:
+    - name: Create namenode directory
+      ansible.builtin.file:
+        path: /opt/hadoop_tmp/hdfs/namenode
+        state: directory
+
+    - name: Generate workers file from template
+      ansible.builtin.template:
+        src: files/workers.j2
+        dest: /home/almalinux/hadoop-3.4.0/etc/hadoop/workers
+
+- name: Install and configure Hadoop on Worker Nodes
+  hosts: worker_inventory
+  become: true
+  become_user: root
+  tasks:
+    - name: Create datanode directory
+      ansible.builtin.file:
+        path: /opt/hadoop_tmp/hdfs/datanode
+        state: directory
+
+- name: Finalise Hadoop Setup on Management Node
+  hosts: localhost
+  become: true
+  become_user: root
+  tasks:
+    - name: Format Hadoop cluster (namenode)
+      ansible.builtin.shell: "hdfs namenode -format"
+      args:
+        chdir: /home/almalinux/hadoop-3.4.0  
+
+    - name: Start HDFS (Distributed File System)
+      ansible.builtin.shell: "nohup ./sbin/start-dfs.sh &"
+      args:
+        chdir: /home/almalinux/hadoop-3.4.0  
+    - name: Start YARN (Resource Manager)
+      ansible.builtin.shell: "nohup ./sbin/start-yarn.sh &"
+      args:
+        chdir: /home/almalinux/hadoop-3.4.0  

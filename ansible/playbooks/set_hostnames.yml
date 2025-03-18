@@ -1,0 +1,20 @@
+---
+- name: Set Management Node Hostname (Localhost)
+  hosts: localhost
+  become: true
+  become_user: root
+  tasks:
+    - name: Set hostname for management node to "localhost"
+      ansible.builtin.hostname:
+        name: localhost
+        use: systemd
+
+- name: Set Worker Node Hostnames
+  hosts: worker_inventory
+  become: true
+  become_user: root
+  tasks:
+    - name: Set hostname for worker nodes
+      ansible.builtin.hostname:
+        name: "workernode{{ groups['worker_inventory'].index(inventory_hostname) + 1 }}"
+        use: systemd

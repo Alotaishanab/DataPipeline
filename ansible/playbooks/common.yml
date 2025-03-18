@@ -3,13 +3,18 @@
   hosts: all, localhost
   become: yes
   tasks:
+    - name: Install EPEL repository on RedHat-based systems
+      yum:
+        name: epel-release
+        state: present
+      when: ansible_os_family == "RedHat"
+
     - name: Update and upgrade packages on RedHat-based systems
       yum:
         name: "*"
         state: latest
       when: ansible_os_family == "RedHat"
 
-    # Install python3-wheel to satisfy dependency for python3-virtualenv
     - name: Install python3-wheel on RedHat-based systems
       yum:
         name: python3-wheel
