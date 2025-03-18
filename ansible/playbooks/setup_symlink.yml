@@ -1,8 +1,15 @@
+---
 - name: Setup Symbolic Links for Application Data
-  hosts: host, workers
+  hosts: host
   become: yes
   tasks:
-    - name: Create symbolic link for results directory
+    - name: Link datasets directory
+      file:
+        src: /mnt/datasets
+        dest: /var/www/html/datasets
+        state: link
+
+    - name: Link results directory
       file:
         src: /mnt/results
         dest: /var/www/html/results

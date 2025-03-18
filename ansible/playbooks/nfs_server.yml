@@ -1,11 +1,12 @@
-- name: Configure NFS Server on Management Node
-  hosts: localhost
+---
+- name: Configure NFS Server on NFS Server Node
+  hosts: worker1
   become: yes
   vars:
-    nfs_datasets: /mnt/data/datasets
-    nfs_results:   /mnt/data/results
+    nfs_datasets_dir: "/mnt/datasets"
+    nfs_results_dir: "/mnt/results"
   tasks:
-    - name: Ensure nfs-utils and rpcbind are installed
+    - name: Install NFS utilities and rpcbind
       yum:
         name:
           - nfs-utils
@@ -16,7 +17,6 @@
       yum:
         name: firewalld
         state: present
-      notify: reload firewalld
 
     - name: Start and enable firewalld
       systemd:
@@ -33,7 +33,7 @@
         - nfs
         - rpc-bind
         - mountd
-      notify: reload firewalld
+      notify: reload_firewalld
 
     - name: Start and enable rpcbind service
       systemd:
@@ -47,37 +47,37 @@
         state: started
         enabled: yes
 
-    - name: Create NFS share directory for datasets
+    - name: Create export directory for datasets
       file:
-        path: "{{ nfs_datasets }}"
+        path: "{{ nfs_datasets_dir }}"
         state: directory
         owner: nfsnobody
         group: nfsnobody
-        mode: "0777"
+        mode: '0777'
 
-    - name: Create NFS share directory for results
+    - name: Create export directory for results
       file:
-        path: "{{ nfs_results }}"
+        path: "{{ nfs_results_dir }}"
         state: directory
         owner: nfsnobody
         group: nfsnobody
-        mode: "0777"
+        mode: '0777'
 
     - name: Configure NFS exports
       copy:
         content: |
-          {{ nfs_datasets }} *(rw,sync,no_root_squash)
-          {{ nfs_results }} *(rw,sync,no_root_squash)
+          {{ nfs_datasets_dir }} *(rw,sync,no_root_squash)
+          {{ nfs_results_dir }} *(rw,sync,no_root_squash)
         dest: /etc/exports
         owner: root
         group: root
-        mode: "0644"
+        mode: '0644'
 
     - name: Export NFS shares
       command: exportfs -rav
 
   handlers:
-    - name: reload firewalld
+    - name: reload_firewalld
       systemd:
         name: firewalld
         state: reloaded
