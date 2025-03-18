@@ -1,5 +1,5 @@
 - name: Setup Symbolic Links for Application Data
-  hosts: localhost, worker_inventory
+  hosts: host, worker_inventory
   become: yes
   tasks:
     - name: Ensure parent directory exists for application data
@@ -11,11 +11,36 @@
         mode: '0755'
         recurse: yes
 
-    - name: Create symbolic link for the CATH Foldclass Database (.pt)
+    - name: Create symbolic link for .pt file
       file:
         src: /mnt/datasets/cath_foldclassdb/cath-4.3-foldclassdb.pt
         dest: /home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb.pt
         state: link
         force: yes
-        owner: almalinux
-        group: almalinux
+
+    - name: Verify symbolic link for .pt file
+      stat:
+        path: /home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb.pt
+      register: symlink_pt
+
+    - name: Fail if .pt symbolic link not created
+      fail:
+        msg: ".pt symbolic link not created"
+      when: not symlink_pt.stat.islnk
+
+    - name: Create symbolic link for .index file
+      file:
+        src: /mnt/datasets/cath_foldclassdb/cath-4.3-foldclassdb.index
+        dest: /home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb.index
+        state: link
+        force: yes
+
+    - name: Verify symbolic link for .index file
+      stat:
+        path: /home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb.index
+      register: symlink_index
+
+    - name: Fail if .index symbolic link not created
+      fail:
+        msg: ".index symbolic link not created"
+      when: not symlink_index.stat.islnk

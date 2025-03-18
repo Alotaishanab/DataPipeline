@@ -1,25 +1,39 @@
 - name: Configure NFS Server on Management Node
-  hosts: localhost
+  hosts: host
   become: yes
   tasks:
+    - name: Check if extra disk /dev/vdb exists
+      stat:
+        path: /dev/vdb
+      register: vdb_stat
+
+    - name: Skip NFS server configuration if extra disk not found
+      debug:
+        msg: "Extra disk /dev/vdb not found on management node. Skipping NFS server configuration."
+      when: not vdb_stat.stat.exists
+      tags: skip_nfs
+
     - name: Ensure nfs-utils and rpcbind are installed
       yum:
         name:
           - nfs-utils
           - rpcbind
         state: present
+      when: vdb_stat.stat.exists
 
     - name: Ensure firewalld is installed
       yum:
         name: firewalld
         state: present
-      notify: reload firewalld
+      when: vdb_stat.stat.exists
+      notify: reload_firewalld
 
     - name: Start and enable firewalld
       systemd:
         name: firewalld
         state: started
         enabled: yes
+      when: vdb_stat.stat.exists
 
     - name: Allow NFS related services in firewall
       firewalld:
@@ -30,53 +44,44 @@
         - nfs
         - rpc-bind
         - mountd
-      notify: reload firewalld
+      when: vdb_stat.stat.exists
+      notify: reload_firewalld
 
     - name: Start and enable rpcbind service
       systemd:
         name: rpcbind
         state: started
         enabled: yes
+      when: vdb_stat.stat.exists
 
     - name: Start and enable NFS server
       systemd:
         name: nfs-server
         state: started
         enabled: yes
+      when: vdb_stat.stat.exists
 
-    - name: Partition /dev/vdb (if not already partitioned)
-      community.general.parted:
-        device: /dev/vdb
-        number: 1
-        state: present
-        part_type: primary
-        fs_type: xfs
-        part_start: "0%"
-        part_end: "100%"
-
-    - name: Create XFS filesystem on /dev/vdb1 (force if needed)
-      community.general.filesystem:
-        dev: /dev/vdb1
-        fstype: xfs
-
-    - name: Create mount point for datasets
+    - name: (Optional) Create mount point for NFS datasets
       file:
         path: /mnt/datasets
         state: directory
+      when: vdb_stat.stat.exists
 
-    - name: Mount the data partition on /mnt/datasets
+    - name: (Optional) Mount /dev/vdb1 on /mnt/datasets for NFS
       mount:
         path: /mnt/datasets
         src: /dev/vdb1
         fstype: xfs
         state: mounted
+      when: vdb_stat.stat.exists
 
-    - name: Create mount point for results
+    - name: Create mount point for NFS results
       file:
         path: /mnt/results
         state: directory
+      when: vdb_stat.stat.exists
 
-    - name: Set permissions on datasets and results directories
+    - name: Set permissions on NFS directories
       file:
         path: "{{ item }}"
         owner: nfsnobody
@@ -85,6 +90,7 @@
       loop:
         - /mnt/datasets
         - /mnt/results
+      when: vdb_stat.stat.exists
 
     - name: Configure NFS exports
       copy:
@@ -95,12 +101,14 @@
         owner: root
         group: root
         mode: '0644'
+      when: vdb_stat.stat.exists
 
     - name: Export NFS shares
       command: exportfs -rav
+      when: vdb_stat.stat.exists
 
   handlers:
-    - name: reload firewalld
+    - name: reload_firewalld
       systemd:
         name: firewalld
         state: reloaded
