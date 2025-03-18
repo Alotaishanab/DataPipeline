@@ -21,6 +21,7 @@
         part_type: primary
         fs_type: xfs
         align: optimal
+      register: partition_result
 
 
     - name: Debug partition result
