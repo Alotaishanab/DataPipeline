@@ -1,9 +1,6 @@
 ---
 - import_playbook: common.yml                 # Your common configuration playbook
 - import_playbook: mount_extra_disk.yml         # Your disk mounting playbook (if still needed)
-- import_playbook: nfs_server.yml               # Set up NFS on the host (storage)
-- import_playbook: nfs_clients.yml              # Mount NFS shares on host and workers
-- import_playbook: setup_symlink.yml            # (Optional) Create symlinks for application data
 - import_playbook: install_esm.yml              # Setup ESM environment on host
 - import_playbook: upload_dataset_to_nfs.yml      # Upload dataset into the NFS share
 - import_playbook: monitoring_and_logging.yml     # Configure monitoring/logging

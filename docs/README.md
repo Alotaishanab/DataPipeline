@@ -109,3 +109,24 @@ Submit Before Deadline
 Ensure the complete project (code, report, and live system access) is submitted before 16:00 (UK time) on 28/04/2025.
 Verify that the infrastructure is accessible via the lecture key as required.
 This comprehensive, chronologically ordered bullet point plan provides a solid foundation for tackling the COMP0239 coursework challenge. It covers planning, infrastructure setup, framework selection, pipeline development, monitoring, benchmarking, and documentation to ensure a robust, scalable, and user-friendly distributed data analysis service.
+
+
+
+
+
+
+
+
+
+For a distributed data analysis service like yours—where you need to process large datasets continuously (e.g., for a 24‐hour capacity test), support fault tolerance, and allow non‐coding user submissions—the most proven and straightforward solution is to use Apache Spark on top of HDFS (Hadoop Distributed File System).
+
+Why HDFS?
+Mature & Proven: HDFS is designed to reliably store large volumes of data across multiple nodes with built-in replication and fault tolerance. It’s been used in many production environments for big data processing.
+Data Locality: HDFS integrates well with Spark; the data locality feature helps improve performance since Spark can run tasks on nodes where the data resides.
+Simplicity at Scale: For a relatively small cluster (5 machines), HDFS provides a unified storage namespace and is easier to set up than more complex systems like Ceph—while still delivering the robustness required for your coursework.
+Alternatives Considered
+MinIO: Offers a cloud-native, S3-compatible object storage approach. While it’s simpler to set up in distributed mode, object storage interfaces can introduce nuances (like eventual consistency and different I/O characteristics) that might complicate integration with traditional analytics pipelines.
+Ceph or GlusterFS: Both are powerful but can add unnecessary overhead and complexity for a small cluster where HDFS already meets your needs.
+Conclusion
+For your use case, pairing Apache Spark with HDFS is the best option. It’s widely supported, aligns well with the predictive analytics tools you plan to use, and has the performance and fault tolerance needed for continuous capacity testing.
+

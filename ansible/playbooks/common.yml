@@ -12,16 +12,33 @@
     - name: Install essential packages on RedHat-based systems
       yum:
         name:
-          - git
+          - glibc-langpack-en
           - vim
+          - emacs
+          - nano
+          - screen
+          - tmux
+          - net-tools
+          - bind-utils
+          - htop
+          - git
           - curl
           - wget
           - python3
           - python3-pip
           - python3-devel
+          - python3-virtualenv
           - pigz
           - firewalld
           - python3-firewall
+          - patch
+          - bzip2
+          - make
+          - nfs-utils
+          - links
+          - unzip
+          - ufw
+          - java-11-openjdk
         state: present
       when: ansible_os_family == "RedHat"
 
@@ -77,7 +94,30 @@
         name: httpd
         state: started
         enabled: yes
-  
+
+    - name: Set en-GB localization
+      shell: "localectl set-locale en_GB.UTF-8"
+
+    - name: Create hosts file from template
+      ansible.builtin.blockinfile:
+        block: "{{ lookup('template', 'files/hostfile.j2') }}"
+        dest: /etc/hosts
+        insertafter: "EOF"
+
+    - name: Add hadoop temporary directory
+      ansible.builtin.file:
+        path: /opt/hadoop_tmp
+        owner: almalinux
+        group: almalinux
+        state: directory
+
+    - name: Add HDFS directory
+      ansible.builtin.file:
+        path: /opt/hadoop_tmp/hdfs
+        owner: almalinux
+        group: almalinux
+        state: directory
+
   handlers:
     - name: reload firewalld
       systemd:

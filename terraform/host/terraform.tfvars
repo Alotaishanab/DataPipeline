@@ -13,12 +13,18 @@ mgmt_disk_size     = "10Gi"
 mgmt_vm_tags = {
   "condenser_ingress_prometheus_hostname"   = "ucabbaa-prometheus"
   "condenser_ingress_prometheus_port"         = "9090"
-  "condenser_ingress_grafana_hostname"         = "ucabbaa-grafana"
-  "condenser_ingress_grafana_port"             = "3000"
-  "condenser_ingress_nodeexporter_hostname"    = "ucabbaa-nodeexporter"
-  "condenser_ingress_nodeexporter_port"        = "9100"
-  "condenser_ingress_webserver_hostname"       = "ucabbaa-webserver"
-  "condenser_ingress_isAllowed"                = "true"
-  "condenser_ingress_isEnabled"                = "true"
+  "condenser_ingress_grafana_hostname"        = "ucabbaa-grafana"
+  "condenser_ingress_grafana_port"            = "3000"
+  "condenser_ingress_nodeexporter_hostname"   = "ucabbaa-nodeexporter"
+  "condenser_ingress_nodeexporter_port"       = "9100"
+  "condenser_ingress_webserver_hostname"      = "ucabbaa-webserver"
+  "condenser.ingress.hadoop_hostname"         = "ucabbaa-hadoop"
+  "condenser.ingress.hadoop_port"             = "9870"
+  "condenser.ingress.yarn_hostname"           = "ucabbaa-yarn"
+  "condenser.ingress.yarn_port"               = "8088"
+  "condenser_ingress_isAllowed"               = "true"
+  "condenser_ingress_isEnabled"               = "true"
 }
+
+
 
