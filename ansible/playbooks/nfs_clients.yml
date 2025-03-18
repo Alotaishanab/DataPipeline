@@ -1,5 +1,5 @@
 - name: Configure NFS Clients on Host and Worker VMs
-  hosts: localhost, workers
+  hosts: host, workers
   become: yes
   vars:
     storage_ip: "{{ hostvars['localhost']['ansible_default_ipv4']['address'] }}"  # Change as needed if storage is separate

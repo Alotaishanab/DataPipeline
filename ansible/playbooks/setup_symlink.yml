@@ -1,46 +1,9 @@
 - name: Setup Symbolic Links for Application Data
-  hosts: localhost, worker_inventory
+  hosts: host, workers
   become: yes
   tasks:
-    - name: Ensure parent directory exists for application data
+    - name: Create symbolic link for results directory
       file:
-        path: /home/almalinux/merizo_search/examples/database/
-        state: directory
-        owner: almalinux
-        group: almalinux
-        mode: '0755'
-        recurse: yes
-
-    - name: Create symbolic link for .pt file
-      file:
-        src: /mnt/datasets/cath_foldclassdb/cath-4.3-foldclassdb.pt
-        dest: /home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb.pt
+        src: /mnt/results
+        dest: /var/www/html/results
         state: link
-        force: yes
-
-    - name: Verify symbolic link for .pt file
-      stat:
-        path: /home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb.pt
-      register: symlink_pt
-
-    - name: Fail if .pt symbolic link not created
-      fail:
-        msg: ".pt symbolic link not created"
-      when: not symlink_pt.stat.islnk
-
-    - name: Create symbolic link for .index file
-      file:
-        src: /mnt/datasets/cath_foldclassdb/cath-4.3-foldclassdb.index
-        dest: /home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb.index
-        state: link
-        force: yes
-
-    - name: Verify symbolic link for .index file
-      stat:
-        path: /home/almalinux/merizo_search/examples/database/cath-4.3-foldclassdb.index
-      register: symlink_index
-
-    - name: Fail if .index symbolic link not created
-      fail:
-        msg: ".index symbolic link not created"
-      when: not symlink_index.stat.islnk
