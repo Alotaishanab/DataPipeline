@@ -1,5 +1,5 @@
 - name: Configure NFS Server on Management Node
-  hosts: host
+  hosts: localhost
   become: yes
   tasks:
     - name: Check if extra disk /dev/vdb exists

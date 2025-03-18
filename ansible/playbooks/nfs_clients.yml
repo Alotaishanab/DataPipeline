@@ -1,5 +1,5 @@
 - name: Configure NFS Clients on Host and Workers
-  hosts: host, worker_inventory
+  hosts: localhost, worker_inventory
   become: yes
   vars:
     storage_ip: "{{ hostvars['host']['ansible_host'] }}"

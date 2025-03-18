@@ -1,5 +1,5 @@
 - name: Setup Symbolic Links for Application Data
-  hosts: host, worker_inventory
+  hosts: localhost, worker_inventory
   become: yes
   tasks:
     - name: Ensure parent directory exists for application data
