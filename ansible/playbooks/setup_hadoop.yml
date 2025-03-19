@@ -11,8 +11,9 @@
 
     - name: Generate workers file from template
       ansible.builtin.template:
-        src: files/workers.j2
+        src: "../templates/workers.j2"
         dest: /home/almalinux/hadoop-3.4.0/etc/hadoop/workers
+
 
 - name: Install and configure Hadoop on Worker Nodes
   hosts: worker_inventory
