@@ -51,3 +51,4 @@
         src: /dev/vdb1
         fstype: xfs
         state: mounted
+        # Optionally, add: opts: defaults
