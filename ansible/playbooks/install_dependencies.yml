@@ -1,8 +1,18 @@
-- name: Ensure essential Packages on Control Node
+- name: Ensure Ansible Galaxy Dependencies and Essential Packages on Control Node
   hosts: localhost
   gather_facts: yes
   become: yes
   tasks:
+    - name: Check if community.general collection is installed
+      stat:
+        path: "{{ lookup('env','HOME') }}/.ansible/collections/ansible_collections/community/general"
+      register: community_collection
+
+    - name: Install community.general collection if not present
+      command: ansible-galaxy collection install community.general
+      when: not community_collection.stat.exists
+      register: collection_install
+
     - name: Install and Configure Alertmanager on Host
       import_role:
         name: alert_manager

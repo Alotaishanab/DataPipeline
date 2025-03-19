@@ -9,11 +9,12 @@
         state: present
       when: ansible_os_family == "RedHat"
 
-    - name: Update and upgrade packages on RedHat-based systems
+    - name: Update and upgrade packages on RedHat-based systems (Workers Only)
       yum:
         name: "*"
         state: latest
-      when: ansible_os_family == "RedHat"
+      when: ansible_os_family == "RedHat" and inventory_hostname in groups['worker_inventory']
+
 
     - name: Install essential packages on RedHat-based systems (excluding virtualenv)
       yum:
