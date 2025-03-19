@@ -1,28 +1,8 @@
-- name: Ensure Ansible Galaxy Dependencies and Essential Packages on Control Node
+- name: Ensure essential Packages on Control Node
   hosts: localhost
   gather_facts: yes
   become: yes
   tasks:
-    - name: Check if ricsanfre.minio role is installed in roles/
-      stat:
-        path: "./roles/ricsanfre.minio"
-      register: minio_role
-
-    - name: Install ricsanfre.minio role if not present
-      command: ansible-galaxy role install ricsanfre.minio -p ./roles
-      when: not minio_role.stat.exists
-      register: role_install
-
-    - name: Check if community.general collection is installed
-      stat:
-        path: "{{ lookup('env','HOME') }}/.ansible/collections/ansible_collections/community/general"
-      register: community_collection
-
-    - name: Install community.general collection if not present
-      command: ansible-galaxy collection install community.general
-      when: not community_collection.stat.exists
-      register: collection_install
-
     - name: Install and Configure Alertmanager on Host
       import_role:
         name: alert_manager
