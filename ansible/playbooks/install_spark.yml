@@ -1,12 +1,13 @@
-- name: Install and configure Spark
-  hosts: all, localhost
+- name: Install and configure Spark on Worker Nodes
+  hosts: worker_inventory
+  become: yes
   tasks:
     - name: Download Spark .tgz
       ansible.builtin.get_url:
         dest: /home/almalinux/spark.tgz
         url: "https://archive.apache.org/dist/spark/spark-3.5.3/spark-3.5.3-bin-hadoop3-scala2.13.tgz"
 
-    - name: Unpack tgz file
+    - name: Unpack Spark tgz file
       ansible.builtin.unarchive:
         dest: /home/almalinux/
         remote_src: true
