@@ -1,23 +1,18 @@
----
-- name: Setup ESM Pretrained Model Environment on worker1
-  hosts: worker1
+- name: Setup ESM Pretrained Model Environment on Worker Nodes
+  hosts: worker_inventory
   become: yes
-
   vars:
     esm_repo: "https://github.com/facebookresearch/esm.git"
     esm_dest: "/opt/esm"
-
     # CPU Torch Settings
     torch_version: "2.0.1+cpu"
     torch_url: "https://download.pytorch.org/whl/cpu/torch_stable.html"
-
     esm_model: "esm1b_t33_650M_UR50S"
-
   tasks:
     #########################################################################
     # 1) Prepare a Larger Directory for pip Temp and Cache
     #########################################################################
-    - name: Create a directory on a larger partition for pip temp/cache
+    - name: Create a directory on extra disk for pip temp/cache
       file:
         path: "/mnt/data/pip-tmp"
         state: directory
@@ -58,7 +53,7 @@
         path: "{{ esm_dest }}/requirements.txt"
       register: esm_req_file
 
-    - name: Remove any Torch lines if requirements.txt is present
+    - name: Remove any Torch lines from requirements.txt if present
       lineinfile:
         path: "{{ esm_dest }}/requirements.txt"
         regexp: '^torch==.*$'
@@ -71,7 +66,7 @@
         creates: "{{ esm_dest }}/venv"
 
     #########################################################################
-    # (Optional) Fix Python Symlinks if your environment sets python3->python2
+    # (Optional) Fix Python Symlinks if necessary
     #########################################################################
     - name: Remove incorrect python3 symlink (if any)
       file:
@@ -91,7 +86,7 @@
         state: link
 
     #########################################################################
-    # 3) Install ESM Dependencies (Minus Torch)
+    # 3) Install ESM Dependencies (Except Torch)
     #########################################################################
     - name: Install ESM dependencies (except Torch)
       pip:
@@ -101,7 +96,7 @@
       when: esm_req_file.stat.exists
 
     #########################################################################
-    # 4) Install CPU-only PyTorch with Enough Space
+    # 4) Install CPU-only PyTorch in the ESM virtual environment
     #########################################################################
     - name: Install CPU-only PyTorch in the ESM virtual environment
       pip:
