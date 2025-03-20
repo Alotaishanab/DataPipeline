@@ -1,4 +1,3 @@
----
 - name: Download and Upload Protein Dataset into HDFS
   hosts: worker1
   become: yes
@@ -13,17 +12,28 @@
         state: directory
         mode: '0755'
 
+    - name: Check if dataset file exists on remote host
+      stat:
+        path: "{{ dataset_local_path }}"
+      register: dataset_file
+
     - name: Download Protein Dataset if not present
-      get_url:
+      ansible.builtin.get_url:
         url: "{{ dataset_download_url }}"
         dest: "{{ dataset_local_path }}"
         mode: '0644'
-      when: not (lookup('file', dataset_local_path, errors='ignore') | bool)
+      when: not dataset_file.stat.exists
+      register: download_result
+
+    - name: Re-check if dataset file exists after download
+      stat:
+        path: "{{ dataset_local_path }}"
+      register: dataset_file_after
 
     - name: Fail if dataset file still does not exist after download
       fail:
         msg: "Dataset file not found at {{ dataset_local_path }}"
-      when: not (lookup('file', dataset_local_path, errors='ignore') | bool)
+      when: not dataset_file_after.stat.exists
 
     - name: Create HDFS target directory
       ansible.builtin.shell: "hdfs dfs -mkdir -p {{ hdfs_target_dir }}"
