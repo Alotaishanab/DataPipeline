@@ -1,16 +1,19 @@
+---
 - name: Install and configure Hadoop
   hosts: all, localhost
   become: yes
-  vars:
-    # Dynamically extract the management node's IP from localhost facts.
-    # IMPORTANT: Ensure this value is externally reachable from the workers.
-    mgmt_host: "{{ hostvars['localhost'].ansible_default_ipv4.address }}"
-  tasks: 
-    - name: Debug management node IP
-      debug:
-        msg: "The management node IP (mgmt_host) is: {{ mgmt_host }}"
 
-    - name: Download hadoop
+  # We just hardcode mgmtnode as our management node hostname,
+  # matching the "mgmtnode" entry in /etc/hosts from your hostfile.j2.
+  vars:
+    mgmt_host: "mgmtnode"
+
+  tasks:
+    - name: Debug management node hostname
+      debug:
+        msg: "The management node is set to: {{ mgmt_host }}"
+
+    - name: Download Hadoop
       ansible.builtin.get_url:
         dest: /home/almalinux/hadoop.tar.gz
         url: "https://dlcdn.apache.org/hadoop/common/hadoop-3.4.0/hadoop-3.4.0.tar.gz"
@@ -43,12 +46,8 @@
         marker: "<!-- {mark} ANSIBLE MANAGED BLOCK -->"
         block: |
           <property>
-              <name>fs.default.name</name>
-              <value>hdfs://{{ mgmt_host }}:9000/</value>
-          </property>
-          <property>
-              <name>fs.default.FS</name>
-              <value>hdfs://{{ mgmt_host }}:9000/</value>
+              <name>fs.defaultFS</name>
+              <value>hdfs://{{ mgmt_host }}:9000</value>
           </property>
         state: present
 
@@ -74,7 +73,7 @@
           </property>
           <property>
               <name>dfs.replication</name>
-              <value>2</value> <!-- For a 4-worker test cluster, 2 is sufficient -->
+              <value>2</value>
           </property>
         state: present
 

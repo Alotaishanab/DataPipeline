@@ -3,5 +3,8 @@
 {{ hostvars[node].ansible_default_ipv4.address | default(node) }} workernode{{ loop.index }}
 {% endfor %}
 
-# Management node (localhost)
-{{ hostvars['localhost'].ansible_default_ipv4.address | default('127.0.0.1') }} localhost
+# Management node
+{{ hostvars['localhost'].ansible_default_ipv4.address }} mgmtnode
+
+# Standard localhost line
+127.0.0.1 localhost
