@@ -1,10 +1,7 @@
----
 - name: Install and configure Hadoop
   hosts: all, localhost
   become: yes
 
-  # We just hardcode mgmtnode as our management node hostname,
-  # matching the "mgmtnode" entry in /etc/hosts from your hostfile.j2.
   vars:
     mgmt_host: "mgmtnode"
 
@@ -23,6 +20,25 @@
         dest: /home/almalinux/
         remote_src: true
         src: /home/almalinux/hadoop.tar.gz
+
+    - name: ✅ Create NameNode and DataNode directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: almalinux
+        group: almalinux
+        mode: '0755'
+        recurse: yes
+      loop:
+        - /opt/hadoop_tmp/hdfs/namenode
+        - /opt/hadoop_tmp/hdfs/datanode
+
+    - name: ✅ Set correct ownership on /opt/hadoop_tmp
+      ansible.builtin.file:
+        path: /opt/hadoop_tmp
+        owner: almalinux
+        group: almalinux
+        recurse: yes
 
     - name: Set hadoop environment in .bashrc
       ansible.builtin.blockinfile:
