@@ -3,8 +3,13 @@
   become: yes
   vars:
     # Dynamically extract the management node's IP from localhost facts.
+    # IMPORTANT: Ensure this value is externally reachable from the workers.
     mgmt_host: "{{ hostvars['localhost'].ansible_default_ipv4.address }}"
   tasks: 
+    - name: Debug management node IP
+      debug:
+        msg: "The management node IP (mgmt_host) is: {{ mgmt_host }}"
+
     - name: Download hadoop
       ansible.builtin.get_url:
         dest: /home/almalinux/hadoop.tar.gz
@@ -69,7 +74,7 @@
           </property>
           <property>
               <name>dfs.replication</name>
-              <value>2</value> <!-- Based on the number of workers you have -->
+              <value>2</value> <!-- For a 4-worker test cluster, 2 is sufficient -->
           </property>
         state: present
 
