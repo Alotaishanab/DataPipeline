@@ -1,12 +1,11 @@
 - name: Finalise Hadoop Setup on Management Node
   hosts: localhost
   become: true
-  become_user: almalinux
   vars:
     hadoop_home: "/home/almalinux/hadoop-3.4.0"
-  tasks:
 
-    - name: Ensure Hadoop logs directory exists and is writable
+  tasks:
+    - name: Fix ownership of Hadoop logs directory (run as root)
       ansible.builtin.file:
         path: "{{ hadoop_home }}/logs"
         state: directory
@@ -14,6 +13,14 @@
         group: almalinux
         mode: '0755'
 
+- name: Continue Hadoop Setup as almalinux
+  hosts: localhost
+  become: true
+  become_user: almalinux
+  vars:
+    hadoop_home: "/home/almalinux/hadoop-3.4.0"
+
+  tasks:
     - name: Format Hadoop cluster (namenode)
       ansible.builtin.shell: "{{ hadoop_home }}/bin/hdfs namenode -format -force"
       args:
