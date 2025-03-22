@@ -39,13 +39,10 @@
       when: not dataset_file_after.stat.exists
 
     - name: Create HDFS target directory
-      ansible.builtin.shell: "/home/almalinux/hadoop-3.4.0/bin/hdfs dfs -Dfs.defaultFS=hdfs://{{ mgmt_host }}:9000 -mkdir -p {{ hdfs_target_dir }}"
-      environment:
-        HADOOP_CONF_DIR: "/home/almalinux/hadoop-3.4.0/etc/hadoop"
+      ansible.builtin.shell: "/home/almalinux/hadoop-3.4.0/bin/hdfs --config /home/almalinux/hadoop-3.4.0/etc/hadoop dfs -mkdir -p {{ hdfs_target_dir }}"
+      # No need for extra environment here since --config forces the right config
 
     - name: Upload Protein Dataset to HDFS
-      ansible.builtin.shell: "/home/almalinux/hadoop-3.4.0/bin/hdfs dfs -Dfs.defaultFS=hdfs://{{ mgmt_host }}:9000 -put -f {{ dataset_local_path }} {{ hdfs_target_dir }}/"
-      environment:
-        HADOOP_CONF_DIR: "/home/almalinux/hadoop-3.4.0/etc/hadoop"
+      ansible.builtin.shell: "/home/almalinux/hadoop-3.4.0/bin/hdfs --config /home/almalinux/hadoop-3.4.0/etc/hadoop dfs -put -f {{ dataset_local_path }} {{ hdfs_target_dir }}/"
       register: hdfs_put
       changed_when: "'put' in hdfs_put.stdout"
