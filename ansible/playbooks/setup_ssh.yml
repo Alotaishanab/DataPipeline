@@ -1,4 +1,4 @@
-- name: Generate SSH key on mgmtnode
+- name: Generate SSH key on localhost
   hosts: localhost
   become: yes
   tasks:
@@ -19,10 +19,10 @@
     - name: Read public key
       slurp:
         src: /home/almalinux/.ssh/id_rsa.pub
-      register: mgmtnode_ssh_key
+      register: localhost_ssh_key
 
-- name: Distribute mgmtnode SSH key to all nodes
-  hosts: all, localhost
+- name: Distribute localhost SSH key to all nodes
+  hosts: all
   become: yes
   tasks:
     - name: Ensure ~/.ssh directory exists
@@ -33,7 +33,7 @@
         group: almalinux
         mode: '0700'
 
-    - name: Add mgmtnode SSH key to authorized_keys
+    - name: Add localhost SSH key to authorized_keys
       authorized_key:
         user: almalinux
-        key: "{{ hostvars['mgmtnode'].mgmtnode_ssh_key['content'] | b64decode }}"
+        key: "{{ hostvars['localhost'].localhost_ssh_key['content'] | b64decode }}"
