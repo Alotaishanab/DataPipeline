@@ -37,8 +37,7 @@
 
     - name: Create HDFS target directory
       ansible.builtin.shell: "hdfs dfs -mkdir -p {{ hdfs_target_dir }}"
-      args:
-        warn: false
+      
 
     - name: Upload Protein Dataset to HDFS
       ansible.builtin.shell: "hdfs dfs -put -f {{ dataset_local_path }} {{ hdfs_target_dir }}/"
