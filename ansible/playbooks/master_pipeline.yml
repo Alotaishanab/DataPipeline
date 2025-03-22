@@ -1,8 +1,8 @@
 ---
-#- import_playbook: common.yml                 # Your common configuration playbook
-#- import_playbook: mount_extra_disk.yml         # Your disk mounting playbook 
-#- import_playbook: set_hostnames.yml
-#- import_playbook: firewall.yml
+- import_playbook: common.yml                 # Your common configuration playbook
+- import_playbook: mount_extra_disk.yml         # Your disk mounting playbook 
+- import_playbook: set_hostnames.yml
+- import_playbook: firewall.yml
 - import_playbook: install_hadoop.yml
 - import_playbook: setup_hadoop.yml
 - import_playbook: install_spark.yml

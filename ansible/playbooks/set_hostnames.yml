@@ -1,12 +1,11 @@
----
-- name: Set Management Node Hostname (Localhost)
+- name: Set Management Node Hostname (mgmtnode)
   hosts: localhost
   become: true
   become_user: root
   tasks:
-    - name: Set hostname for management node to "localhost"
+    - name: Set hostname for management node to "mgmtnode"
       ansible.builtin.hostname:
-        name: localhost
+        name: mgmtnode
         use: systemd
 
 - name: Set Worker Node Hostnames
