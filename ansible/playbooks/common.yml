@@ -43,6 +43,7 @@
           - unzip
           - ufw
           - java-11-openjdk
+          - java-11-openjdk-devel
         state: present
       when: ansible_os_family == "RedHat"
 
