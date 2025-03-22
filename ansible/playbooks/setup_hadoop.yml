@@ -39,4 +39,17 @@
         PATH: "{{ hadoop_home }}/bin:{{ ansible_env.PATH }}"
 
     - name: Start YARN ResourceManager
-      ansible.builtin.shell: "nohup {{ hadoop_home }}/bin_
+      ansible.builtin.shell: "nohup {{ hadoop_home }}/bin/yarn resourcemanager > /tmp/resourcemanager.log 2>&1 &"
+      args:
+        chdir: "{{ hadoop_home }}"
+      environment:
+        JAVA_HOME: "/usr/lib/jvm/java-11-openjdk"
+        PATH: "{{ hadoop_home }}/bin:{{ ansible_env.PATH }}"
+
+    - name: Start YARN NodeManager
+      ansible.builtin.shell: "nohup {{ hadoop_home }}/bin/yarn nodemanager > /tmp/nodemanager.log 2>&1 &"
+      args:
+        chdir: "{{ hadoop_home }}"
+      environment:
+        JAVA_HOME: "/usr/lib/jvm/java-11-openjdk"
+        PATH: "{{ hadoop_home }}/bin:{{ ansible_env.PATH }}"
