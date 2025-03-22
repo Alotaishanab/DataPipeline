@@ -2,6 +2,9 @@
   hosts: worker1
   become: yes
   vars:
+    # Dynamically extract the management node's IP from localhost facts.
+    # Ensure this IP is externally reachable from the workers.
+    mgmt_host: "{{ hostvars['localhost'].ansible_default_ipv4.address }}"
     dataset_local_path: "/mnt/datasets/uniref50.fasta.gz"
     dataset_download_url: "https://ftp.uniprot.org/pub/databases/uniprot/uniref/uniref50/uniref50.fasta.gz"
     hdfs_target_dir: "/user/almalinux/datasets"
@@ -40,9 +43,8 @@
       environment:
         HADOOP_CONF_DIR: "/home/almalinux/hadoop-3.4.0/etc/hadoop"
 
-
     - name: Upload Protein Dataset to HDFS
-      ansible.builtin.shell: "/home/almalinux/hadoop-3.4.0/bin/hdfs dfs -put -f {{ dataset_local_path }} {{ hdfs_target_dir }}/"
+      ansible.builtin.shell: "/home/almalinux/hadoop-3.4.0/bin/hdfs dfs -Dfs.defaultFS=hdfs://{{ mgmt_host }}:9000 -put -f {{ dataset_local_path }} {{ hdfs_target_dir }}/"
       environment:
         HADOOP_CONF_DIR: "/home/almalinux/hadoop-3.4.0/etc/hadoop"
       register: hdfs_put
