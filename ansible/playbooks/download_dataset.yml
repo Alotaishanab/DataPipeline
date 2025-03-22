@@ -37,8 +37,12 @@
 
     - name: Create HDFS target directory
       ansible.builtin.shell: "/home/almalinux/hadoop-3.4.0/bin/hdfs dfs -mkdir -p {{ hdfs_target_dir }}"
+      environment:
+        HADOOP_CONF_DIR: "/home/almalinux/hadoop-3.4.0/etc/hadoop"
 
     - name: Upload Protein Dataset to HDFS
-      ansible.builtin.shell: "hdfs dfs -put -f {{ dataset_local_path }} {{ hdfs_target_dir }}/"
+      ansible.builtin.shell: "/home/almalinux/hadoop-3.4.0/bin/hdfs dfs -put -f {{ dataset_local_path }} {{ hdfs_target_dir }}/"
+      environment:
+        HADOOP_CONF_DIR: "/home/almalinux/hadoop-3.4.0/etc/hadoop"
       register: hdfs_put
       changed_when: "'put' in hdfs_put.stdout"
