@@ -1,10 +1,10 @@
 # Worker nodes
 {% for node in groups["worker_inventory"] %}
-{{ hostvars[node].ansible_default_ipv4.address | default(node) }} workernode{{ loop.index }}
+{{ hostvars[node].ansible_default_ipv4.address }} workernode{{ loop.index }}
 {% endfor %}
 
 # Management node
 {{ hostvars['localhost'].ansible_default_ipv4.address }} mgmtnode
 
-# Standard localhost line
+# Standard localhost
 127.0.0.1 localhost

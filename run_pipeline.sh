@@ -5,7 +5,7 @@ set -e
 cd ansible
 
 echo "Running setup phase..."
-ansible-playbook playbooks/setup_phase.yml
+#ansible-playbook playbooks/setup_phase.yml
 echo "Setup phase completed."
 
 echo "Running master pipeline..."

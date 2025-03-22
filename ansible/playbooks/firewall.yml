@@ -6,7 +6,15 @@
   tasks:
     - name: Enable ufw
       ansible.builtin.shell: "echo y | ufw enable"
-    - name: Allow traffic from cluster hosts
+
+    - name: Allow traffic from cluster hosts for default connectivity
       ansible.builtin.shell: "ufw allow from {{ hostvars[item].ansible_host }}"
       loop: "{{ groups['worker_inventory'] }}"
+      changed_when: false  # or remove if you prefer to see changes
+      # We add 'changed_when: false' so that enabling ufw each run won't always report changes
 
+    - name: Open port 9000 on mgmtnode for HDFS NameNode
+      ansible.builtin.shell: "ufw allow proto tcp from {{ hostvars[item].ansible_host }} to any port 9000"
+      loop: "{{ groups['worker_inventory'] }}"
+      when: inventory_hostname == 'mgmtnode'
+      changed_when: false
