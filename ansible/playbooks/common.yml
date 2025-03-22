@@ -1,4 +1,3 @@
----
 - name: Common Configuration for All Machines
   hosts: all, localhost
   become: yes
@@ -14,7 +13,6 @@
         name: "*"
         state: latest
       when: ansible_os_family == "RedHat" and inventory_hostname in groups['worker_inventory']
-
 
     - name: Install essential packages on RedHat-based systems (excluding virtualenv)
       yum:
@@ -110,12 +108,14 @@
     - name: Set en-GB localization
       shell: "localectl set-locale en_GB.UTF-8"
 
-    - name: Create hosts file from template
-      ansible.builtin.blockinfile:
-        block: "{{ lookup('template', '../templates/hostfile.j2') }}"
-        dest: /etc/hosts
-        insertafter: "EOF"
-
+    # REMOVE or comment out the old blockinfile approach and replace it with:
+    - name: Create /etc/hosts from template
+      ansible.builtin.template:
+        src: "../templates/hostfile.j2"
+        dest: "/etc/hosts"
+        owner: "root"
+        group: "root"
+        mode: "0644"
 
     - name: Add hadoop temporary directory
       ansible.builtin.file:
