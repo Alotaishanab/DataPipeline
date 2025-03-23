@@ -1,12 +1,13 @@
-- name: Continue Hadoop Setup as almalinux
+---
+- name: Finalize Hadoop Setup on Management Node
   hosts: localhost
-  become: true
+  become: yes
   become_user: almalinux
   vars:
     hadoop_home: "/home/almalinux/hadoop-3.4.0"
 
   tasks:
-    - name: 🔻 Stop existing NameNode if running
+    - name: Stop existing NameNode if running
       ansible.builtin.shell: |
         if [ -f /tmp/hadoop-almalinux-namenode.pid ]; then
           kill -9 $(cat /tmp/hadoop-almalinux-namenode.pid) || true
@@ -16,12 +17,12 @@
         executable: /bin/bash
       ignore_errors: true
 
-    - name: 🧹 Ensure PID file is removed
+    - name: Ensure PID file is removed
       ansible.builtin.file:
         path: /tmp/hadoop-almalinux-namenode.pid
         state: absent
 
-    - name: 🧱 Format Hadoop cluster (namenode)
+    - name: Format Hadoop cluster (namenode)
       ansible.builtin.shell: "{{ hadoop_home }}/bin/hdfs namenode -format -force"
       args:
         chdir: "{{ hadoop_home }}"
@@ -29,7 +30,7 @@
         JAVA_HOME: "/usr/lib/jvm/java-11-openjdk"
         PATH: "{{ hadoop_home }}/bin:{{ ansible_env.PATH }}"
 
-    - name: 🚀 Start NameNode directly (no SSH)
+    - name: Start NameNode
       ansible.builtin.shell: "nohup {{ hadoop_home }}/bin/hdfs namenode > /tmp/namenode.log 2>&1 &"
       args:
         chdir: "{{ hadoop_home }}"
@@ -37,7 +38,7 @@
         JAVA_HOME: "/usr/lib/jvm/java-11-openjdk"
         PATH: "{{ hadoop_home }}/bin:{{ ansible_env.PATH }}"
 
-    - name: 🚀 Start DataNode directly (no SSH)
+    - name: Start DataNode
       ansible.builtin.shell: "nohup {{ hadoop_home }}/bin/hdfs datanode > /tmp/datanode.log 2>&1 &"
       args:
         chdir: "{{ hadoop_home }}"
@@ -45,7 +46,7 @@
         JAVA_HOME: "/usr/lib/jvm/java-11-openjdk"
         PATH: "{{ hadoop_home }}/bin:{{ ansible_env.PATH }}"
 
-    - name: 🚀 Start YARN ResourceManager
+    - name: Start YARN ResourceManager
       ansible.builtin.shell: "nohup {{ hadoop_home }}/bin/yarn resourcemanager > /tmp/resourcemanager.log 2>&1 &"
       args:
         chdir: "{{ hadoop_home }}"
@@ -53,22 +54,15 @@
         JAVA_HOME: "/usr/lib/jvm/java-11-openjdk"
         PATH: "{{ hadoop_home }}/bin:{{ ansible_env.PATH }}"
 
-    - name: 🚀 Start YARN NodeManager
-      ansible.builtin.shell: "nohup {{ hadoop_home }}/bin/yarn nodemanager > /tmp/nodemanager.log 2>&1 &"
-      args:
-        chdir: "{{ hadoop_home }}"
-      environment:
-        JAVA_HOME: "/usr/lib/jvm/java-11-openjdk"
-        PATH: "{{ hadoop_home }}/bin:{{ ansible_env.PATH }}"
 
-
-- name: Start HDFS DataNode on worker nodes
+- name: Start Hadoop Services on Worker Nodes
   hosts: worker_inventory
   become: yes
   become_user: almalinux
   vars:
     hadoop_home: "/home/almalinux/hadoop-3.4.0"
     java_home: "/usr/lib/jvm/java-11-openjdk"
+
   tasks:
     - name: Start DataNode
       ansible.builtin.shell: "nohup {{ hadoop_home }}/bin/hdfs datanode > /tmp/datanode.log 2>&1 &"
@@ -78,3 +72,10 @@
         JAVA_HOME: "{{ java_home }}"
         PATH: "{{ hadoop_home }}/bin:{{ ansible_env.PATH }}"
 
+    - name: Start YARN NodeManager
+      ansible.builtin.shell: "nohup {{ hadoop_home }}/bin/yarn nodemanager > /tmp/nodemanager.log 2>&1 &"
+      args:
+        chdir: "{{ hadoop_home }}"
+      environment:
+        JAVA_HOME: "{{ java_home }}"
+        PATH: "{{ hadoop_home }}/bin:{{ ansible_env.PATH }}"
