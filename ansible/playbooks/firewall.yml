@@ -1,33 +1,32 @@
-- name: Set up firewall
-  hosts: all, localhost
+- name: Configure firewalld for Hadoop cluster
+  hosts: all
   become: true
-  become_user: root
 
   tasks:
-    - name: 🔐 Enable UFW (firewall)
-      ansible.builtin.shell: "echo y | ufw enable"
-      changed_when: false
-      failed_when: false
+    - name: Ensure firewalld is installed
+      ansible.builtin.yum:
+        name: firewalld
+        state: present
 
-    - name: 🔓 Allow traffic from cluster worker nodes
-      ansible.builtin.shell: "ufw allow from {{ hostvars[item].ansible_host }}"
-      loop: "{{ groups['worker_inventory'] }}"
-      when: hostvars[item].ansible_host is defined
-      changed_when: false
-      failed_when: false
+    - name: Ensure firewalld is started and enabled
+      ansible.builtin.service:
+        name: firewalld
+        state: started
+        enabled: true
 
-    - name: 🔓 Allow essential Hadoop and monitoring ports
-      ansible.builtin.shell: |
-        ufw allow 9000/tcp    # Hadoop Namenode RPC
-        ufw allow 9870/tcp    # Hadoop Web UI
-        ufw allow 8088/tcp    # YARN Web UI
-        ufw allow 3000/tcp    # Grafana
-        ufw allow 9090/tcp    # Prometheus
-        ufw allow 9100/tcp    # Node Exporter
-      changed_when: false
-      failed_when: false
-
-    - name: 🔁 Reload UFW to apply rules
-      ansible.builtin.shell: "ufw reload"
-      changed_when: false
-      failed_when: false
+    - name: Open Hadoop ports in firewalld (permanent)
+      ansible.posix.firewalld:
+        port: "{{ item }}/tcp"
+        permanent: true
+        state: enabled
+        immediate: yes
+      loop:
+        - 9000    # HDFS RPC
+        - 9870    # HDFS Web UI
+        - 8088    # YARN Web UI
+        - 8025    # ResourceManager tracker
+        - 8035    # ResourceManager scheduler
+        - 8050    # ResourceManager
+        - 3000    # Grafana
+        - 9090    # Prometheus
+        - 9100    # Node Exporter
