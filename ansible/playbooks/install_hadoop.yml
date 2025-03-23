@@ -23,6 +23,16 @@
         remote_src: true
         src: /home/almalinux/hadoop.tar.gz
 
+    # --- FIX: Ensure /home/almalinux/hadoop-3.4.0 is owned by 'almalinux' on all nodes
+    - name: Fix ownership of entire Hadoop installation
+      ansible.builtin.file:
+        path: /home/almalinux/hadoop-3.4.0
+        state: directory
+        owner: almalinux
+        group: almalinux
+        mode: '0755'
+        recurse: yes
+
     - name: ✅ Create NameNode and DataNode directories
       ansible.builtin.file:
         path: "{{ item }}"
@@ -141,7 +151,7 @@
 
     - name: Fix JAVA_HOME in hadoop-env.sh
       ansible.builtin.blockinfile:
-        path: /home/almalinux/hadoop-3.4.0/etc/hadoop/hadoop-env.sh 
+        path: /home/almalinux/hadoop-3.4.0/etc/hadoop/hadoop-env.sh
         insertafter: "# export JAVA_HOME="
         block: |
           export JAVA_HOME=$(readlink -f /usr/bin/java | sed "s:bin/java::")
