@@ -21,7 +21,22 @@
     hadoop_home: "/home/almalinux/hadoop-3.4.0"
 
   tasks:
-    - name: Format Hadoop cluster (namenode)
+    - name: 🔻 Stop existing NameNode if running
+      ansible.builtin.shell: |
+        if [ -f /tmp/hadoop-almalinux-namenode.pid ]; then
+          kill -9 $(cat /tmp/hadoop-almalinux-namenode.pid) || true
+          rm -f /tmp/hadoop-almalinux-namenode.pid
+        fi
+      args:
+        executable: /bin/bash
+      ignore_errors: true
+
+    - name: 🧹 Ensure PID file is removed
+      ansible.builtin.file:
+        path: /tmp/hadoop-almalinux-namenode.pid
+        state: absent
+
+    - name: 🧱 Format Hadoop cluster (namenode)
       ansible.builtin.shell: "{{ hadoop_home }}/bin/hdfs namenode -format -force"
       args:
         chdir: "{{ hadoop_home }}"
@@ -29,7 +44,7 @@
         JAVA_HOME: "/usr/lib/jvm/java-11-openjdk"
         PATH: "{{ hadoop_home }}/bin:{{ ansible_env.PATH }}"
 
-    - name: Start NameNode directly (no SSH)
+    - name: 🚀 Start NameNode directly (no SSH)
       ansible.builtin.shell: "nohup {{ hadoop_home }}/bin/hdfs namenode > /tmp/namenode.log 2>&1 &"
       args:
         chdir: "{{ hadoop_home }}"
@@ -37,7 +52,7 @@
         JAVA_HOME: "/usr/lib/jvm/java-11-openjdk"
         PATH: "{{ hadoop_home }}/bin:{{ ansible_env.PATH }}"
 
-    - name: Start DataNode directly (no SSH)
+    - name: 🚀 Start DataNode directly (no SSH)
       ansible.builtin.shell: "nohup {{ hadoop_home }}/bin/hdfs datanode > /tmp/datanode.log 2>&1 &"
       args:
         chdir: "{{ hadoop_home }}"
@@ -45,7 +60,7 @@
         JAVA_HOME: "/usr/lib/jvm/java-11-openjdk"
         PATH: "{{ hadoop_home }}/bin:{{ ansible_env.PATH }}"
 
-    - name: Start YARN ResourceManager
+    - name: 🚀 Start YARN ResourceManager
       ansible.builtin.shell: "nohup {{ hadoop_home }}/bin/yarn resourcemanager > /tmp/resourcemanager.log 2>&1 &"
       args:
         chdir: "{{ hadoop_home }}"
@@ -53,7 +68,7 @@
         JAVA_HOME: "/usr/lib/jvm/java-11-openjdk"
         PATH: "{{ hadoop_home }}/bin:{{ ansible_env.PATH }}"
 
-    - name: Start YARN NodeManager
+    - name: 🚀 Start YARN NodeManager
       ansible.builtin.shell: "nohup {{ hadoop_home }}/bin/yarn nodemanager > /tmp/nodemanager.log 2>&1 &"
       args:
         chdir: "{{ hadoop_home }}"
