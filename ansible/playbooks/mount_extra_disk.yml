@@ -3,6 +3,7 @@
   become: yes
   vars:
     clean_minio_data: true  # Set true to wipe the disk on fresh deployments
+
   tasks:
     - name: Unmount all partitions on /dev/vdb
       shell: "umount /dev/vdb* || true"
@@ -51,4 +52,12 @@
         src: /dev/vdb1
         fstype: xfs
         state: mounted
-        # Optionally, add: opts: defaults
+
+    # ---- New step: Fix ownership so 'almalinux' can write under /mnt/data ----
+    - name: Ensure /mnt/data is owned by almalinux
+      file:
+        path: /mnt/data
+        state: directory
+        owner: almalinux
+        group: almalinux
+        mode: '0755'
