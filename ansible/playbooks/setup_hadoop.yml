@@ -73,7 +73,10 @@
         path: /mnt/data/hdfs/datanode
         state: absent
 
+    # ↓↓↓ FIX: run this creation as root so we don't get permission denied
     - name: Re-create DataNode directory on large disk
+      become: yes         # override become_user: almalinux => actually root
+      become_user: root
       file:
         path: /mnt/data/hdfs/datanode
         state: directory
@@ -96,5 +99,6 @@
       environment:
         JAVA_HOME: "{{ java_home }}"
         PATH: "{{ hadoop_home }}/bin:{{ ansible_env.PATH }}"
+
 
 
