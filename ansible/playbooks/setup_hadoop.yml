@@ -77,25 +77,19 @@
         PATH: "{{ hadoop_home }}/bin:{{ ansible_env.PATH }}"
 
 
-- name: Start HDFS DataNode and YARN NodeManager on Worker Nodes
+- name: Start HDFS DataNode on worker nodes
   hosts: worker_inventory
   become: yes
   become_user: almalinux
   vars:
     hadoop_home: "/home/almalinux/hadoop-3.4.0"
+    java_home: "/usr/lib/jvm/java-11-openjdk"
   tasks:
-    - name: Start DataNode on worker node
+    - name: Start DataNode
       ansible.builtin.shell: "nohup {{ hadoop_home }}/bin/hdfs datanode > /tmp/datanode.log 2>&1 &"
       args:
         chdir: "{{ hadoop_home }}"
       environment:
-        JAVA_HOME: "/usr/lib/jvm/java-11-openjdk"
+        JAVA_HOME: "{{ java_home }}"
         PATH: "{{ hadoop_home }}/bin:{{ ansible_env.PATH }}"
 
-    - name: Start YARN NodeManager on worker node
-      ansible.builtin.shell: "nohup {{ hadoop_home }}/bin/yarn nodemanager > /tmp/nodemanager.log 2>&1 &"
-      args:
-        chdir: "{{ hadoop_home }}"
-      environment:
-        JAVA_HOME: "/usr/lib/jvm/java-11-openjdk"
-        PATH: "{{ hadoop_home }}/bin:{{ ansible_env.PATH }}"
