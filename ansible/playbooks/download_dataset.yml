@@ -1,22 +1,20 @@
 - name: Download and Upload Protein Dataset into HDFS
   hosts: worker1
   become: yes
+  become_user: almalinux
   vars:
-    # Dynamically extract the management node's IP from localhost facts.
-    # Ensure this IP is externally reachable from the workers.
-    mgmt_host: "{{ hostvars['localhost'].ansible_default_ipv4.address }}"
     dataset_local_path: "/mnt/datasets/uniref50.fasta.gz"
     dataset_download_url: "https://ftp.uniprot.org/pub/databases/uniprot/uniref/uniref50/uniref50.fasta.gz"
     hdfs_target_dir: "/user/almalinux/datasets"
   tasks:
     - name: Ensure local dataset directory exists
-      file:
+      ansible.builtin.file:
         path: "{{ dataset_local_path | dirname }}"
         state: directory
         mode: '0755'
 
     - name: Check if dataset file exists on remote host
-      stat:
+      ansible.builtin.stat:
         path: "{{ dataset_local_path }}"
       register: dataset_file
 
@@ -29,20 +27,25 @@
       register: download_result
 
     - name: Re-check if dataset file exists after download
-      stat:
+      ansible.builtin.stat:
         path: "{{ dataset_local_path }}"
       register: dataset_file_after
 
     - name: Fail if dataset file still does not exist after download
-      fail:
+      ansible.builtin.fail:
         msg: "Dataset file not found at {{ dataset_local_path }}"
       when: not dataset_file_after.stat.exists
 
     - name: Create HDFS target directory
       ansible.builtin.shell: "/home/almalinux/hadoop-3.4.0/bin/hdfs --config /home/almalinux/hadoop-3.4.0/etc/hadoop dfs -mkdir -p {{ hdfs_target_dir }}"
-      # No need for extra environment here since --config forces the right config
+      environment:
+        HADOOP_CONF_DIR: "/home/almalinux/hadoop-3.4.0/etc/hadoop"
+      become_user: almalinux
 
     - name: Upload Protein Dataset to HDFS
       ansible.builtin.shell: "/home/almalinux/hadoop-3.4.0/bin/hdfs --config /home/almalinux/hadoop-3.4.0/etc/hadoop dfs -put -f {{ dataset_local_path }} {{ hdfs_target_dir }}/"
+      environment:
+        HADOOP_CONF_DIR: "/home/almalinux/hadoop-3.4.0/etc/hadoop"
       register: hdfs_put
       changed_when: "'put' in hdfs_put.stdout"
+      become_user: almalinux
