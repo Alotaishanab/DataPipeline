@@ -51,5 +51,4 @@
         - 50075   # DataNode Web UI
 
     - name: Reload firewalld to apply changes
-      ansible.posix.firewalld:
-        state: reloaded
+      ansible.builtin.shell: "firewall-cmd --reload"
