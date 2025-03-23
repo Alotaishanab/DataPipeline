@@ -1,42 +1,55 @@
-- name: Configure firewalld for Cluster and Expose Required Ports
+- name: Configure firewall for Hadoop cluster and monitoring
   hosts: all, localhost
   become: true
+  become_user: root
   tasks:
     - name: Ensure firewalld is installed
       ansible.builtin.yum:
         name: firewalld
         state: present
-      when: ansible_os_family == "RedHat"
 
     - name: Ensure firewalld is started and enabled
       ansible.builtin.service:
         name: firewalld
         state: started
         enabled: true
-      when: ansible_os_family == "RedHat"
 
-    - name: Open required ports for Hadoop and Monitoring (permanent)
+    - name: Open Hadoop NameNode and YARN ports (permanent)
       ansible.posix.firewalld:
         port: "{{ item }}/tcp"
         permanent: true
         state: enabled
         immediate: yes
       loop:
-        - 9000    # HDFS RPC
-        - 9870    # HDFS Web UI
+        - 9000    # HDFS RPC (NameNode)
+        - 9870    # HDFS Web UI (NameNode)
         - 8088    # YARN Web UI
         - 8025    # ResourceManager tracker
         - 8035    # ResourceManager scheduler
         - 8050    # ResourceManager
+
+    - name: Open monitoring ports (permanent)
+      ansible.posix.firewalld:
+        port: "{{ item }}/tcp"
+        permanent: true
+        state: enabled
+        immediate: yes
+      loop:
         - 3000    # Grafana
         - 9090    # Prometheus
         - 9100    # Node Exporter
 
-    - name: (Optional) Allow traffic from cluster hosts via rich rules
-      ansible.builtin.shell: >
-        firewall-cmd --permanent --add-rich-rule='rule family="ipv4" source address="{{ hostvars[item].ansible_host }}" accept'
-      loop: "{{ groups['worker_inventory'] }}"
-      when: hostvars[item].ansible_host is defined
+    - name: Open DataNode ports (permanent)
+      ansible.posix.firewalld:
+        port: "{{ item }}/tcp"
+        permanent: true
+        state: enabled
+        immediate: yes
+      loop:
+        - 50010   # Data transfer
+        - 50020   # IPC
+        - 50075   # DataNode Web UI
 
     - name: Reload firewalld to apply changes
-      ansible.builtin.shell: "firewall-cmd --reload"
+      ansible.posix.firewalld:
+        state: reloaded
