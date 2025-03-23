@@ -4,6 +4,8 @@
 
   vars:
     mgmt_host: "mgmtnode"
+    namenode_http_port: 9870
+    yarn_rm_ui_port: 8088
 
   tasks:
     - name: Debug management node hostname
@@ -85,7 +87,7 @@
           </property>
           <property>
               <name>dfs.namenode.http-address</name>
-              <value>{{ mgmt_host }}:50070</value>
+              <value>0.0.0.0:{{ namenode_http_port }}</value>
           </property>
           <property>
               <name>dfs.replication</name>
@@ -110,6 +112,10 @@
           <property>
               <name>yarn.resourcemanager.address</name>
               <value>{{ mgmt_host }}:8050</value>
+          </property>
+          <property>
+              <name>yarn.resourcemanager.webapp.address</name>
+              <value>0.0.0.0:{{ yarn_rm_ui_port }}</value>
           </property>
           <property>
               <name>yarn.log-aggregation-enable</name>

@@ -1,12 +1,26 @@
----
 - name: Set up firewall
   hosts: all, localhost
   become: true
   become_user: root
+
   tasks:
     - name: Enable ufw
       ansible.builtin.shell: "echo y | ufw enable"
+      args:
+        warn: false
+
     - name: Allow traffic from cluster hosts
       ansible.builtin.shell: "ufw allow from {{ hostvars[item].ansible_host }}"
       loop: "{{ groups['worker_inventory'] }}"
 
+    - name: Allow essential Hadoop and monitoring ports
+      ansible.builtin.shell: |
+        ufw allow 9870/tcp    # Hadoop NameNode UI
+        ufw allow 8088/tcp    # YARN UI
+        ufw allow 3000/tcp    # Grafana
+        ufw allow 9090/tcp    # Prometheus
+        ufw allow 9100/tcp    # Node Exporter
+        ufw reload
+
+    - name: Reload UFW firewall to apply rules
+      ansible.builtin.shell: "ufw reload"
