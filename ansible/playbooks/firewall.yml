@@ -4,23 +4,30 @@
   become_user: root
 
   tasks:
-    - name: Enable ufw
+    - name: 🔐 Enable UFW (firewall)
       ansible.builtin.shell: "echo y | ufw enable"
-      args:
-        warn: false
+      changed_when: false
+      failed_when: false
 
-    - name: Allow traffic from cluster hosts
+    - name: 🔓 Allow traffic from cluster worker nodes
       ansible.builtin.shell: "ufw allow from {{ hostvars[item].ansible_host }}"
       loop: "{{ groups['worker_inventory'] }}"
+      when: hostvars[item].ansible_host is defined
+      changed_when: false
+      failed_when: false
 
-    - name: Allow essential Hadoop and monitoring ports
+    - name: 🔓 Allow essential Hadoop and monitoring ports
       ansible.builtin.shell: |
-        ufw allow 9870/tcp    # Hadoop NameNode UI
-        ufw allow 8088/tcp    # YARN UI
+        ufw allow 9000/tcp    # Hadoop Namenode RPC
+        ufw allow 9870/tcp    # Hadoop Web UI
+        ufw allow 8088/tcp    # YARN Web UI
         ufw allow 3000/tcp    # Grafana
         ufw allow 9090/tcp    # Prometheus
         ufw allow 9100/tcp    # Node Exporter
-        ufw reload
+      changed_when: false
+      failed_when: false
 
-    - name: Reload UFW firewall to apply rules
+    - name: 🔁 Reload UFW to apply rules
       ansible.builtin.shell: "ufw reload"
+      changed_when: false
+      failed_when: false
