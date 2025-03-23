@@ -1,4 +1,3 @@
----
 - name: Finalize Hadoop Setup on Management Node
   hosts: localhost
   become: yes
@@ -38,7 +37,7 @@
         JAVA_HOME: "/usr/lib/jvm/java-11-openjdk"
         PATH: "{{ hadoop_home }}/bin:{{ ansible_env.PATH }}"
 
-    - name: Start DataNode
+    - name: Start DataNode (if mgmtnode also a worker, else remove)
       ansible.builtin.shell: "nohup {{ hadoop_home }}/bin/hdfs datanode > /tmp/datanode.log 2>&1 &"
       args:
         chdir: "{{ hadoop_home }}"
@@ -55,6 +54,7 @@
         PATH: "{{ hadoop_home }}/bin:{{ ansible_env.PATH }}"
 
 
+
 - name: Start Hadoop Services on Worker Nodes
   hosts: worker_inventory
   become: yes
@@ -64,27 +64,23 @@
     java_home: "/usr/lib/jvm/java-11-openjdk"
 
   tasks:
-    # Step 1: Stop any existing DataNode (if it's running)
     - name: Stop any old DataNode
       ansible.builtin.shell: "pkill -f 'hdfs datanode' || true"
       ignore_errors: true
 
-    # Step 2: Remove old DataNode directory to avoid cluster ID conflicts
-    - name: Wipe old datanode data
+    - name: Wipe old DataNode data (fresh cluster)
       file:
-        path: /opt/hadoop_tmp/hdfs/datanode
+        path: /mnt/data/hdfs/datanode
         state: absent
 
-    # Step 3: Recreate empty DataNode directory with correct permissions
-    - name: Re-create datanode directory
+    - name: Re-create DataNode directory on large disk
       file:
-        path: /opt/hadoop_tmp/hdfs/datanode
+        path: /mnt/data/hdfs/datanode
         state: directory
         owner: almalinux
         group: almalinux
         mode: '0755'
 
-    # Step 4: Start DataNode
     - name: Start DataNode
       ansible.builtin.shell: "nohup {{ hadoop_home }}/bin/hdfs datanode > /tmp/datanode.log 2>&1 &"
       args:
@@ -93,7 +89,6 @@
         JAVA_HOME: "{{ java_home }}"
         PATH: "{{ hadoop_home }}/bin:{{ ansible_env.PATH }}"
 
-    # Step 5: Start YARN NodeManager
     - name: Start YARN NodeManager
       ansible.builtin.shell: "nohup {{ hadoop_home }}/bin/yarn nodemanager > /tmp/nodemanager.log 2>&1 &"
       args:
@@ -101,4 +96,5 @@
       environment:
         JAVA_HOME: "{{ java_home }}"
         PATH: "{{ hadoop_home }}/bin:{{ ansible_env.PATH }}"
+
 
