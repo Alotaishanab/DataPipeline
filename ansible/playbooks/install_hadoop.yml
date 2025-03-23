@@ -23,7 +23,7 @@
         remote_src: true
         src: /home/almalinux/hadoop.tar.gz
 
-    # --- FIX: Ensure /home/almalinux/hadoop-3.4.0 is owned by 'almalinux' on all nodes
+    # Ensure entire Hadoop installation is owned by almalinux
     - name: Fix ownership of entire Hadoop installation
       ansible.builtin.file:
         path: /home/almalinux/hadoop-3.4.0
@@ -33,18 +33,17 @@
         mode: '0755'
         recurse: yes
 
-    - name: ✅ Create NameNode and DataNode directories
+    # Create NameNode directory (only)
+    - name: ✅ Create NameNode directory
       ansible.builtin.file:
-        path: "{{ item }}"
+        path: /opt/hadoop_tmp/hdfs/namenode
         state: directory
         owner: almalinux
         group: almalinux
         mode: '0755'
         recurse: yes
-      loop:
-        - /opt/hadoop_tmp/hdfs/namenode
-        - /opt/hadoop_tmp/hdfs/datanode
 
+    # If you want to keep correct ownership on /opt/hadoop_tmp for NameNode
     - name: ✅ Set correct ownership on /opt/hadoop_tmp
       ansible.builtin.file:
         path: /opt/hadoop_tmp
@@ -85,11 +84,13 @@
         insertafter: "<configuration>"
         marker: "<!-- {mark} ANSIBLE MANAGED BLOCK -->"
         block: |
+          <!-- Point DataNode to /mnt/data/hdfs/datanode rather than /opt/hadoop_tmp -->
           <property>
               <name>dfs.datanode.data.dir</name>
-              <value>/opt/hadoop_tmp/hdfs/datanode</value>
+              <value>/mnt/data/hdfs/datanode</value>
               <final>true</final>
           </property>
+          <!-- Keep NameNode on /opt/hadoop_tmp if desired -->
           <property>
               <name>dfs.namenode.name.dir</name>
               <value>/opt/hadoop_tmp/hdfs/namenode</value>
