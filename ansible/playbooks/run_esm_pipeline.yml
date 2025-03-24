@@ -1,0 +1,37 @@
+- name: Run ESM Pipeline
+  hosts: localhost
+  become: yes
+  become_user: almalinux
+
+  vars:
+    # Where ESM is installed on each node:
+    esm_venv_path: "/opt/esm/venv"
+
+    # Local path to your Spark pipeline script
+    pipeline_local_source: "../scripts/run_pipeline.py"
+
+    # Remote path on mgmtnode
+    pipeline_remote_path: "/home/almalinux/run_pipeline.py"
+
+    # Adjust Python version to your actual system environment (3.9 is an example).
+    py_version: "3.9"
+
+  tasks:
+    - name: Copy pipeline code to mgmtnode
+      copy:
+        src: "{{ pipeline_local_source }}"
+        dest: "{{ pipeline_remote_path }}"
+        mode: '0755'
+
+    - name: Submit Spark job using ESM environment
+      shell: |
+        spark-submit \
+          --master yarn \
+          --deploy-mode cluster \
+          --conf "spark.yarn.appMasterEnv.PYSPARK_PYTHON={{ esm_venv_path }}/bin/python" \
+          --conf "spark.yarn.appMasterEnv.PYTHONPATH={{ esm_venv_path }}/lib/python{{ py_version }}/site-packages" \
+          --conf "spark.executorEnv.PYSPARK_PYTHON={{ esm_venv_path }}/bin/python" \
+          --conf "spark.executorEnv.PYTHONPATH={{ esm_venv_path }}/lib/python{{ py_version }}/site-packages" \
+          "{{ pipeline_remote_path }}"
+      args:
+        chdir: "/home/almalinux"
