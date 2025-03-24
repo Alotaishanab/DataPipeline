@@ -17,7 +17,7 @@
     - name: Open Hadoop NameNode and YARN ports (permanent)
       ansible.posix.firewalld:
         port: "{{ item }}/tcp"
-        permanent: true
+        permanent: yes
         state: enabled
         immediate: yes
       loop:
@@ -31,7 +31,7 @@
     - name: Open monitoring ports (permanent)
       ansible.posix.firewalld:
         port: "{{ item }}/tcp"
-        permanent: true
+        permanent: yes
         state: enabled
         immediate: yes
       loop:
@@ -42,13 +42,20 @@
     - name: Open DataNode ports (permanent)
       ansible.posix.firewalld:
         port: "{{ item }}/tcp"
-        permanent: true
+        permanent: yes
         state: enabled
         immediate: yes
       loop:
         - 50010   # Data transfer
         - 50020   # IPC
         - 50075   # DataNode Web UI
+
+    - name: Open ephemeral port range for NodeManager communication
+      ansible.posix.firewalld:
+        port: "32768-61000/tcp"
+        permanent: yes
+        state: enabled
+        immediate: yes
 
     - name: Reload firewalld to apply changes
       ansible.builtin.shell: "firewall-cmd --reload"
