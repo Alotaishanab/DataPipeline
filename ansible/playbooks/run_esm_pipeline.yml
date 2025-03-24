@@ -1,5 +1,4 @@
 - name: Run ESM Pipeline from a Worker Node
-  # Instead of 'hosts: localhost', we run on worker1 or a group that includes worker1
   hosts: worker1
   become: yes
   become_user: almalinux
@@ -9,7 +8,12 @@
     pipeline_local_source: "../scripts/run_pipeline.py"
     pipeline_remote_path: "/home/almalinux/run_pipeline.py"
     py_version: "3.9"
+
+    # Spark installed here
     spark_home: "/home/almalinux/spark-3.5.3-bin-hadoop3-scala2.13"
+
+    # Hadoop config directory
+    hadoop_conf_dir: "/home/almalinux/hadoop-3.4.0/etc/hadoop"  # Adjust if different
 
   tasks:
     - name: Copy pipeline code to worker1
@@ -30,3 +34,7 @@
           "{{ pipeline_remote_path }}"
       args:
         chdir: "/home/almalinux"
+      environment:
+        # Point to Hadoop/Yarn config directory so spark-submit can talk to YARN
+        HADOOP_CONF_DIR: "{{ hadoop_conf_dir }}"
+        YARN_CONF_DIR: "{{ hadoop_conf_dir }}"
