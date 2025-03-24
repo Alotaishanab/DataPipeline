@@ -16,9 +16,9 @@
     # Adjust Python version to your actual system environment (3.9 is an example).
     py_version: "3.9"
 
-    # Spark installation path (from your install_spark.yml)
+    # Absolute path to Spark's bin directory from your install_spark.yml
     spark_home: "/home/almalinux/spark-3.5.3-bin-hadoop3-scala2.13"
-    
+
   tasks:
     - name: Copy pipeline code to mgmtnode
       copy:
@@ -26,9 +26,9 @@
         dest: "{{ pipeline_remote_path }}"
         mode: '0755'
 
-    - name: Submit Spark job using ESM environment
+    - name: Submit Spark job using ESM environment (absolute path spark-submit)
       shell: |
-        spark-submit \
+        {{ spark_home }}/bin/spark-submit \
           --master yarn \
           --deploy-mode cluster \
           --conf "spark.yarn.appMasterEnv.PYSPARK_PYTHON={{ esm_venv_path }}/bin/python" \
@@ -38,5 +38,3 @@
           "{{ pipeline_remote_path }}"
       args:
         chdir: "/home/almalinux"
-      environment:
-        PATH: "{{ spark_home }}/bin:{{ ansible_env.PATH }}"
