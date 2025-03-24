@@ -1,19 +1,21 @@
-- name: Run ESM Pipeline from a Worker Node
+- name: Run ESM Pipeline from a Worker Node Asynchronously
   hosts: worker1
   become: yes
   become_user: almalinux
 
   vars:
+    # ESM virtual environment path
     esm_venv_path: "/opt/esm/venv"
+    # Local path to your Spark pipeline script
     pipeline_local_source: "../scripts/run_pipeline.py"
+    # Remote destination for the pipeline script
     pipeline_remote_path: "/home/almalinux/run_pipeline.py"
+    # Python version used in the virtual environment
     py_version: "3.9"
-
-    # Spark installed here
+    # Spark installation directory (adjust if necessary)
     spark_home: "/home/almalinux/spark-3.5.3-bin-hadoop3-scala2.13"
-
-    # Hadoop config directory
-    hadoop_conf_dir: "/home/almalinux/hadoop-3.4.0/etc/hadoop"  # Adjust if different
+    # Hadoop configuration directory containing core-site.xml, yarn-site.xml, etc.
+    hadoop_conf_dir: "/home/almalinux/hadoop-3.4.0/etc/hadoop"
 
   tasks:
     - name: Copy pipeline code to worker1
@@ -22,11 +24,12 @@
         dest: "{{ pipeline_remote_path }}"
         mode: '0755'
 
-    - name: Submit Spark job using ESM environment from worker1
+    - name: Submit Spark job asynchronously using ESM environment from worker1
       shell: |
         {{ spark_home }}/bin/spark-submit \
           --master yarn \
           --deploy-mode cluster \
+          --conf "spark.yarn.submit.waitAppCompletion=false" \
           --conf "spark.yarn.appMasterEnv.PYSPARK_PYTHON={{ esm_venv_path }}/bin/python" \
           --conf "spark.yarn.appMasterEnv.PYTHONPATH={{ esm_venv_path }}/lib/python{{ py_version }}/site-packages" \
           --conf "spark.executorEnv.PYSPARK_PYTHON={{ esm_venv_path }}/bin/python" \
@@ -35,6 +38,5 @@
       args:
         chdir: "/home/almalinux"
       environment:
-        # Point to Hadoop/Yarn config directory so spark-submit can talk to YARN
         HADOOP_CONF_DIR: "{{ hadoop_conf_dir }}"
         YARN_CONF_DIR: "{{ hadoop_conf_dir }}"
