@@ -2,19 +2,33 @@
   hosts: worker_inventory
   become: yes
   vars:
-    clean_minio_data: true  # Set true to wipe the disk on fresh deployments
+    clean_minio_data: true  # True => forcibly wipe and reformat, false => skip reformat if it's already good
 
   tasks:
-    - name: Unmount all partitions on /dev/vdb
-      shell: "umount /dev/vdb* || true"
+    #########################################################################
+    # 1) Ensure /mnt/data is unmounted if we plan to wipe
+    #########################################################################
+    - name: Unmount /mnt/data if mounted
+      ansible.builtin.mount:
+        path: /mnt/data
+        src: /dev/vdb1
+        state: unmounted
       ignore_errors: true
+      when: clean_minio_data | bool
+        # Only forcibly unmount if we plan to wipe. If false, we keep existing mount.
 
-    - name: Wipe existing filesystem signatures from /dev/vdb
-      command: wipefs -a /dev/vdb
+    #########################################################################
+    # 2) Optionally wipe existing filesystem signatures
+    #########################################################################
+    - name: Wipe existing filesystem signatures from /dev/vdb if forcibly desired
+      command: "wipefs -a /dev/vdb"
       when: clean_minio_data | bool
       ignore_errors: true
 
-    - name: Partition /dev/vdb if not already partitioned
+    #########################################################################
+    # 3) Partition /dev/vdb if not already partitioned
+    #########################################################################
+    - name: Partition /dev/vdb
       community.general.parted:
         device: /dev/vdb
         number: 1
@@ -29,31 +43,39 @@
       debug:
         msg: "Partition result: {{ partition_result }}"
 
-    - name: Create XFS filesystem on /dev/vdb1 if not present
+    #########################################################################
+    # 4) Create XFS filesystem on /dev/vdb1 if parted changed or forcibly reformat
+    #########################################################################
+    - name: Create XFS filesystem on /dev/vdb1
       community.general.filesystem:
         dev: /dev/vdb1
         fstype: xfs
         force: yes
-      register: fs_status
+      when: partition_result.changed or clean_minio_data | bool
+        # If we forcibly wipe (clean_minio_data), or parted actually changed.
 
-    - name: Debug filesystem creation result
-      debug:
-        msg: "Filesystem on /dev/vdb1: {{ fs_status }}"
-
+    #########################################################################
+    # 5) Create mount point
+    #########################################################################
     - name: Create mount point for extra disk
       file:
         path: /mnt/data
         state: directory
         mode: '0755'
 
-    - name: Mount /dev/vdb1 on /mnt/data if not already mounted
-      mount:
+    #########################################################################
+    # 6) Mount /dev/vdb1 on /mnt/data
+    #########################################################################
+    - name: Mount /dev/vdb1 on /mnt/data
+      ansible.builtin.mount:
         path: /mnt/data
         src: /dev/vdb1
         fstype: xfs
         state: mounted
 
-    # ---- New step: Fix ownership so 'almalinux' can write under /mnt/data ----
+    #########################################################################
+    # 7) Fix ownership so almalinux can write to /mnt/data
+    #########################################################################
     - name: Ensure /mnt/data is owned by almalinux
       file:
         path: /mnt/data
