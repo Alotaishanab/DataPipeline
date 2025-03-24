@@ -50,6 +50,13 @@
         - 50020   # IPC
         - 50075   # DataNode Web UI
 
+    - name: Open NodeManager Web UI port (permanent)
+      ansible.posix.firewalld:
+        port: "8042/tcp"
+        permanent: yes
+        state: enabled
+        immediate: yes
+
     - name: Open ephemeral port range for NodeManager communication
       ansible.posix.firewalld:
         port: "32768-61000/tcp"
