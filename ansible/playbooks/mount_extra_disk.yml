@@ -5,17 +5,17 @@
     clean_minio_data: false
 
   tasks:
-    - name: Check if /mnt/data is already mounted
-      stat:
-        path: /mnt/data
-      register: data_mount_stat
+    - name: Check if /mnt/data is already a mount
+      shell: "mountpoint -q /mnt/data"
+      register: mountpoint_result
+      changed_when: false
+      failed_when: false
 
     - name: Debug mount status
       debug:
-        msg: "Mount /mnt/data ismount={{ data_mount_stat.stat.ismount }}; forcibly wiping={{ clean_minio_data }}"
+        msg: "Mount /mnt/data is_mounted={{ (mountpoint_result.rc == 0) }} ; forcibly wiping={{ clean_minio_data }}"
 
-    # If you do want to forcibly wipe, forcibly unmount
-    - name: Kill processes & forcibly unmount if clean_minio_data
+    - name: Kill processes & forcibly unmount if we are wiping
       block:
         - name: Kill processes using /mnt/data
           shell: fuser -km /mnt/data || true
@@ -24,9 +24,9 @@
         - name: Lazy unmount /mnt/data
           shell: "umount -l /mnt/data || true"
           ignore_errors: true
-      when: data_mount_stat.stat.ismount and clean_minio_data
+      when: mountpoint_result.rc == 0 and clean_minio_data
 
-    - name: Wipe existing filesystem signatures if forcibly
+    - name: Wipe existing filesystem signatures from /dev/vdb if forcibly
       command: "wipefs -a /dev/vdb"
       when: clean_minio_data
       ignore_errors: true
@@ -42,20 +42,12 @@
         part_end: "100%"
       register: partition_result
 
-    - name: Debug partition result
-      debug:
-        msg: "Partition result: {{ partition_result }}"
-
-    # Only create filesystem if parted changed or forcibly reformat
-    # Also skip if it's currently mounted and we do NOT forcibly wipe
     - name: Create XFS filesystem
       community.general.filesystem:
         dev: /dev/vdb1
         fstype: xfs
         force: yes
-      when: >
-        (partition_result.changed or clean_minio_data) and
-        not (data_mount_stat.stat.ismount and not clean_minio_data)
+      when: (partition_result.changed or clean_minio_data) and not (mountpoint_result.rc == 0 and not clean_minio_data)
 
     - name: Create mount point
       file:
