@@ -1,32 +1,24 @@
-- name: Run ESM Pipeline
-  hosts: localhost
+- name: Run ESM Pipeline from a Worker Node
+  # Instead of 'hosts: localhost', we run on worker1 or a group that includes worker1
+  hosts: worker1
   become: yes
   become_user: almalinux
 
   vars:
-    # Where ESM is installed on each node:
     esm_venv_path: "/opt/esm/venv"
-
-    # Local path to your Spark pipeline script
     pipeline_local_source: "../scripts/run_pipeline.py"
-
-    # Remote path on mgmtnode
     pipeline_remote_path: "/home/almalinux/run_pipeline.py"
-
-    # Adjust Python version to your actual system environment (3.9 is an example).
     py_version: "3.9"
-
-    # Absolute path to Spark's bin directory from your install_spark.yml
     spark_home: "/home/almalinux/spark-3.5.3-bin-hadoop3-scala2.13"
 
   tasks:
-    - name: Copy pipeline code to mgmtnode
+    - name: Copy pipeline code to worker1
       copy:
         src: "{{ pipeline_local_source }}"
         dest: "{{ pipeline_remote_path }}"
         mode: '0755'
 
-    - name: Submit Spark job using ESM environment (absolute path spark-submit)
+    - name: Submit Spark job using ESM environment from worker1
       shell: |
         {{ spark_home }}/bin/spark-submit \
           --master yarn \
