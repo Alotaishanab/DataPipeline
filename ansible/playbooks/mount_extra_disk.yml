@@ -2,32 +2,35 @@
   hosts: worker_inventory
   become: yes
   vars:
-    clean_minio_data: true  # True => forcibly wipe and reformat, false => skip reformat if it's already good
+    clean_minio_data: false
 
   tasks:
-    #########################################################################
-    # 1) Ensure /mnt/data is unmounted if we plan to wipe
-    #########################################################################
-    - name: Unmount /mnt/data if mounted
-      ansible.builtin.mount:
+    - name: Check if /mnt/data is already mounted
+      stat:
         path: /mnt/data
-        src: /dev/vdb1
-        state: unmounted
-      ignore_errors: true
-      when: clean_minio_data | bool
-        # Only forcibly unmount if we plan to wipe. If false, we keep existing mount.
+      register: data_mount_stat
 
-    #########################################################################
-    # 2) Optionally wipe existing filesystem signatures
-    #########################################################################
-    - name: Wipe existing filesystem signatures from /dev/vdb if forcibly desired
+    - name: Debug mount status
+      debug:
+        msg: "Mount /mnt/data ismount={{ data_mount_stat.stat.ismount }}; forcibly wiping={{ clean_minio_data }}"
+
+    # If you do want to forcibly wipe, forcibly unmount
+    - name: Kill processes & forcibly unmount if clean_minio_data
+      block:
+        - name: Kill processes using /mnt/data
+          shell: fuser -km /mnt/data || true
+          ignore_errors: true
+
+        - name: Lazy unmount /mnt/data
+          shell: "umount -l /mnt/data || true"
+          ignore_errors: true
+      when: data_mount_stat.stat.ismount and clean_minio_data
+
+    - name: Wipe existing filesystem signatures if forcibly
       command: "wipefs -a /dev/vdb"
-      when: clean_minio_data | bool
+      when: clean_minio_data
       ignore_errors: true
 
-    #########################################################################
-    # 3) Partition /dev/vdb if not already partitioned
-    #########################################################################
     - name: Partition /dev/vdb
       community.general.parted:
         device: /dev/vdb
@@ -43,29 +46,23 @@
       debug:
         msg: "Partition result: {{ partition_result }}"
 
-    #########################################################################
-    # 4) Create XFS filesystem on /dev/vdb1 if parted changed or forcibly reformat
-    #########################################################################
-    - name: Create XFS filesystem on /dev/vdb1
+    # Only create filesystem if parted changed or forcibly reformat
+    # Also skip if it's currently mounted and we do NOT forcibly wipe
+    - name: Create XFS filesystem
       community.general.filesystem:
         dev: /dev/vdb1
         fstype: xfs
         force: yes
-      when: partition_result.changed or clean_minio_data | bool
-        # If we forcibly wipe (clean_minio_data), or parted actually changed.
+      when: >
+        (partition_result.changed or clean_minio_data) and
+        not (data_mount_stat.stat.ismount and not clean_minio_data)
 
-    #########################################################################
-    # 5) Create mount point
-    #########################################################################
-    - name: Create mount point for extra disk
+    - name: Create mount point
       file:
         path: /mnt/data
         state: directory
         mode: '0755'
 
-    #########################################################################
-    # 6) Mount /dev/vdb1 on /mnt/data
-    #########################################################################
     - name: Mount /dev/vdb1 on /mnt/data
       ansible.builtin.mount:
         path: /mnt/data
@@ -73,9 +70,6 @@
         fstype: xfs
         state: mounted
 
-    #########################################################################
-    # 7) Fix ownership so almalinux can write to /mnt/data
-    #########################################################################
     - name: Ensure /mnt/data is owned by almalinux
       file:
         path: /mnt/data
