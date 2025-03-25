@@ -26,12 +26,12 @@
         state: enabled
         immediate: yes
       loop:
-        - 9000    # HDFS RPC (NameNode)
-        - 9870    # HDFS Web UI (NameNode)
-        - 8088    # YARN Web UI
-        - 8025    # ResourceManager tracker
-        - 8035    # ResourceManager scheduler
-        - 8050    # ResourceManager
+        - 9000
+        - 9870
+        - 8088
+        - 8025
+        - 8035
+        - 8050
 
     - name: Open monitoring ports (permanent)
       ansible.posix.firewalld:
@@ -40,9 +40,9 @@
         state: enabled
         immediate: yes
       loop:
-        - 3000    # Grafana
-        - 9090    # Prometheus
-        - 9100    # Node Exporter
+        - 3000
+        - 9090
+        - 9100
 
     - name: Open DataNode ports (permanent)
       ansible.posix.firewalld:
@@ -51,9 +51,9 @@
         state: enabled
         immediate: yes
       loop:
-        - 50010   # Data transfer
-        - 50020   # IPC
-        - 50075   # DataNode Web UI
+        - 50010
+        - 50020
+        - 50075
 
     - name: Open NodeManager Web UI port (permanent)
       ansible.posix.firewalld:
@@ -71,3 +71,19 @@
 
     - name: Reload firewalld to apply changes
       ansible.builtin.shell: "firewall-cmd --reload"
+
+    ####################################################################
+    # 🔐 UFW Rules — only if UFW is installed and active
+    ####################################################################
+    - name: Check if UFW is installed
+      command: which ufw
+      register: ufw_exists
+      ignore_errors: true
+
+    - name: Allow ephemeral ports in UFW (for YARN executor comms)
+      ansible.builtin.command: ufw allow 32768:61000/tcp
+      when: ufw_exists.rc == 0
+
+    - name: Reload UFW
+      ansible.builtin.command: ufw reload
+      when: ufw_exists.rc == 0
