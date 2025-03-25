@@ -2,13 +2,12 @@
   hosts: worker1
   become: yes
   become_user: almalinux
-
   vars:
     # ESM virtual environment path
     esm_venv_path: "/opt/esm/venv"
-    # Local path to your Spark pipeline script
+    # Local path to your Spark pipeline script (relative to your ansible control machine)
     pipeline_local_source: "../scripts/run_pipeline.py"
-    # Remote destination for the pipeline script
+    # Remote destination for the pipeline script on worker1
     pipeline_remote_path: "/home/almalinux/run_pipeline.py"
     # Python version used in the virtual environment
     py_version: "3.9"
@@ -24,9 +23,17 @@
         dest: "{{ pipeline_remote_path }}"
         mode: '0755'
 
+    - name: Check if the pipeline file exists
+      stat:
+        path: "{{ pipeline_remote_path }}"
+      register: pipeline_file
+
+    - debug:
+        msg: "Pipeline file exists: {{ pipeline_file.stat.exists }}"
+
     - name: Submit Spark job asynchronously using ESM environment from worker1
       shell: |
-        {{ spark_home }}/bin/spark-submit --verbose \
+        {{ spark_home }}/bin/spark-submit \
           --master yarn \
           --deploy-mode cluster \
           --conf "spark.yarn.submit.waitAppCompletion=false" \
