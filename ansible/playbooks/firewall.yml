@@ -2,6 +2,7 @@
   hosts: all, localhost
   become: true
   become_user: root
+
   tasks:
     - name: Ensure firewalld is installed
       ansible.builtin.yum:
@@ -50,7 +51,7 @@
         - 50020   # IPC
         - 50075   # Web UI
 
-    - name: Open NodeManager Web UI port (permanent)
+    - name: Open NodeManager Web UI port (8042)
       ansible.posix.firewalld:
         port: "8042/tcp"
         permanent: yes
@@ -63,7 +64,6 @@
         permanent: yes
         state: enabled
         immediate: yes
-
 
     - name: Open ephemeral port range for YARN executor comms
       ansible.posix.firewalld:
@@ -86,6 +86,10 @@
 
     - name: Allow ephemeral ports in UFW (YARN executor comms)
       ansible.builtin.command: ufw allow 32768:61000/tcp
+      when: ufw_installed.rc == 0
+
+    - name: Allow NodeManager RPC port (8041) in UFW
+      ansible.builtin.command: ufw allow 8041/tcp
       when: ufw_installed.rc == 0
 
     - name: Reload UFW
