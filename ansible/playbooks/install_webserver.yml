@@ -1,5 +1,5 @@
 - name: Deploy Flask Upload UI
-  hosts: host
+  hosts: localhost
   become: yes
   vars:
     flask_ui_dir: /opt/data_pipeline/ui
