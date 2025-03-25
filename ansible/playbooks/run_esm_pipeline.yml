@@ -26,7 +26,7 @@
 
     - name: Submit Spark job asynchronously using ESM environment from worker1
       shell: |
-        {{ spark_home }}/bin/spark-submit \
+        {{ spark_home }}/bin/spark-submit --verbose \
           --master yarn \
           --deploy-mode cluster \
           --conf "spark.yarn.submit.waitAppCompletion=false" \
