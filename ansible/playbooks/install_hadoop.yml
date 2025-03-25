@@ -83,6 +83,7 @@
         path: /home/almalinux/hadoop-3.4.0/etc/hadoop/hdfs-site.xml
         insertafter: "<configuration>"
         marker: "<!-- {mark} ANSIBLE MANAGED BLOCK -->"
+        state: present
         block: |
           <!-- Point DataNode to /mnt/data/hdfs/datanode rather than /opt/hadoop_tmp -->
           <property>
@@ -104,7 +105,7 @@
               <name>dfs.replication</name>
               <value>2</value>
           </property>
-        state: present
+        
 
     - name: Configure yarn-site.xml
       ansible.builtin.blockinfile:
