@@ -1,217 +1,118 @@
----
-- name: Install and configure Flask UI for dataset uploads
-  hosts: localhost
+- name: Deploy Flask Upload UI
+  hosts: host
   become: yes
   vars:
-    flask_app_dir: "/opt/flask_ui"
-    flask_venv: "{{ flask_app_dir }}/venv"
-    flask_port: 5000
+    flask_ui_dir: /opt/data_pipeline/ui
+    flask_ui_script: /opt/data_pipeline/ui/upload_ui.py
+    flask_ui_port: 8080
+
   tasks:
-    - name: Ensure Python3 and pip are installed
-      ansible.builtin.yum:
+    - name: Install Flask and dependencies
+      pip:
         name:
-          - python3
-          - python3-pip
+          - flask
+          - flask_cors
         state: present
 
-    - name: Create Flask application directory
-      ansible.builtin.file:
-        path: "{{ flask_app_dir }}"
+    - name: Create Flask UI directory
+      file:
+        path: "{{ flask_ui_dir }}"
         state: directory
         owner: almalinux
         group: almalinux
         mode: '0755'
 
-    - name: Create a Python virtual environment for the Flask UI
-      ansible.builtin.command: python3 -m venv {{ flask_venv }}
-      args:
-        creates: "{{ flask_venv }}/bin/activate"
-
-    - name: Install Flask and Gunicorn in the virtual environment
-      ansible.builtin.pip:
-        virtualenv: "{{ flask_venv }}"
-        name:
-          - Flask
-          - gunicorn
-        state: present
-
-    - name: Create the templates directory for Flask app
-      ansible.builtin.file:
-        path: "{{ flask_app_dir }}/templates"
-        state: directory
-        owner: almalinux
-        group: almalinux
+    - name: Deploy upload_ui.py
+      copy:
+        dest: "{{ flask_ui_script }}"
         mode: '0755'
-
-    - name: Deploy the Flask application code
-      ansible.builtin.copy:
-        dest: "{{ flask_app_dir }}/app.py"
-        mode: '0644'
         content: |
-          from flask import Flask, request, render_template, jsonify
+          from flask import Flask, request, render_template_string, redirect, url_for
           import os
-          import time
+          from werkzeug.utils import secure_filename
 
           app = Flask(__name__)
-          app.config['UPLOAD_FOLDER'] = os.path.join(os.getcwd(), 'uploads')
-          if not os.path.exists(app.config['UPLOAD_FOLDER']):
-              os.makedirs(app.config['UPLOAD_FOLDER'])
+          UPLOAD_FOLDER = '/mnt/uploads'
+          app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-          @app.route('/')
-          def index():
-              return render_template('index.html')
+          os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-          @app.route('/upload', methods=['POST'])
-          def upload():
-              file = request.files.get('file')
-              if file:
-                  filepath = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
-                  file.save(filepath)
-                  # Here you could add processing logic; we simulate processing time
-                  time.sleep(2)
-                  return jsonify({'status': 'success', 'filename': file.filename})
-              return jsonify({'status': 'error', 'message': 'No file provided'}), 400
-
-          if __name__ == '__main__':
-              app.run(host='0.0.0.0', port={{ flask_port }})
-      notify: Restart Flask UI
-
-    - name: Deploy the Flask HTML template with a modern (Revolut–inspired) design and progress bar
-      ansible.builtin.copy:
-        dest: "{{ flask_app_dir }}/templates/index.html"
-        mode: '0644'
-        content: |
+          HTML_TEMPLATE = '''
           <!DOCTYPE html>
-          <html lang="en">
+          <html>
           <head>
-              <meta charset="UTF-8">
-              <meta name="viewport" content="width=device-width, initial-scale=1.0">
-              <title>Dataset Upload</title>
-              <style>
-                  body {
-                      font-family: Arial, sans-serif;
-                      background-color: #f4f4f4;
-                      margin: 0;
-                      padding: 0;
-                  }
-                  .container {
-                      max-width: 600px;
-                      margin: 50px auto;
-                      background: white;
-                      padding: 20px;
-                      border-radius: 8px;
-                      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-                  }
-                  h1 {
-                      text-align: center;
-                      color: #333;
-                  }
-                  .progress {
-                      position: relative;
-                      width: 100%;
-                      height: 20px;
-                      background: #ddd;
-                      border-radius: 10px;
-                      margin: 20px 0;
-                      display: none;
-                  }
-                  .progress-bar {
-                      position: absolute;
-                      left: 0;
-                      top: 0;
-                      height: 100%;
-                      background: #007bff;
-                      width: 0%;
-                      border-radius: 10px;
-                      transition: width 0.4s;
-                  }
-                  button {
-                      padding: 10px 20px;
-                      background-color: #007bff;
-                      color: white;
-                      border: none;
-                      border-radius: 5px;
-                      cursor: pointer;
-                  }
-                  button:hover {
-                      background-color: #0056b3;
-                  }
-              </style>
+            <title>Upload Dataset</title>
+            <style>
+              body { font-family: sans-serif; background: #f7f8fa; margin: 0; padding: 0; }
+              .container { max-width: 500px; margin: 80px auto; background: white; padding: 40px; box-shadow: 0 0 12px rgba(0,0,0,0.1); border-radius: 12px; }
+              h2 { color: #111; }
+              input[type=file] { width: 100%; padding: 10px; }
+              input[type=submit] { margin-top: 20px; background: #0053f0; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; }
+              .status { margin-top: 20px; color: green; font-weight: bold; }
+            </style>
           </head>
           <body>
-              <div class="container">
-                  <h1>Upload Your Dataset</h1>
-                  <form id="uploadForm" enctype="multipart/form-data">
-                      <input type="file" name="file" id="fileInput" required><br><br>
-                      <button type="submit">Upload</button>
-                  </form>
-                  <div class="progress" id="progressContainer">
-                      <div class="progress-bar" id="progressBar"></div>
-                  </div>
-                  <div id="result"></div>
-              </div>
-              <script>
-                  const form = document.getElementById('uploadForm');
-                  const progressContainer = document.getElementById('progressContainer');
-                  const progressBar = document.getElementById('progressBar');
-                  const resultDiv = document.getElementById('result');
-
-                  form.addEventListener('submit', function(e) {
-                      e.preventDefault();
-                      const fileInput = document.getElementById('fileInput');
-                      if (!fileInput.files[0]) {
-                          alert("Please select a file to upload.");
-                          return;
-                      }
-                      const formData = new FormData();
-                      formData.append('file', fileInput.files[0]);
-
-                      const xhr = new XMLHttpRequest();
-                      xhr.open('POST', '/upload', true);
-                      xhr.upload.onprogress = function(e) {
-                          if (e.lengthComputable) {
-                              const percentComplete = (e.loaded / e.total) * 100;
-                              progressContainer.style.display = 'block';
-                              progressBar.style.width = percentComplete + '%';
-                          }
-                      };
-                      xhr.onload = function() {
-                          if (xhr.status === 200) {
-                              resultDiv.innerHTML = 'Upload successful: ' + xhr.responseText;
-                          } else {
-                              resultDiv.innerHTML = 'Upload failed: ' + xhr.responseText;
-                          }
-                          progressContainer.style.display = 'none';
-                      };
-                      xhr.send(formData);
-                  });
-              </script>
+            <div class="container">
+              <h2>Upload Your Dataset</h2>
+              <form method="POST" enctype="multipart/form-data">
+                <input type="file" name="file">
+                <input type="submit" value="Upload">
+              </form>
+              {% if filename %}
+              <div class="status">Uploaded: {{ filename }}</div>
+              {% endif %}
+            </div>
           </body>
-          </html>
-      notify: Restart Flask UI
+          </html>'''
+
+          @app.route('/', methods=['GET', 'POST'])
+          def upload():
+              filename = None
+              if request.method == 'POST':
+                  f = request.files['file']
+                  if f:
+                      filename = secure_filename(f.filename)
+                      f.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+              return render_template_string(HTML_TEMPLATE, filename=filename)
+
+          if __name__ == '__main__':
+              app.run(host='0.0.0.0', port={{ flask_ui_port }})
 
     - name: Create systemd service for Flask UI
-      ansible.builtin.copy:
-        dest: /etc/systemd/system/flask_ui.service
+      copy:
+        dest: /etc/systemd/system/flask_upload_ui.service
         mode: '0644'
         content: |
           [Unit]
-          Description=Flask UI for Dataset Upload
+          Description=Flask Upload UI
           After=network.target
 
           [Service]
+          Type=simple
           User=almalinux
-          WorkingDirectory={{ flask_app_dir }}
-          ExecStart={{ flask_venv }}/bin/gunicorn --bind 0.0.0.0:{{ flask_port }} app:app
+          WorkingDirectory={{ flask_ui_dir }}
+          ExecStart=/usr/bin/python3 {{ flask_ui_script }}
           Restart=always
 
           [Install]
           WantedBy=multi-user.target
-      notify: Restart Flask UI
 
-  handlers:
-    - name: Restart Flask UI
-      ansible.builtin.systemd:
-        name: flask_ui.service
-        state: restarted
+    - name: Start and enable Flask Upload UI
+      systemd:
+        name: flask_upload_ui
+        state: started
         enabled: yes
+
+    - name: Allow port 8080 in firewalld for UI
+      firewalld:
+        port: 8080/tcp
+        permanent: yes
+        state: enabled
+        immediate: yes
+      when: ansible_service_mgr == 'systemd'
+
+    - name: Reload firewalld for UI
+      service:
+        name: firewalld
+        state: reloaded
+      when: ansible_service_mgr == 'systemd'
