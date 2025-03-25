@@ -14,6 +14,14 @@
           - flask_cors
         state: present
 
+    - name: Ensure /mnt/uploads exists and is owned by almalinux
+      ansible.builtin.file:
+        path: /mnt/uploads
+        state: directory
+        owner: almalinux
+        group: almalinux
+        mode: '0775'
+
     - name: Create Flask UI directory
       file:
         path: "{{ flask_ui_dir }}"

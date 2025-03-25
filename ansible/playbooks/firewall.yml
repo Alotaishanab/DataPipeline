@@ -51,6 +51,18 @@
         - 50020   # IPC
         - 50075   # Web UI
 
+    - name: Open port 8080/tcp for Flask Upload UI
+      ansible.posix.firewalld:
+        port: 8080/tcp
+        permanent: yes
+        state: enabled
+        immediate: yes
+
+    - name: Allow port 8080/tcp in UFW (if needed)
+      ansible.builtin.command: ufw allow 8080/tcp
+      when: ufw_installed.rc == 0
+
+
     - name: Open NodeManager Web UI port (8042)
       ansible.posix.firewalld:
         port: "8042/tcp"
