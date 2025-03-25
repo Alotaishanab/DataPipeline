@@ -3,7 +3,7 @@
   become: yes
   vars:
     flask_ui_dir: /opt/data_pipeline/ui
-    flask_ui_script: /opt/data_pipeline/ui/upload_ui.py
+    flask_ui_script: /opt/data_pipeline/ui/upload_dataset.py
     flask_ui_port: 8080
 
   tasks:
@@ -22,61 +22,13 @@
         group: almalinux
         mode: '0755'
 
-    - name: Deploy upload_ui.py
+    - name: Deploy upload_dataset.py
       copy:
+        src: ../scripts/upload_dataset.py
         dest: "{{ flask_ui_script }}"
         mode: '0755'
-        content: |
-          from flask import Flask, request, render_template_string, redirect, url_for
-          import os
-          from werkzeug.utils import secure_filename
-
-          app = Flask(__name__)
-          UPLOAD_FOLDER = '/mnt/uploads'
-          app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-
-          os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
-          HTML_TEMPLATE = '''
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <title>Upload Dataset</title>
-            <style>
-              body { font-family: sans-serif; background: #f7f8fa; margin: 0; padding: 0; }
-              .container { max-width: 500px; margin: 80px auto; background: white; padding: 40px; box-shadow: 0 0 12px rgba(0,0,0,0.1); border-radius: 12px; }
-              h2 { color: #111; }
-              input[type=file] { width: 100%; padding: 10px; }
-              input[type=submit] { margin-top: 20px; background: #0053f0; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; }
-              .status { margin-top: 20px; color: green; font-weight: bold; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <h2>Upload Your Dataset</h2>
-              <form method="POST" enctype="multipart/form-data">
-                <input type="file" name="file">
-                <input type="submit" value="Upload">
-              </form>
-              {% if filename %}
-              <div class="status">Uploaded: {{ filename }}</div>
-              {% endif %}
-            </div>
-          </body>
-          </html>'''
-
-          @app.route('/', methods=['GET', 'POST'])
-          def upload():
-              filename = None
-              if request.method == 'POST':
-                  f = request.files['file']
-                  if f:
-                      filename = secure_filename(f.filename)
-                      f.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-              return render_template_string(HTML_TEMPLATE, filename=filename)
-
-          if __name__ == '__main__':
-              app.run(host='0.0.0.0', port={{ flask_ui_port }})
+        owner: almalinux
+        group: almalinux
 
     - name: Create systemd service for Flask UI
       copy:
