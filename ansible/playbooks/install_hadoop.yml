@@ -132,7 +132,24 @@
               <name>yarn.log-aggregation-enable</name>
               <value>true</value>
           </property>
-        state: present
+          <property>
+              <name>yarn.nodemanager.aux-services</name>
+              <value>mapreduce_shuffle</value>
+          </property>
+          <property>
+              <name>yarn.nodemanager.aux-services.mapreduce.shuffle.class</name>
+              <value>org.apache.hadoop.mapred.ShuffleHandler</value>
+          </property>
+          <property>
+              <name>yarn.nodemanager.webapp.address</name>
+              <value>0.0.0.0:8042</value>
+          </property>
+          <property>
+              <name>yarn.nodemanager.address</name>
+              <value>0.0.0.0:8041</value>
+          </property>
+      state: present
+
 
     - name: Configure mapred-site.xml
       ansible.builtin.blockinfile:
