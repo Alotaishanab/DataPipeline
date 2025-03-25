@@ -23,7 +23,6 @@
         remote_src: true
         src: /home/almalinux/hadoop.tar.gz
 
-    # Ensure entire Hadoop installation is owned by almalinux
     - name: Fix ownership of entire Hadoop installation
       ansible.builtin.file:
         path: /home/almalinux/hadoop-3.4.0
@@ -33,8 +32,7 @@
         mode: '0755'
         recurse: yes
 
-    # Create NameNode directory (only)
-    - name: ✅ Create NameNode directory
+    - name: Create NameNode directory
       ansible.builtin.file:
         path: /opt/hadoop_tmp/hdfs/namenode
         state: directory
@@ -43,8 +41,7 @@
         mode: '0755'
         recurse: yes
 
-    # If you want to keep correct ownership on /opt/hadoop_tmp for NameNode
-    - name: ✅ Set correct ownership on /opt/hadoop_tmp
+    - name: Set correct ownership on /opt/hadoop_tmp
       ansible.builtin.file:
         path: /opt/hadoop_tmp
         owner: almalinux
@@ -54,6 +51,7 @@
     - name: Set hadoop environment in .bashrc
       ansible.builtin.blockinfile:
         path: /home/almalinux/.bashrc
+        state: present
         block: |
           export JAVA_HOME=$(readlink -f /usr/bin/java | sed "s:bin/java::")
           export HADOOP_HOME=/home/almalinux/hadoop-3.4.0
@@ -64,19 +62,18 @@
           export HADOOP_OPTS="-Djava.library.path=$HADOOP_HOME/lib/native"
           export HADOOP_CONF_DIR=$HADOOP_HOME/etc/hadoop
           export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$HADOOP_HOME/lib/native
-        state: present
 
     - name: Configure core-site.xml
       ansible.builtin.blockinfile:
         path: /home/almalinux/hadoop-3.4.0/etc/hadoop/core-site.xml
         insertafter: "<configuration>"
         marker: "<!-- {mark} ANSIBLE MANAGED BLOCK -->"
+        state: present
         block: |
           <property>
               <name>fs.defaultFS</name>
               <value>hdfs://{{ mgmt_host }}:9000</value>
           </property>
-        state: present
 
     - name: Configure hdfs-site.xml
       ansible.builtin.blockinfile:
@@ -85,13 +82,11 @@
         marker: "<!-- {mark} ANSIBLE MANAGED BLOCK -->"
         state: present
         block: |
-          <!-- Point DataNode to /mnt/data/hdfs/datanode rather than /opt/hadoop_tmp -->
           <property>
               <name>dfs.datanode.data.dir</name>
               <value>/mnt/data/hdfs/datanode</value>
               <final>true</final>
           </property>
-          <!-- Keep NameNode on /opt/hadoop_tmp if desired -->
           <property>
               <name>dfs.namenode.name.dir</name>
               <value>/opt/hadoop_tmp/hdfs/namenode</value>
@@ -105,13 +100,13 @@
               <name>dfs.replication</name>
               <value>2</value>
           </property>
-        
 
     - name: Configure yarn-site.xml
       ansible.builtin.blockinfile:
         path: /home/almalinux/hadoop-3.4.0/etc/hadoop/yarn-site.xml
         insertafter: "<configuration>"
         marker: "<!-- {mark} ANSIBLE MANAGED BLOCK -->"
+        state: present
         block: |
           <property>
               <name>yarn.resourcemanager.resource-tracker.address</name>
@@ -149,14 +144,13 @@
               <name>yarn.nodemanager.address</name>
               <value>0.0.0.0:8041</value>
           </property>
-      state: present
-
 
     - name: Configure mapred-site.xml
       ansible.builtin.blockinfile:
         path: /home/almalinux/hadoop-3.4.0/etc/hadoop/mapred-site.xml
         insertafter: "<configuration>"
         marker: "<!-- {mark} ANSIBLE MANAGED BLOCK -->"
+        state: present
         block: |
           <property>
               <name>mapreduce.job.tracker</name>
@@ -166,12 +160,11 @@
               <name>mapred.framework.name</name>
               <value>yarn</value>
           </property>
-        state: present
 
     - name: Fix JAVA_HOME in hadoop-env.sh
       ansible.builtin.blockinfile:
         path: /home/almalinux/hadoop-3.4.0/etc/hadoop/hadoop-env.sh
         insertafter: "# export JAVA_HOME="
+        state: present
         block: |
           export JAVA_HOME=$(readlink -f /usr/bin/java | sed "s:bin/java::")
-        state: present
