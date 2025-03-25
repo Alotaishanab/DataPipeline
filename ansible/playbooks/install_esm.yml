@@ -109,7 +109,15 @@
         PIP_CACHE_DIR: "/mnt/data/pip-tmp"
 
     #########################################################################
-    # 5) Download the Pretrained ESM Model
+    # 5) Install the ESM package in the virtual environment
+    #########################################################################
+    - name: Install ESM package in the virtual environment
+      command: "{{ esm_dest }}/venv/bin/pip install -e {{ esm_dest }}"
+      args:
+        chdir: "{{ esm_dest }}"
+
+    #########################################################################
+    # 6) Download the Pretrained ESM Model
     #########################################################################
     - name: Download pretrained ESM model ({{ esm_model }})
       command: "{{ esm_dest }}/venv/bin/python -m esm.pretrained download {{ esm_model }}"
