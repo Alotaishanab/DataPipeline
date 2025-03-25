@@ -57,6 +57,14 @@
         state: enabled
         immediate: yes
 
+    - name: Open NodeManager RPC port (8041)
+      ansible.posix.firewalld:
+        port: "8041/tcp"
+        permanent: yes
+        state: enabled
+        immediate: yes
+
+
     - name: Open ephemeral port range for YARN executor comms
       ansible.posix.firewalld:
         port: "32768-61000/tcp"
