@@ -71,15 +71,17 @@
         permanent: yes
         state: enabled
         immediate: yes
-    
 
-    - name: Allow port 80/tcp in the firewall
-      firewalld:
-        port: 80/tcp
-        permanent: yes
+    - name: Allow HTTP and HTTPS in firewall
+      ansible.posix.firewalld:
+        service: "{{ item }}"
         state: enabled
+        permanent: yes
         immediate: yes
-      when: ansible_service_mgr == 'systemd'
+      loop:
+        - http
+        - https
+      notify: reload firewalld
 
     - name: Open ephemeral port range for YARN executor comms
       ansible.posix.firewalld:
@@ -112,6 +114,19 @@
       ansible.builtin.command: ufw allow 8080/tcp
       when: ufw_installed.rc == 0
 
+    - name: Allow HTTP and HTTPS in UFW
+      ansible.builtin.command: ufw allow "{{ item }}"
+      loop:
+        - http
+        - https
+      when: ufw_installed.rc == 0
+
     - name: Reload UFW
       ansible.builtin.command: ufw reload
       when: ufw_installed.rc == 0
+
+  handlers:
+    - name: reload firewalld
+      ansible.builtin.service:
+        name: firewalld
+        state: reloaded
