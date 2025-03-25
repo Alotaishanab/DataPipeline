@@ -1,6 +1,6 @@
 ---
 - name: Install and configure Flask UI for dataset uploads
-  hosts: mgmtnode
+  hosts: localhost
   become: yes
   vars:
     flask_app_dir: "/opt/flask_ui"
