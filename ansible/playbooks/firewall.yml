@@ -71,6 +71,15 @@
         permanent: yes
         state: enabled
         immediate: yes
+    
+
+    - name: Allow port 80/tcp in the firewall
+      firewalld:
+        port: 80/tcp
+        permanent: yes
+        state: enabled
+        immediate: yes
+      when: ansible_service_mgr == 'systemd'
 
     - name: Open ephemeral port range for YARN executor comms
       ansible.posix.firewalld:
