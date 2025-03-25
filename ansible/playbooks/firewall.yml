@@ -22,12 +22,12 @@
         state: enabled
         immediate: yes
       loop:
-        - 9000    # HDFS RPC (NameNode)
-        - 9870    # HDFS Web UI
-        - 8088    # YARN Web UI
-        - 8025    # RM tracker
-        - 8035    # RM scheduler
-        - 8050    # ResourceManager
+        - 9000
+        - 9870
+        - 8088
+        - 8025
+        - 8035
+        - 8050
 
     - name: Open monitoring ports (permanent)
       ansible.posix.firewalld:
@@ -36,9 +36,9 @@
         state: enabled
         immediate: yes
       loop:
-        - 3000    # Grafana
-        - 9090    # Prometheus
-        - 9100    # Node Exporter
+        - 3000
+        - 9090
+        - 9100
 
     - name: Open DataNode ports (permanent)
       ansible.posix.firewalld:
@@ -47,21 +47,9 @@
         state: enabled
         immediate: yes
       loop:
-        - 50010   # Data transfer
-        - 50020   # IPC
-        - 50075   # Web UI
-
-    - name: Open port 8080/tcp for Flask Upload UI
-      ansible.posix.firewalld:
-        port: 8080/tcp
-        permanent: yes
-        state: enabled
-        immediate: yes
-
-    - name: Allow port 8080/tcp in UFW (if needed)
-      ansible.builtin.command: ufw allow 8080/tcp
-      when: ufw_installed.rc == 0
-
+        - 50010
+        - 50020
+        - 50075
 
     - name: Open NodeManager Web UI port (8042)
       ansible.posix.firewalld:
@@ -73,6 +61,13 @@
     - name: Open NodeManager RPC port (8041)
       ansible.posix.firewalld:
         port: "8041/tcp"
+        permanent: yes
+        state: enabled
+        immediate: yes
+
+    - name: Open port 8080/tcp for Flask Upload UI
+      ansible.posix.firewalld:
+        port: "8080/tcp"
         permanent: yes
         state: enabled
         immediate: yes
@@ -102,6 +97,10 @@
 
     - name: Allow NodeManager RPC port (8041) in UFW
       ansible.builtin.command: ufw allow 8041/tcp
+      when: ufw_installed.rc == 0
+
+    - name: Allow port 8080/tcp in UFW (if needed)
+      ansible.builtin.command: ufw allow 8080/tcp
       when: ufw_installed.rc == 0
 
     - name: Reload UFW
