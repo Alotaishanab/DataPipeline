@@ -18,10 +18,17 @@ worker_disk_size = "50Gi"
 worker_extra_disk_size = "200Gi"
 
 
-# Instance Tags for Worker VMs (new labels)
+# Instance Tags for Worker VMs (updated with NodeManager UI)
 worker_vm_tags = {
-  "condenser_ingress_node_hostname" = "ucabbaa-nodeexporter"   # Existing node exporter hostname
-  "condenser_ingress_node_port"     = "9100"                  # Existing node exporter port
-  "condenser_ingress_isAllowed"     = "true"
-  "condenser_ingress_isEnabled"     = "true"
+  # Existing Node Exporter monitoring
+  "condenser_ingress_node_hostname"       = "ucabbaa-nodeexporter"
+  "condenser_ingress_node_port"           = "9100"
+
+  # Newly added NodeManager Web UI (for YARN container logs)
+  "condenser_ingress_nodemanager_hostname" = "ucabbaa-nodemanager"
+  "condenser_ingress_nodemanager_port"     = "8042"
+
+  # Required flags for exposure
+  "condenser_ingress_isAllowed"           = "true"
+  "condenser_ingress_isEnabled"           = "true"
 }

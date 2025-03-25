@@ -1,13 +1,8 @@
-- name: Configure firewall for Hadoop cluster, disable SELinux, and monitoring
+- name: Configure firewall for Hadoop cluster and monitoring
   hosts: all, localhost
   become: true
   become_user: root
   tasks:
-    - name: Set SELinux to permissive mode (temporarily for troubleshooting)
-      ansible.posix.selinux:
-        state: permissive
-        policy: targeted
-
     - name: Ensure firewalld is installed
       ansible.builtin.yum:
         name: firewalld
@@ -27,10 +22,10 @@
         immediate: yes
       loop:
         - 9000    # HDFS RPC (NameNode)
-        - 9870    # HDFS Web UI (NameNode)
+        - 9870    # HDFS Web UI
         - 8088    # YARN Web UI
-        - 8025    # ResourceManager tracker
-        - 8035    # ResourceManager scheduler
+        - 8025    # RM tracker
+        - 8035    # RM scheduler
         - 8050    # ResourceManager
 
     - name: Open monitoring ports (permanent)
@@ -53,7 +48,7 @@
       loop:
         - 50010   # Data transfer
         - 50020   # IPC
-        - 50075   # DataNode Web UI
+        - 50075   # Web UI
 
     - name: Open NodeManager Web UI port (permanent)
       ansible.posix.firewalld:
@@ -62,7 +57,7 @@
         state: enabled
         immediate: yes
 
-    - name: Open ephemeral port range for NodeManager communication
+    - name: Open ephemeral port range for YARN executor comms
       ansible.posix.firewalld:
         port: "32768-61000/tcp"
         permanent: yes
@@ -72,16 +67,16 @@
     - name: Reload firewalld to apply changes
       ansible.builtin.shell: firewall-cmd --reload
 
-    #############################################################
-    # UFW - OPTIONAL - Only runs if UFW is installed
-    #############################################################
+    ######################################################################
+    # Optional UFW fallback — useful for machines using UFW over firewalld
+    ######################################################################
 
     - name: Check if UFW is installed
       ansible.builtin.command: which ufw
       register: ufw_installed
       ignore_errors: yes
 
-    - name: Allow ephemeral ports in UFW (for YARN executor comms)
+    - name: Allow ephemeral ports in UFW (YARN executor comms)
       ansible.builtin.command: ufw allow 32768:61000/tcp
       when: ufw_installed.rc == 0
 
