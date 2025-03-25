@@ -1,11 +1,12 @@
 - name: Configure firewall for Hadoop cluster, disable SELinux, and monitoring
   hosts: all, localhost
-  become: yes
+  become: true
   become_user: root
   tasks:
     - name: Set SELinux to permissive mode (temporarily for troubleshooting)
       ansible.posix.selinux:
         state: permissive
+        policy: targeted
 
     - name: Ensure firewalld is installed
       ansible.builtin.yum:
