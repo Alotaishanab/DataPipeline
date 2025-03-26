@@ -45,6 +45,7 @@
         mode: '0755'
         owner: almalinux
         group: almalinux
+      notify: restart_flask_ui
 
     - name: Create systemd service for Flask UI
       copy:
@@ -65,12 +66,18 @@
 
           [Install]
           WantedBy=multi-user.target
+      notify: restart_flask_ui
 
     - name: Start and enable Flask Upload UI
       systemd:
         name: flask_upload_ui
         state: started
         enabled: yes
+
+    - name: Force restart Flask Upload UI every time
+      systemd:
+        name: flask_upload_ui
+        state: restarted
 
     - name: Install Apache httpd
       yum:
@@ -116,4 +123,9 @@
     - name: restart_httpd
       systemd:
         name: httpd
+        state: restarted
+
+    - name: restart_flask_ui
+      systemd:
+        name: flask_upload_ui
         state: restarted
