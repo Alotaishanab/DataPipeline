@@ -52,6 +52,15 @@ def main():
     input_path = "hdfs:///user/almalinux/datasets/uniref50.fasta.gz"
     output_path = "hdfs:///user/almalinux/results/esm2_embeddings_json"
 
+    # === DELETE OUTPUT DIR IF EXISTS ===
+    hadoop_conf = spark._jsc.hadoopConfiguration()
+    fs = spark._jvm.org.apache.hadoop.fs.FileSystem.get(hadoop_conf)
+    path = spark._jvm.org.apache.hadoop.fs.Path(output_path)
+
+    if fs.exists(path):
+        fs.delete(path, True)  # True = recursive
+
+    # Run pipeline
     df = spark.read.text(input_path)
     rdd = df.rdd.mapPartitions(inference_map_partition)
 
