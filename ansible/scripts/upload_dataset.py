@@ -23,14 +23,14 @@ HTML_TEMPLATE = '''
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Upload Dataset</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
     /* Global Reset & Styles */
     * { box-sizing: border-box; }
     body {
       margin: 0;
       padding: 0;
-      font-family: 'Inter', sans-serif;
+      font-family: 'Montserrat', sans-serif;
       background: linear-gradient(135deg, #1f1c2c, #928dab);
       color: #e0e0e0;
       height: 100vh;
@@ -52,7 +52,7 @@ HTML_TEMPLATE = '''
     h1 {
       margin: 0 0 15px;
       font-size: 2em;
-      font-weight: 600;
+      font-weight: 700;
       color: #ffffff;
     }
     p.instructions {
@@ -157,7 +157,7 @@ HTML_TEMPLATE = '''
     </p>
     <form id="uploadForm" method="POST" enctype="multipart/form-data">
       <input type="file" id="fileInput" name="file" accept=".csv" required>
-      <button type="button" id="customFileButton">- - - - - - - - - -</button>
+      <button type="button" id="customFileButton">Choose File</button>
       <div id="fileName"></div>
       <input type="submit" value="Upload & Run Pipeline">
       <div id="progressContainer">
@@ -223,6 +223,7 @@ HTML_TEMPLATE = '''
 </body>
 </html>
 '''.replace('{{ year }}', str(datetime.datetime.now().year))
+
 
 
 
