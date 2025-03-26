@@ -25,7 +25,7 @@ HTML_TEMPLATE = '''
   <title>Upload Dataset</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
   <style>
-    /* Reset & Global Styles */
+    /* Global Reset & Styles */
     * { box-sizing: border-box; }
     body {
       margin: 0;
@@ -48,7 +48,7 @@ HTML_TEMPLATE = '''
       box-shadow: 0 4px 20px rgba(0,0,0,0.6);
       text-align: center;
     }
-    /* Headings & Text */
+    /* Headings & Instructions */
     h1 {
       margin: 0 0 15px;
       font-size: 2em;
@@ -60,23 +60,37 @@ HTML_TEMPLATE = '''
       color: #c4c4c4;
       margin-bottom: 30px;
     }
-    /* Form Elements */
+    /* Form & Custom File Input */
     form {
       display: flex;
       flex-direction: column;
       gap: 20px;
     }
-    input[type="file"] {
-      padding: 20px;
-      background-color: #3a3a4d;
-      border: 2px dashed #555;
+    /* Hide the default file input */
+    #fileInput {
+      display: none;
+    }
+    /* Custom File Button */
+    #customFileButton {
+      padding: 15px;
+      background-color: #00e676;
+      border: none;
       border-radius: 10px;
-      color: #e0e0e0;
-      transition: border-color 0.3s;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      color: #2b2b3d;
+      transition: background-color 0.3s;
     }
-    input[type="file"]:hover {
-      border-color: #00e676;
+    #customFileButton:hover {
+      background-color: #00c853;
     }
+    #fileName {
+      font-size: 14px;
+      color: #c4c4c4;
+      margin-top: 5px;
+    }
+    /* Submit Button */
     input[type="submit"] {
       padding: 15px;
       background-color: #00e676;
@@ -90,6 +104,21 @@ HTML_TEMPLATE = '''
     }
     input[type="submit"]:hover {
       background-color: #00c853;
+    }
+    /* Progress Bar */
+    #progressContainer {
+      width: 100%;
+      background-color: #3a3a4d;
+      border-radius: 10px;
+      overflow: hidden;
+      margin-top: 20px;
+      display: none;
+    }
+    #progressBar {
+      height: 20px;
+      width: 0%;
+      background-color: #00e676;
+      transition: width 0.4s ease;
     }
     /* Message Styles */
     .message {
@@ -125,9 +154,14 @@ HTML_TEMPLATE = '''
       Only <strong>CSV (.csv)</strong> files are accepted.<br>
       Ensure your dataset is formatted properly to avoid pipeline errors.
     </p>
-    <form method="POST" enctype="multipart/form-data">
-      <input type="file" name="file" required>
+    <form id="uploadForm" method="POST" enctype="multipart/form-data">
+      <input type="file" id="fileInput" name="file" accept=".csv" required>
+      <button type="button" id="customFileButton">Select CSV File</button>
+      <div id="fileName"></div>
       <input type="submit" value="Upload & Run Pipeline">
+      <div id="progressContainer">
+        <div id="progressBar"></div>
+      </div>
     </form>
     {% if message %}
       <div class="message {{ status }}">{{ message }}</div>
@@ -136,9 +170,59 @@ HTML_TEMPLATE = '''
       © {{ year }} Data Pipeline UI – Made with <span>UCABBAA</span>
     </footer>
   </div>
+  <script>
+    // Trigger hidden file input when custom button is clicked
+    document.getElementById('customFileButton').addEventListener('click', function() {
+      document.getElementById('fileInput').click();
+    });
+    
+    // Display selected file name
+    document.getElementById('fileInput').addEventListener('change', function(){
+      var file = document.getElementById('fileInput').files[0];
+      document.getElementById('fileName').textContent = file ? file.name : '';
+    });
+    
+    // Intercept form submission to implement AJAX file upload with progress bar
+    document.getElementById('uploadForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      var fileInput = document.getElementById('fileInput');
+      if (!fileInput.files[0]) {
+        alert("Please select a CSV file.");
+        return;
+      }
+      var formData = new FormData();
+      formData.append('file', fileInput.files[0]);
+      
+      var xhr = new XMLHttpRequest();
+      xhr.open('POST', '/', true);
+      
+      // Update progress bar
+      xhr.upload.addEventListener('progress', function(e) {
+        if (e.lengthComputable) {
+          var percent = (e.loaded / e.total) * 100;
+          document.getElementById('progressContainer').style.display = 'block';
+          document.getElementById('progressBar').style.width = percent + '%';
+        }
+      });
+      
+      xhr.onload = function() {
+        if (xhr.status === 200) {
+          // Replace the document with the updated response (includes message notifications)
+          document.open();
+          document.write(xhr.responseText);
+          document.close();
+        } else {
+          alert("Upload failed. Please try again.");
+        }
+      };
+      
+      xhr.send(formData);
+    });
+  </script>
 </body>
 </html>
 '''.replace('{{ year }}', str(datetime.datetime.now().year))
+
 
 
 @app.route('/', methods=['GET', 'POST'])
