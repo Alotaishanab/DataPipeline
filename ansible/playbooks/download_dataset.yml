@@ -6,6 +6,7 @@
     dataset_local_path: "/mnt/datasets/uniref50.fasta.gz"
     dataset_download_url: "https://ftp.uniprot.org/pub/databases/uniprot/uniref/uniref50/uniref50.fasta.gz"
     hdfs_target_dir: "/user/almalinux/datasets"
+
   tasks:
     - name: Ensure local dataset directory exists
       ansible.builtin.file:
@@ -26,13 +27,6 @@
       when: not dataset_file.stat.exists
       register: download_result
 
-    - name: Ensure almalinux owns the dataset file
-      ansible.builtin.file:
-        path: "{{ dataset_local_path }}"
-        owner: almalinux
-        group: almalinux
-        mode: '0644'
-
     - name: Re-check if dataset file exists after download
       ansible.builtin.stat:
         path: "{{ dataset_local_path }}"
@@ -43,30 +37,24 @@
         msg: "Dataset file not found at {{ dataset_local_path }}"
       when: not dataset_file_after.stat.exists
 
+    - name: Ensure almalinux owns the dataset file
+      become: yes  # elevate to root just for this task
+      ansible.builtin.file:
+        path: "{{ dataset_local_path }}"
+        owner: almalinux
+        group: almalinux
+        mode: '0644'
+
     - name: Create HDFS target directory
-      ansible.builtin.shell: "/home/almalinux/hadoop-3.4.0/bin/hdfs dfs -mkdir -p {{ hdfs_target_dir }}"
+      ansible.builtin.shell: "/home/almalinux/hadoop-3.4.0/bin/hdfs --config /home/almalinux/hadoop-3.4.0/etc/hadoop dfs -mkdir -p {{ hdfs_target_dir }}"
       environment:
         HADOOP_CONF_DIR: "/home/almalinux/hadoop-3.4.0/etc/hadoop"
+      become_user: almalinux
 
     - name: Upload Protein Dataset to HDFS
-      ansible.builtin.shell: "/home/almalinux/hadoop-3.4.0/bin/hdfs dfs -put -f {{ dataset_local_path }} {{ hdfs_target_dir }}/"
+      ansible.builtin.shell: "/home/almalinux/hadoop-3.4.0/bin/hdfs --config /home/almalinux/hadoop-3.4.0/etc/hadoop dfs -put -f {{ dataset_local_path }} {{ hdfs_target_dir }}/"
       environment:
         HADOOP_CONF_DIR: "/home/almalinux/hadoop-3.4.0/etc/hadoop"
       register: hdfs_put
-      ignore_errors: yes
-
-    - name: Verify file exists in HDFS
-      ansible.builtin.shell: "/home/almalinux/hadoop-3.4.0/bin/hdfs dfs -ls {{ hdfs_target_dir }}/uniref50.fasta.gz"
-      environment:
-        HADOOP_CONF_DIR: "/home/almalinux/hadoop-3.4.0/etc/hadoop"
-      register: hdfs_check
-      ignore_errors: yes
-
-    - name: Fail if file is not in HDFS after upload
-      ansible.builtin.fail:
-        msg: "Upload failed — file not found in HDFS at {{ hdfs_target_dir }}/uniref50.fasta.gz"
-      when: hdfs_check.rc != 0
-
-    - name: Confirm upload success
-      ansible.builtin.debug:
-        msg: "Dataset uploaded successfully to HDFS at {{ hdfs_target_dir }}/uniref50.fasta.gz"
+      changed_when: "'put' in hdfs_put.stdout"
+      become_user: almalinux
