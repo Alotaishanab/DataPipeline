@@ -20,96 +20,101 @@ HTML_TEMPLATE = '''
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Upload Dataset</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
   <style>
+    /* Reset & Global Styles */
     * { box-sizing: border-box; }
-
     body {
       margin: 0;
       padding: 0;
-      font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      background-color: #f5f7fa;
+      font-family: 'Inter', sans-serif;
+      background: linear-gradient(135deg, #1f1c2c, #928dab);
+      color: #e0e0e0;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
-
+    /* Container */
     .container {
+      width: 100%;
       max-width: 500px;
-      margin: 80px auto;
-      background: white;
+      background-color: #2b2b3d;
       padding: 40px;
-      border-radius: 20px;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
+      border-radius: 15px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+      text-align: center;
     }
-
+    /* Headings & Text */
     h1 {
-      font-size: 26px;
+      margin: 0 0 15px;
+      font-size: 2em;
       font-weight: 600;
-      margin-bottom: 10px;
-      color: #1b1f2b;
+      color: #ffffff;
     }
-
     p.instructions {
       font-size: 14px;
-      color: #6a707c;
-      margin-bottom: 20px;
+      color: #c4c4c4;
+      margin-bottom: 30px;
     }
-
+    /* Form Elements */
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
     input[type="file"] {
-      display: block;
-      width: 100%;
-      padding: 10px;
-      margin-top: 10px;
-      border: 2px dashed #d5d9e0;
-      border-radius: 12px;
-      background-color: #fafbfc;
-      transition: border-color 0.2s;
+      padding: 20px;
+      background-color: #3a3a4d;
+      border: 2px dashed #555;
+      border-radius: 10px;
+      color: #e0e0e0;
+      transition: border-color 0.3s;
     }
-
     input[type="file"]:hover {
-      border-color: #0070f3;
+      border-color: #00e676;
     }
-
     input[type="submit"] {
-      width: 100%;
-      margin-top: 20px;
-      background-color: #0070f3;
-      color: white;
-      font-weight: 600;
-      font-size: 15px;
-      padding: 12px;
+      padding: 15px;
+      background-color: #00e676;
       border: none;
-      border-radius: 12px;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 600;
       cursor: pointer;
-      transition: background-color 0.2s;
+      color: #2b2b3d;
+      transition: background-color 0.3s;
     }
-
     input[type="submit"]:hover {
-      background-color: #0058d3;
+      background-color: #00c853;
     }
-
+    /* Message Styles */
     .message {
       margin-top: 20px;
-      font-weight: 500;
-      padding: 12px;
-      border-radius: 8px;
+      padding: 15px;
+      border-radius: 10px;
+      font-size: 14px;
     }
-
     .success {
-      color: #0a883e;
-      background-color: #e4f6ea;
+      background-color: #1b5e20;
+      color: #a5d6a7;
     }
-
     .error {
-      color: #c82c2c;
-      background-color: #ffe5e5;
+      background-color: #b71c1c;
+      color: #ffcdd2;
     }
-
+    /* Footer */
     footer {
       margin-top: 30px;
-      font-size: 13px;
-      color: #a1a7b3;
-      text-align: center;
+      font-size: 12px;
+      color: #888;
+    }
+    footer span {
+      font-weight: 600;
+      color: #00e676;
     }
   </style>
 </head>
@@ -117,23 +122,24 @@ HTML_TEMPLATE = '''
   <div class="container">
     <h1>Upload Your Dataset</h1>
     <p class="instructions">
-      Only <strong>CSV (.csv)</strong> files are accepted.<br/>
-      Make sure your dataset is formatted properly to avoid pipeline errors.
+      Only <strong>CSV (.csv)</strong> files are accepted.<br>
+      Ensure your dataset is formatted properly to avoid pipeline errors.
     </p>
     <form method="POST" enctype="multipart/form-data">
-      <input type="file" name="file" required />
-      <input type="submit" value="Upload & Run Pipeline"/>
+      <input type="file" name="file" required>
+      <input type="submit" value="Upload & Run Pipeline">
     </form>
-
     {% if message %}
       <div class="message {{ status }}">{{ message }}</div>
     {% endif %}
-
-    <footer>© {{ year }} Data Pipeline UI</footer>
+    <footer>
+      © {{ year }} Data Pipeline UI – Made with <span>UCABBAA</span>
+    </footer>
   </div>
 </body>
 </html>
 '''.replace('{{ year }}', str(datetime.datetime.now().year))
+
 
 @app.route('/', methods=['GET', 'POST'])
 def upload():
