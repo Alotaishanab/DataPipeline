@@ -70,20 +70,21 @@ HTML_TEMPLATE = '''
     #fileInput {
       display: none;
     }
-    /* Custom File Button */
+    /* Custom File Button with dashed style */
     #customFileButton {
       padding: 15px;
-      background-color: #00e676;
-      border: none;
+      background-color: transparent;
+      border: 2px dashed #00e676;
       border-radius: 10px;
       font-size: 16px;
       font-weight: 600;
       cursor: pointer;
-      color: #2b2b3d;
-      transition: background-color 0.3s;
+      color: #00e676;
+      transition: background-color 0.3s, color 0.3s;
     }
     #customFileButton:hover {
-      background-color: #00c853;
+      background-color: #00e676;
+      color: #2b2b3d;
     }
     #fileName {
       font-size: 14px;
@@ -156,7 +157,7 @@ HTML_TEMPLATE = '''
     </p>
     <form id="uploadForm" method="POST" enctype="multipart/form-data">
       <input type="file" id="fileInput" name="file" accept=".csv" required>
-      <button type="button" id="customFileButton">Select CSV File</button>
+      <button type="button" id="customFileButton">- - - - - - - - - -</button>
       <div id="fileName"></div>
       <input type="submit" value="Upload & Run Pipeline">
       <div id="progressContainer">
@@ -222,6 +223,7 @@ HTML_TEMPLATE = '''
 </body>
 </html>
 '''.replace('{{ year }}', str(datetime.datetime.now().year))
+
 
 
 
