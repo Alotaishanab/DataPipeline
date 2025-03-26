@@ -1,3 +1,7 @@
+# ============================
+# 1. Hadoop Installation Fix
+# ============================
+
 - name: Install and configure Hadoop
   hosts: all, localhost
   become: yes
@@ -99,6 +103,18 @@
           <property>
               <name>dfs.replication</name>
               <value>2</value>
+          </property>
+          <property>
+              <name>dfs.datanode.address</name>
+              <value>0.0.0.0:9866</value>
+          </property>
+          <property>
+              <name>dfs.datanode.http.address</name>
+              <value>0.0.0.0:9864</value>
+          </property>
+          <property>
+              <name>dfs.datanode.ipc.address</name>
+              <value>0.0.0.0:9867</value>
           </property>
 
     - name: Configure yarn-site.xml

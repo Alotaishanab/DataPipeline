@@ -40,7 +40,18 @@
         - 9090
         - 9100
 
-    - name: Open DataNode ports (permanent)
+    - name: Open DataNode fixed ports (permanent)
+      ansible.posix.firewalld:
+        port: "{{ item }}/tcp"
+        permanent: yes
+        state: enabled
+        immediate: yes
+      loop:
+        - 9864     # DataNode Web UI
+        - 9866     # DataNode data transfer
+        - 9867     # DataNode IPC
+
+    - name: Open legacy DataNode ports (if needed)
       ansible.posix.firewalld:
         port: "{{ item }}/tcp"
         permanent: yes
@@ -83,11 +94,11 @@
         - https
       notify: reload firewalld
 
-    - name: Open ephemeral port range for YARN executor comms
+    - name: Remove ephemeral port range from firewall (if previously added)
       ansible.posix.firewalld:
         port: "32768-61000/tcp"
         permanent: yes
-        state: enabled
+        state: disabled
         immediate: yes
 
     - name: Reload firewalld to apply changes
@@ -102,8 +113,12 @@
       register: ufw_installed
       ignore_errors: yes
 
-    - name: Allow ephemeral ports in UFW (YARN executor comms)
-      ansible.builtin.command: ufw allow 32768:61000/tcp
+    - name: Allow fixed DataNode ports in UFW
+      ansible.builtin.command: ufw allow "{{ item }}/tcp"
+      loop:
+        - 9864
+        - 9866
+        - 9867
       when: ufw_installed.rc == 0
 
     - name: Allow NodeManager RPC port (8041) in UFW
@@ -120,6 +135,11 @@
         - http
         - https
       when: ufw_installed.rc == 0
+
+    - name: Remove ephemeral ports in UFW if previously added
+      ansible.builtin.command: ufw delete allow 32768:61000/tcp
+      when: ufw_installed.rc == 0
+      ignore_errors: yes
 
     - name: Reload UFW
       ansible.builtin.command: ufw reload
