@@ -22,6 +22,14 @@
         group: almalinux
         mode: '0775'
 
+    - name: Ensure /opt/data_pipeline directory exists
+      file:
+        path: /opt/data_pipeline
+        state: directory
+        owner: almalinux
+        group: almalinux
+        mode: '0755'
+
     - name: Create Flask UI directory
       file:
         path: "{{ flask_ui_dir }}"
@@ -50,6 +58,7 @@
           [Service]
           Type=simple
           User=almalinux
+          Group=almalinux
           WorkingDirectory={{ flask_ui_dir }}
           ExecStart=/usr/bin/python3 {{ flask_ui_script }}
           Restart=always
@@ -63,16 +72,48 @@
         state: started
         enabled: yes
 
-    - name: Allow port 8080 in firewalld for UI
+    - name: Install Apache httpd
+      yum:
+        name: httpd
+        state: present
+
+    - name: Start and enable Apache httpd
+      systemd:
+        name: httpd
+        state: started
+        enabled: yes
+
+    - name: Create Apache proxy config for Flask UI
+      copy:
+        dest: /etc/httpd/conf.d/flask_ui_proxy.conf
+        owner: root
+        group: root
+        mode: '0644'
+        content: |
+          <VirtualHost *:80>
+              ServerName localhost
+              ProxyPreserveHost On
+              ProxyPass / http://127.0.0.1:8080/
+              ProxyPassReverse / http://127.0.0.1:8080/
+          </VirtualHost>
+      notify: restart_httpd
+
+    - name: Allow port 80 in firewalld
       firewalld:
-        port: 8080/tcp
+        port: 80/tcp
         permanent: yes
         state: enabled
         immediate: yes
       when: ansible_service_mgr == 'systemd'
 
-    - name: Reload firewalld for UI
+    - name: Reload firewalld for HTTP
       service:
         name: firewalld
         state: reloaded
       when: ansible_service_mgr == 'systemd'
+
+  handlers:
+    - name: restart_httpd
+      systemd:
+        name: httpd
+        state: restarted
