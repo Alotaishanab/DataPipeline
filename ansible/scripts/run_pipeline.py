@@ -84,7 +84,7 @@ def inference_map_partition(records):
 def main():
     spark = SparkSession.builder.appName("ESM2-Pipeline").getOrCreate()
 
-    input_path = "hdfs:///user/almalinux/datasets/uniref50_preprocessed.jsonl"
+    input_path = "hdfs:///user/almalinux/datasets/uniref50.fasta"
     output_path = "hdfs:///user/almalinux/results/esm2_embeddings_json"
 
     # Delete output directory if it already exists
