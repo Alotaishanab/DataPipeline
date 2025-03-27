@@ -58,13 +58,18 @@ def inference_map_partition(records):
         buffer = []
 
         for row in records:
-            seq = row.value.strip()
-            if not seq or seq.startswith(">"):
+            try:
+                record = json.loads(row.value)
+                seq = record.get("sequence", "").strip()
+                if not seq:
+                    continue
+                buffer.append(("sequence", seq))
+                if len(buffer) == batch_size:
+                    yield from run_batch(buffer, model, batch_converter)
+                    buffer = []
+            except Exception as e:
+                logger.error(f"JSON parse or sequence error: {e}")
                 continue
-            buffer.append(("sequence", seq))
-            if len(buffer) == batch_size:
-                yield from run_batch(buffer, model, batch_converter)
-                buffer = []
 
         if buffer:
             yield from run_batch(buffer, model, batch_converter)
@@ -79,7 +84,7 @@ def inference_map_partition(records):
 def main():
     spark = SparkSession.builder.appName("ESM2-Pipeline").getOrCreate()
 
-    input_path = "hdfs:///user/almalinux/datasets/uniref50.fasta"
+    input_path = "hdfs:///user/almalinux/datasets/uniref50_preprocessed.jsonl"
     output_path = "hdfs:///user/almalinux/results/esm2_embeddings_json"
 
     # Delete output directory if it already exists
@@ -90,7 +95,7 @@ def main():
         logger.warning(f"Output path {output_path} exists. Deleting it.")
         fs.delete(path, True)
 
-    logger.info("Reading input FASTA from HDFS...")
+    logger.info("Reading preprocessed input from HDFS...")
     df = spark.read.text(input_path)
 
     logger.info("Running distributed ESM inference...")
