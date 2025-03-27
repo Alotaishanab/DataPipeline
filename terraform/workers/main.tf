@@ -1,13 +1,10 @@
 locals {
   sanitized_username = replace(replace(var.username, "@", "-"), ".", "-")
-
-  # Tags shared across all worker VMs
-  common_worker_tags = {
-    "condenser_ingress_node_hostname"     = "ucabbaa-nodeexporter"
-    "condenser_ingress_node_port"         = "9100"
-    "condenser_ingress_nodemanager_port"  = "8042"
-    "condenser_ingress_isAllowed"         = "true"
-    "condenser_ingress_isEnabled"         = "true"
+  worker_vm_tags_full = {
+    for key, suffix in var.worker_vm_tags :
+    key => contains(["datapipeline_ingress_node_hostname"], key)
+      ? "${local.sanitized_username}${suffix}"
+      : suffix
   }
 }
 
@@ -21,11 +18,13 @@ resource "tls_private_key" "ansible_v2" {
 
 resource "local_file" "ansible_v2_private" {
   content              = tls_private_key.ansible_v2.private_key_openssh
+  # Use an absolute path so that it always writes to the intended user's home
   filename             = "/home/almalinux/.ssh/ansible_v2"
   file_permission      = "0600"
   directory_permission = "0700"
 }
 
+# Fix ownership of the generated key so that the key is owned by the 'almalinux' user.
 resource "null_resource" "chown_ansible_v2" {
   depends_on = [local_file.ansible_v2_private]
   provisioner "local-exec" {
@@ -53,14 +52,7 @@ resource "harvester_virtualmachine" "worker" {
   hostname        = "${local.sanitized_username}-worker-${count.index + 1}-${random_id.secret.hex}"
   reserved_memory = "100Mi"
   machine_type    = "q35"
-
-  # Dynamic tags with unique nodemanager hostname per VM
-  tags = merge(
-    local.common_worker_tags,
-    {
-      "condenser_ingress_nodemanager_hostname" = "ucabbaa-nodemanager-worker${count.index + 1}"
-    }
-  )
+  tags            = local.worker_vm_tags_full
 
   network_interface {
     name           = "nic-1"
@@ -79,6 +71,7 @@ resource "harvester_virtualmachine" "worker" {
     auto_delete = true
   }
 
+  # Additional 200GB disk (HDD2)
   disk {
     name        = "datadisk"
     type        = "disk"
@@ -104,3 +97,5 @@ resource "harvester_virtualmachine" "worker" {
     create = "5m"
   }
 }
+
+
