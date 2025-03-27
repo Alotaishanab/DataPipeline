@@ -1,29 +1,53 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 
 import json
+import logging
+from pyspark.sql import SparkSession
 
-input_path = "/mnt/datasets/uniref50.fasta"
-output_path = "/mnt/datasets/uniref50_preprocessed.jsonl"
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-with open(input_path, "r") as infile, open(output_path, "w") as outfile:
-    header = None
-    seq_lines = []
+def fasta_to_jsonl(rdd):
+    buffer = []
+    current_sequence = ""
 
-    for line in infile:
+    def flush(seq):
+        if seq:
+            return json.dumps({"sequence": seq})
+        return None
+
+    for line in rdd.collect():
         line = line.strip()
         if line.startswith(">"):
-            if header:
-                outfile.write(json.dumps({
-                    "header": header,
-                    "sequence": "".join(seq_lines)
-                }) + "\n")
-            header = line[1:]  # Remove ">"
-            seq_lines = []
+            if current_sequence:
+                buffer.append(flush(current_sequence))
+                current_sequence = ""
         else:
-            seq_lines.append(line)
+            current_sequence += line
 
-    if header and seq_lines:
-        outfile.write(json.dumps({
-            "header": header,
-            "sequence": "".join(seq_lines)
-        }) + "\n")
+    if current_sequence:
+        buffer.append(flush(current_sequence))
+
+    return [x for x in buffer if x]
+
+def main():
+    spark = SparkSession.builder.appName("Preprocess-FASTA").getOrCreate()
+    sc = spark.sparkContext
+
+    input_path = "hdfs:///user/almalinux/datasets/uniref50.fasta"
+    output_path = "hdfs:///user/almalinux/datasets/uniref50.jsonl"
+
+    logger.info("Reading FASTA from HDFS...")
+    rdd = sc.textFile(input_path)
+
+    logger.info("Converting FASTA to JSONL...")
+    result = fasta_to_jsonl(rdd)
+
+    logger.info("Writing to HDFS as JSON lines...")
+    sc.parallelize(result).saveAsTextFile(output_path)
+
+    spark.stop()
+    logger.info("✅ Preprocessing completed")
+
+if __name__ == "__main__":
+    main()

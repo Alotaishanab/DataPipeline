@@ -25,7 +25,7 @@
         dest: "{{ preprocess_remote_path }}"
         mode: '0755'
 
-    - name: Check if both scripts exist
+    - name: Check if preprocessing script exists
       stat:
         path: "{{ preprocess_remote_path }}"
       register: preprocess_file
@@ -33,10 +33,20 @@
     - debug:
         msg: "Preprocessing file exists: {{ preprocess_file.stat.exists }}"
 
-    - name: Run preprocessing script to convert FASTA into JSONL
-      shell: "{{ esm_venv_path }}/bin/python {{ preprocess_remote_path }}"
+    - name: Submit preprocessing Spark job to convert FASTA to JSONL
+      shell: |
+        {{ spark_home }}/bin/spark-submit \
+          --master yarn \
+          --deploy-mode cluster \
+          --conf "spark.yarn.submit.waitAppCompletion=true" \
+          --conf "spark.yarn.appMasterEnv.PYSPARK_PYTHON={{ esm_venv_path }}/bin/python" \
+          --conf "spark.executorEnv.PYSPARK_PYTHON={{ esm_venv_path }}/bin/python" \
+          "{{ preprocess_remote_path }}"
       args:
         chdir: "/home/almalinux"
+      environment:
+        HADOOP_CONF_DIR: "{{ hadoop_conf_dir }}"
+        YARN_CONF_DIR: "{{ hadoop_conf_dir }}"
 
     - name: Submit Spark job loop as background process (24-hour stress test)
       shell: |
