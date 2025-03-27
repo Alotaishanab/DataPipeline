@@ -2,20 +2,28 @@
   hosts: worker1
   become: yes
   become_user: almalinux
+
   vars:
-    dataset_local_path: "/mnt/datasets/uniref50.fasta.gz"
-    unzipped_dataset_path: "/mnt/datasets/uniref50.fasta"
+    dataset_dir: "/mnt/data"
+    dataset_gz: "uniref50.fasta.gz"
+    dataset_fasta: "uniref50.fasta"
+    dataset_local_path: "{{ dataset_dir }}/{{ dataset_gz }}"
+    unzipped_dataset_path: "{{ dataset_dir }}/{{ dataset_fasta }}"
     dataset_download_url: "https://ftp.uniprot.org/pub/databases/uniprot/uniref/uniref50/uniref50.fasta.gz"
     hdfs_target_dir: "/user/almalinux/datasets"
+    hdfs_target_file: "{{ hdfs_target_dir }}/{{ dataset_fasta }}"
+    hadoop_bin: "/home/almalinux/hadoop-3.4.0/bin/hdfs"
+    hadoop_conf: "/home/almalinux/hadoop-3.4.0/etc/hadoop"
+
   tasks:
 
     - name: Ensure local dataset directory exists
       ansible.builtin.file:
-        path: "{{ dataset_local_path | dirname }}"
+        path: "{{ dataset_dir }}"
         state: directory
         mode: '0755'
 
-    - name: Check if dataset file exists on remote host
+    - name: Check if dataset .gz file exists
       ansible.builtin.stat:
         path: "{{ dataset_local_path }}"
       register: dataset_file
@@ -37,46 +45,54 @@
         msg: "❌ Dataset file not found at {{ dataset_local_path }}"
       when: not dataset_file_after.stat.exists
 
-    - name: Decompress FASTA.GZ file to .fasta (only if unzipped version not present)
-      become: true
+    - name: Decompress FASTA.GZ file to .fasta
       become_user: root
       ansible.builtin.shell: |
-        gunzip -c {{ dataset_local_path }} > {{ dataset_local_path | regex_replace('.gz$', '') }}
+        gunzip -c "{{ dataset_local_path }}" > "{{ unzipped_dataset_path }}"
       args:
-        creates: "{{ dataset_local_path | regex_replace('.gz$', '') }}"
+        creates: "{{ unzipped_dataset_path }}"
 
     - name: Create HDFS target directory
       ansible.builtin.shell: >
-        /home/almalinux/hadoop-3.4.0/bin/hdfs
-        --config /home/almalinux/hadoop-3.4.0/etc/hadoop
+        {{ hadoop_bin }} --config {{ hadoop_conf }}
         dfs -mkdir -p {{ hdfs_target_dir }}
       environment:
-        HADOOP_CONF_DIR: "/home/almalinux/hadoop-3.4.0/etc/hadoop"
+        HADOOP_CONF_DIR: "{{ hadoop_conf }}"
 
     - name: Upload decompressed FASTA dataset to HDFS
       ansible.builtin.shell: >
-        /home/almalinux/hadoop-3.4.0/bin/hdfs
-        --config /home/almalinux/hadoop-3.4.0/etc/hadoop
-        dfs -put -f {{ unzipped_dataset_path }} {{ hdfs_target_dir }}/
+        {{ hadoop_bin }} --config {{ hadoop_conf }}
+        dfs -put -f "{{ unzipped_dataset_path }}" "{{ hdfs_target_dir }}/"
       environment:
-        HADOOP_CONF_DIR: "/home/almalinux/hadoop-3.4.0/etc/hadoop"
+        HADOOP_CONF_DIR: "{{ hadoop_conf }}"
 
     - name: Verify uncompressed file exists in HDFS
       ansible.builtin.shell: >
-        /home/almalinux/hadoop-3.4.0/bin/hdfs
-        --config /home/almalinux/hadoop-3.4.0/etc/hadoop
-        dfs -test -e {{ hdfs_target_dir }}/uniref50.fasta
+        {{ hadoop_bin }} --config {{ hadoop_conf }}
+        dfs -test -e "{{ hdfs_target_file }}"
       environment:
-        HADOOP_CONF_DIR: "/home/almalinux/hadoop-3.4.0/etc/hadoop"
+        HADOOP_CONF_DIR: "{{ hadoop_conf }}"
       register: hdfs_test
       ignore_errors: true
 
-    - name: Fail if uncompressed file not found in HDFS
+    - name: Fail if file was not found in HDFS
       ansible.builtin.fail:
-        msg: "❌ Uncompressed file was not found in HDFS at {{ hdfs_target_dir }}/uniref50.fasta"
+        msg: "❌ Uncompressed file not found in HDFS at {{ hdfs_target_file }}"
       when: hdfs_test.rc != 0
 
     - name: Debug success message
       ansible.builtin.debug:
-        msg: "✅ Dataset uploaded and verified in HDFS at {{ hdfs_target_dir }}/uniref50.fasta"
+        msg: "✅ Dataset uploaded and verified in HDFS at {{ hdfs_target_file }}"
+      when: hdfs_test.rc == 0
+
+    - name: Remove local .fasta file after successful upload
+      ansible.builtin.file:
+        path: "{{ unzipped_dataset_path }}"
+        state: absent
+      when: hdfs_test.rc == 0
+
+    - name: Remove local .gz file after successful upload
+      ansible.builtin.file:
+        path: "{{ dataset_local_path }}"
+        state: absent
       when: hdfs_test.rc == 0
