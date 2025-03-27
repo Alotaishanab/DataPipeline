@@ -1,9 +1,5 @@
-# ============================
-# 1. Hadoop Installation Fix
-# ============================
-
 - name: Install and configure Hadoop
-  hosts: all, localhost
+  hosts: all
   become: yes
 
   vars:
@@ -44,6 +40,7 @@
         group: almalinux
         mode: '0755'
         recurse: yes
+      when: inventory_hostname == mgmt_host
 
     - name: Set correct ownership on /opt/hadoop_tmp
       ansible.builtin.file:
@@ -52,7 +49,7 @@
         group: almalinux
         recurse: yes
 
-    - name: Set hadoop environment in .bashrc
+    - name: Set Hadoop environment in .bashrc
       ansible.builtin.blockinfile:
         path: /home/almalinux/.bashrc
         state: present
@@ -72,7 +69,6 @@
         path: /home/almalinux/hadoop-3.4.0/etc/hadoop/core-site.xml
         insertafter: "<configuration>"
         marker: "<!-- {mark} ANSIBLE MANAGED BLOCK -->"
-        state: present
         block: |
           <property>
               <name>fs.defaultFS</name>
@@ -84,7 +80,6 @@
         path: /home/almalinux/hadoop-3.4.0/etc/hadoop/hdfs-site.xml
         insertafter: "<configuration>"
         marker: "<!-- {mark} ANSIBLE MANAGED BLOCK -->"
-        state: present
         block: |
           <property>
               <name>dfs.datanode.data.dir</name>
@@ -122,7 +117,6 @@
         path: /home/almalinux/hadoop-3.4.0/etc/hadoop/yarn-site.xml
         insertafter: "<configuration>"
         marker: "<!-- {mark} ANSIBLE MANAGED BLOCK -->"
-        state: present
         block: |
           <property>
               <name>yarn.resourcemanager.resource-tracker.address</name>
@@ -161,12 +155,23 @@
               <value>0.0.0.0:8041</value>
           </property>
 
+    - name: Inject external-facing yarn.nodemanager.hostname
+      ansible.builtin.blockinfile:
+        path: /home/almalinux/hadoop-3.4.0/etc/hadoop/yarn-site.xml
+        insertafter: "<configuration>"
+        marker: "<!-- {mark} PUBLIC NODEMANAGER HOSTNAME -->"
+        block: |
+          <property>
+            <name>yarn.nodemanager.hostname</name>
+            <value>{{ nodemanager_hostname }}</value>
+          </property>
+      when: nodemanager_hostname is defined
+
     - name: Configure mapred-site.xml
       ansible.builtin.blockinfile:
         path: /home/almalinux/hadoop-3.4.0/etc/hadoop/mapred-site.xml
         insertafter: "<configuration>"
         marker: "<!-- {mark} ANSIBLE MANAGED BLOCK -->"
-        state: present
         block: |
           <property>
               <name>mapreduce.job.tracker</name>
@@ -181,6 +186,12 @@
       ansible.builtin.blockinfile:
         path: /home/almalinux/hadoop-3.4.0/etc/hadoop/hadoop-env.sh
         insertafter: "# export JAVA_HOME="
-        state: present
         block: |
           export JAVA_HOME=$(readlink -f /usr/bin/java | sed "s:bin/java::")
+
+    - name: Restart NodeManager (only on workers)
+      ansible.builtin.shell: |
+        /home/almalinux/hadoop-3.4.0/sbin/yarn-daemon.sh stop nodemanager || true
+        sleep 1
+        /home/almalinux/hadoop-3.4.0/sbin/yarn-daemon.sh start nodemanager
+      when: "'worker' in inventory_hostname"
