@@ -38,9 +38,12 @@
       when: not dataset_file_after.stat.exists
 
     - name: Decompress FASTA.GZ file to .fasta (only if unzipped version not present)
-      ansible.builtin.shell: "gunzip -c {{ dataset_local_path }} > {{ unzipped_dataset_path }}"
+      become: true
+      become_user: root
+      ansible.builtin.shell: |
+        gunzip -c {{ dataset_local_path }} > {{ dataset_local_path | regex_replace('.gz$', '') }}
       args:
-        creates: "{{ unzipped_dataset_path }}"
+        creates: "{{ dataset_local_path | regex_replace('.gz$', '') }}"
 
     - name: Create HDFS target directory
       ansible.builtin.shell: >
