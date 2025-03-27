@@ -4,6 +4,7 @@
   become_user: almalinux
   vars:
     dataset_local_path: "/mnt/datasets/uniref50.fasta.gz"
+    unzipped_dataset_path: "/mnt/datasets/uniref50.fasta"
     dataset_download_url: "https://ftp.uniprot.org/pub/databases/uniprot/uniref/uniref50/uniref50.fasta.gz"
     hdfs_target_dir: "/user/almalinux/datasets"
   tasks:
@@ -33,8 +34,13 @@
 
     - name: Fail if dataset file still does not exist after download
       ansible.builtin.fail:
-        msg: "Dataset file not found at {{ dataset_local_path }}"
+        msg: "❌ Dataset file not found at {{ dataset_local_path }}"
       when: not dataset_file_after.stat.exists
+
+    - name: Decompress FASTA.GZ file to .fasta (only if unzipped version not present)
+      ansible.builtin.shell: "gunzip -c {{ dataset_local_path }} > {{ unzipped_dataset_path }}"
+      args:
+        creates: "{{ unzipped_dataset_path }}"
 
     - name: Create HDFS target directory
       ansible.builtin.shell: >
@@ -44,30 +50,30 @@
       environment:
         HADOOP_CONF_DIR: "/home/almalinux/hadoop-3.4.0/etc/hadoop"
 
-    - name: Upload Protein Dataset to HDFS
+    - name: Upload decompressed FASTA dataset to HDFS
       ansible.builtin.shell: >
         /home/almalinux/hadoop-3.4.0/bin/hdfs
         --config /home/almalinux/hadoop-3.4.0/etc/hadoop
-        dfs -put -f {{ dataset_local_path }} {{ hdfs_target_dir }}/
+        dfs -put -f {{ unzipped_dataset_path }} {{ hdfs_target_dir }}/
       environment:
         HADOOP_CONF_DIR: "/home/almalinux/hadoop-3.4.0/etc/hadoop"
 
-    - name: Verify file exists in HDFS
+    - name: Verify uncompressed file exists in HDFS
       ansible.builtin.shell: >
         /home/almalinux/hadoop-3.4.0/bin/hdfs
         --config /home/almalinux/hadoop-3.4.0/etc/hadoop
-        dfs -test -e {{ hdfs_target_dir }}/uniref50.fasta.gz
+        dfs -test -e {{ hdfs_target_dir }}/uniref50.fasta
       environment:
         HADOOP_CONF_DIR: "/home/almalinux/hadoop-3.4.0/etc/hadoop"
       register: hdfs_test
       ignore_errors: true
 
-    - name: Fail if file not found in HDFS
+    - name: Fail if uncompressed file not found in HDFS
       ansible.builtin.fail:
-        msg: "❌ File was not found in HDFS at {{ hdfs_target_dir }}/uniref50.fasta.gz"
+        msg: "❌ Uncompressed file was not found in HDFS at {{ hdfs_target_dir }}/uniref50.fasta"
       when: hdfs_test.rc != 0
 
     - name: Debug success message
       ansible.builtin.debug:
-        msg: "✅ Dataset uploaded and verified in HDFS at {{ hdfs_target_dir }}/uniref50.fasta.gz"
+        msg: "✅ Dataset uploaded and verified in HDFS at {{ hdfs_target_dir }}/uniref50.fasta"
       when: hdfs_test.rc == 0

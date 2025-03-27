@@ -31,23 +31,39 @@
     - debug:
         msg: "Pipeline file exists: {{ pipeline_file.stat.exists }}"
 
-    - name: Submit Spark job asynchronously using ESM environment from worker1
+    - name: Submit Spark job in loop for 24-hour stress test
       shell: |
-        {{ spark_home }}/bin/spark-submit \
-          --master yarn \
-          --deploy-mode cluster \
-          --conf "spark.yarn.submit.waitAppCompletion=false" \
-          --conf "spark.yarn.appMasterEnv.PYSPARK_PYTHON={{ esm_venv_path }}/bin/python" \
-          --conf "spark.yarn.appMasterEnv.PYTHONPATH={{ esm_venv_path }}/lib/python{{ py_version }}/site-packages" \
-          --conf "spark.executorEnv.PYSPARK_PYTHON={{ esm_venv_path }}/bin/python" \
-          --conf "spark.executorEnv.PYTHONPATH={{ esm_venv_path }}/lib/python{{ py_version }}/site-packages" \
-          --conf "spark.executorEnv.TORCH_HOME=/tmp/torch_cache" \
-          --conf "spark.yarn.appMasterEnv.TORCH_HOME=/tmp/torch_cache" \
-          "{{ pipeline_remote_path }}"
+        start=$(date +%s)
+        end=$((start + 86400))
+
+        while [ $(date +%s) -lt $end ]; do
+          echo ">>> Starting pipeline at $(date)"
+
+          {{ spark_home }}/bin/spark-submit \
+            --master yarn \
+            --deploy-mode cluster \
+            --num-executors 12 \
+            --executor-cores 4 \
+            --executor-memory 4G \
+            --driver-memory 4G \
+            --conf "spark.yarn.submit.waitAppCompletion=true" \
+            --conf "spark.yarn.appMasterEnv.PYSPARK_PYTHON={{ esm_venv_path }}/bin/python" \
+            --conf "spark.yarn.appMasterEnv.PYTHONPATH={{ esm_venv_path }}/lib/python{{ py_version }}/site-packages" \
+            --conf "spark.executorEnv.PYSPARK_PYTHON={{ esm_venv_path }}/bin/python" \
+            --conf "spark.executorEnv.PYTHONPATH={{ esm_venv_path }}/lib/python{{ py_version }}/site-packages" \
+            --conf "spark.executorEnv.TORCH_HOME=/tmp/torch_cache" \
+            --conf "spark.yarn.appMasterEnv.TORCH_HOME=/tmp/torch_cache" \
+            "{{ pipeline_remote_path }}"
+
+          echo ">>> Pipeline run completed at $(date)"
+        done
       args:
         chdir: "/home/almalinux"
+      async: 0
+      poll: 0
       environment:
         HADOOP_CONF_DIR: "{{ hadoop_conf_dir }}"
         YARN_CONF_DIR: "{{ hadoop_conf_dir }}"
         TORCH_HOME: "/tmp/torch_cache"
+
 
