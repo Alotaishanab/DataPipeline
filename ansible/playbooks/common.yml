@@ -13,6 +13,11 @@
         name: "*"
         state: latest
       when: ansible_os_family == "RedHat" and inventory_hostname in groups['worker_inventory']
+      register: yum_result
+      retries: 5
+      delay: 15
+      until: yum_result is succeeded
+
 
     - name: Install essential packages on RedHat-based systems (excluding virtualenv)
       yum:
