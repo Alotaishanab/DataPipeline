@@ -41,9 +41,13 @@
           --conf "spark.yarn.appMasterEnv.PYTHONPATH={{ esm_venv_path }}/lib/python{{ py_version }}/site-packages" \
           --conf "spark.executorEnv.PYSPARK_PYTHON={{ esm_venv_path }}/bin/python" \
           --conf "spark.executorEnv.PYTHONPATH={{ esm_venv_path }}/lib/python{{ py_version }}/site-packages" \
+          --conf "spark.executorEnv.TORCH_HOME=/tmp/torch_cache" \
+          --conf "spark.yarn.appMasterEnv.TORCH_HOME=/tmp/torch_cache" \
           "{{ pipeline_remote_path }}"
       args:
         chdir: "/home/almalinux"
       environment:
         HADOOP_CONF_DIR: "{{ hadoop_conf_dir }}"
         YARN_CONF_DIR: "{{ hadoop_conf_dir }}"
+        TORCH_HOME: "/tmp/torch_cache"
+
