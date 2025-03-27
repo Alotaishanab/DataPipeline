@@ -15,86 +15,43 @@
         state: started
         enabled: true
 
-    - name: Open Hadoop NameNode and YARN ports (permanent)
+    - name: Open required ports using firewalld (permanent)
       ansible.posix.firewalld:
         port: "{{ item }}/tcp"
-        permanent: yes
+        permanent: true
         state: enabled
-        immediate: yes
+        immediate: true
       loop:
-        - 9000
-        - 9870
-        - 8088
-        - 8025
-        - 8035
-        - 8050
+        - 9000    # HDFS
+        - 9870    # HDFS Web UI
+        - 8088    # YARN ResourceManager UI
+        - 8025    # ResourceManager ResourceTracker
+        - 8035    # ResourceManager Scheduler
+        - 8050    # ResourceManager Address
+        - 3000    # Grafana
+        - 9090    # Prometheus
+        - 9100    # Node Exporter
+        - 9864    # DataNode Web UI
+        - 9866    # DataNode Data Transfer
+        - 9867    # DataNode IPC
+        - 50010   # Legacy DataNode transfer
+        - 50020   # Legacy IPC
+        - 50075   # Legacy UI
+        - 8042    # NodeManager Web UI
+        - 8041    # NodeManager RPC
+        - 8080    # Flask Web UI
 
-    - name: Open monitoring ports (permanent)
-      ansible.posix.firewalld:
-        port: "{{ item }}/tcp"
-        permanent: yes
-        state: enabled
-        immediate: yes
-      loop:
-        - 3000
-        - 9090
-        - 9100
-
-    - name: Open DataNode fixed ports (permanent)
-      ansible.posix.firewalld:
-        port: "{{ item }}/tcp"
-        permanent: yes
-        state: enabled
-        immediate: yes
-      loop:
-        - 9864
-        - 9866
-        - 9867
-
-    - name: Open legacy DataNode ports (if needed)
-      ansible.posix.firewalld:
-        port: "{{ item }}/tcp"
-        permanent: yes
-        state: enabled
-        immediate: yes
-      loop:
-        - 50010
-        - 50020
-        - 50075
-
-    - name: Open NodeManager Web UI port (8042)
-      ansible.posix.firewalld:
-        port: "8042/tcp"
-        permanent: yes
-        state: enabled
-        immediate: yes
-
-    - name: Open NodeManager RPC port (8041)
-      ansible.posix.firewalld:
-        port: "8041/tcp"
-        permanent: yes
-        state: enabled
-        immediate: yes
-
-    - name: Open port 8080/tcp for Flask Upload UI
-      ansible.posix.firewalld:
-        port: "8080/tcp"
-        permanent: yes
-        state: enabled
-        immediate: yes
-
-    - name: Allow HTTP and HTTPS in firewall
+    - name: Allow HTTP and HTTPS in firewalld
       ansible.posix.firewalld:
         service: "{{ item }}"
-        state: enabled
         permanent: yes
+        state: enabled
         immediate: yes
       loop:
         - http
         - https
-      notify: reload firewalld
 
-    - name: Remove ephemeral port range from firewall (if previously added)
+    - name: Remove ephemeral port range from firewalld
       ansible.posix.firewalld:
         port: "32768-61000/tcp"
         permanent: yes
@@ -106,46 +63,55 @@
         name: firewalld
         state: reloaded
 
-    # UFW fallback (for systems using UFW instead of firewalld)
+    # --- UFW Section ---
     - name: Check if UFW is installed
       ansible.builtin.command: which ufw
       register: ufw_installed
-      ignore_errors: yes
+      ignore_errors: true
 
-    - name: Allow fixed DataNode ports in UFW
-      ansible.builtin.command: ufw allow "{{ item }}/tcp"
+    - name: Enable UFW (if installed)
+      ansible.builtin.command: ufw --force enable
+      when: ufw_installed.rc == 0
+      ignore_errors: true
+
+    - name: Allow required ports in UFW
+      ansible.builtin.command: ufw allow {{ item }}/tcp
       loop:
+        - 9000
+        - 9870
+        - 8088
+        - 8025
+        - 8035
+        - 8050
+        - 3000
+        - 9090
+        - 9100
         - 9864
         - 9866
         - 9867
+        - 50010
+        - 50020
+        - 50075
+        - 8042
+        - 8041
+        - 8080
       when: ufw_installed.rc == 0
-
-    - name: Allow NodeManager RPC port (8041) in UFW
-      ansible.builtin.command: ufw allow 8041/tcp
-      when: ufw_installed.rc == 0
-
-    - name: Allow port 8080/tcp in UFW (if needed)
-      ansible.builtin.command: ufw allow 8080/tcp
-      when: ufw_installed.rc == 0
+      ignore_errors: true
 
     - name: Allow HTTP and HTTPS in UFW
-      ansible.builtin.command: ufw allow "{{ item }}"
+      ansible.builtin.command: ufw allow {{ item }}
       loop:
         - http
         - https
       when: ufw_installed.rc == 0
+      ignore_errors: true
 
     - name: Remove ephemeral ports in UFW if previously added
       ansible.builtin.command: ufw delete allow 32768:61000/tcp
       when: ufw_installed.rc == 0
-      ignore_errors: yes
+      ignore_errors: true
 
     - name: Reload UFW
       ansible.builtin.command: ufw reload
       when: ufw_installed.rc == 0
-
-  handlers:
-    - name: reload firewalld
-      ansible.builtin.service:
-        name: firewalld
-        state: reloaded
+      ignore_errors: true
