@@ -47,9 +47,9 @@
         state: enabled
         immediate: yes
       loop:
-        - 9864     # DataNode Web UI
-        - 9866     # DataNode data transfer
-        - 9867     # DataNode IPC
+        - 9864
+        - 9866
+        - 9867
 
     - name: Open legacy DataNode ports (if needed)
       ansible.posix.firewalld:
@@ -102,12 +102,11 @@
         immediate: yes
 
     - name: Reload firewalld to apply changes
-      ansible.builtin.shell: firewall-cmd --reload
+      ansible.builtin.service:
+        name: firewalld
+        state: reloaded
 
-    ######################################################################
-    # Optional UFW fallback — useful for machines using UFW over firewalld
-    ######################################################################
-
+    # UFW fallback (for systems using UFW instead of firewalld)
     - name: Check if UFW is installed
       ansible.builtin.command: which ufw
       register: ufw_installed
