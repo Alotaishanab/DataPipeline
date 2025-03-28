@@ -5,6 +5,7 @@ import json
 import logging
 import torch
 import esm
+import traceback
 from pyspark.sql import SparkSession
 
 # ---------------------- #
@@ -25,6 +26,7 @@ logger = logging.getLogger(__name__)
 # FASTA Parsing function
 # ---------------------- #
 def parse_fasta_partition(lines):
+    logger.info("🔍 Parsing FASTA partition")
     sequence = []
     for line in lines:
         line = line.strip()
@@ -41,6 +43,7 @@ def parse_fasta_partition(lines):
 # Batch inference function
 # ---------------------- #
 def run_batch(batch_data, model, batch_converter):
+    logger.info(f"🚀 Running inference on batch of size {len(batch_data)}")
     try:
         _, _, batch_tokens = batch_converter(batch_data)
         with torch.no_grad():
@@ -55,7 +58,8 @@ def run_batch(batch_data, model, batch_converter):
             })
 
     except Exception as e:
-        logger.error(f"Batch processing error: {e}")
+        logger.error(f"❌ Batch processing error: {e}")
+        logger.error(traceback.format_exc())
         for _, seq in batch_data:
             yield json.dumps({
                 "sequence": seq,
@@ -66,16 +70,22 @@ def run_batch(batch_data, model, batch_converter):
 # Partition-level inference
 # ---------------------- #
 def inference_map_partition(records):
+    import sys
     try:
+        logger.info(f"[PID {os.getpid()}] ⚙️ Initializing model on worker...")
+        print(f"[WORKER LOG] PID {os.getpid()} loading model...", file=sys.stderr)
+
         model, alphabet = esm.pretrained.esm2_t33_650M_UR50D()
         model.eval()
         batch_converter = alphabet.get_batch_converter()
         batch_size = 8
         buffer = []
 
+        count = 0
         for seq in parse_fasta_partition(records):
             if not seq:
                 continue
+            count += 1
             buffer.append(("sequence", seq))
             if len(buffer) == batch_size:
                 yield from run_batch(buffer, model, batch_converter)
@@ -84,14 +94,18 @@ def inference_map_partition(records):
         if buffer:
             yield from run_batch(buffer, model, batch_converter)
 
+        logger.info(f"✅ Processed {count} sequences in partition.")
+
     except Exception as e:
-        logger.error(f"Error in partition: {e}")
+        logger.error(f"💥 Partition-level error: {e}")
+        logger.error(traceback.format_exc())
         yield json.dumps({"error": str(e)})
 
 # ---------------------- #
 # Main Spark job
 # ---------------------- #
 def main():
+    logger.info("🔥 Starting ESM2 Distributed Inference Job")
     spark = SparkSession.builder.appName("ESM2-Pipeline").getOrCreate()
 
     input_path = "hdfs:///user/almalinux/datasets/sample_uniref50.fasta"
@@ -102,19 +116,19 @@ def main():
     fs = spark._jvm.org.apache.hadoop.fs.FileSystem.get(hadoop_conf)
     path = spark._jvm.org.apache.hadoop.fs.Path(output_path)
     if fs.exists(path):
-        logger.warning(f"Output path {output_path} exists. Deleting it.")
+        logger.warning(f"⚠️ Output path {output_path} exists. Deleting it.")
         fs.delete(path, True)
 
-    logger.info("Reading FASTA file from HDFS...")
+    logger.info("📥 Reading FASTA file from HDFS...")
     df = spark.read.text(input_path)
 
-    logger.info("Running distributed ESM inference...")
+    logger.info("🧠 Running distributed ESM inference across partitions...")
     rdd = df.rdd.mapPartitions(inference_map_partition)
 
-    logger.info("Saving embeddings to HDFS...")
+    logger.info("💾 Saving embeddings to HDFS...")
     rdd.saveAsTextFile(output_path)
 
-    logger.info("✅ Job completed successfully.")
+    logger.info("🏁 ✅ Job completed successfully.")
     spark.stop()
 
 if __name__ == "__main__":
