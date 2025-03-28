@@ -98,11 +98,6 @@
       args:
         chdir: "{{ esm_dest }}"
 
-    - name: Remove previously downloaded model (esm2_t33_650M_UR50D) if present
-      file:
-        path: "/root/.cache/torch/hub/checkpoints/esm2_t33_650M_UR50D.pt"
-        state: absent
-
     - name: Download pretrained ESM model ({{ esm_model }})
       command: "{{ esm_dest }}/venv/bin/python -m esm.pretrained download {{ esm_model }}"
       args:

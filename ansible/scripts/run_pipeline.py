@@ -19,7 +19,7 @@ os.environ["TORCH_HOME"] = "/tmp/torch_cache"
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
-    force=True  # ensures config is applied even if logging is already configured
+    force=True
 )
 logger = logging.getLogger(__name__)
 
@@ -48,8 +48,8 @@ def run_batch(batch_data, model, batch_converter):
     try:
         _, _, batch_tokens = batch_converter(batch_data)
         with torch.no_grad():
-            results = model(batch_tokens, repr_layers=[33], return_contacts=False)
-        token_representations = results["representations"][33]
+            results = model(batch_tokens, repr_layers=[30], return_contacts=False)
+        token_representations = results["representations"][30]
 
         for i, (label, seq) in enumerate(batch_data):
             embedding = token_representations[i, 1:len(seq)+1].mean(0).tolist()
@@ -76,10 +76,10 @@ def inference_map_partition(records):
         logger.info(f"[Worker PID {pid}] ⚙️ Loading model inside partition...")
         logger.info(f"[Worker PID {pid}] 🔧 TORCH_HOME: {os.environ.get('TORCH_HOME')}")
 
-        model, alphabet = esm.pretrained.esm2_t33_650M_UR50D()
+        model, alphabet = esm.pretrained.esm2_t30_150M_UR50D()
         model.eval()
         batch_converter = alphabet.get_batch_converter()
-        batch_size = 1
+        batch_size = 4
         buffer = []
         count = 0
 
@@ -110,7 +110,7 @@ def main():
     try:
         spark = SparkSession.builder.appName("ESM2-Pipeline").getOrCreate()
 
-        input_path = "hdfs:///user/almalinux/datasets/sample_uniref50.fasta"
+        input_path = "hdfs:///user/almalinux/datasets/uniref50.fasta"
         output_path = "hdfs:///user/almalinux/results/esm2_embeddings_json"
 
         # Delete output directory if it already exists
@@ -121,7 +121,7 @@ def main():
             logger.warning(f"⚠️ Output path {output_path} exists. Deleting it.")
             fs.delete(path, True)
 
-        logger.info("📥 Reading FASTA file from HDFS...")
+        logger.info("📥 Reading full FASTA file from HDFS...")
         df = spark.read.text(input_path)
 
         logger.info("🧠 Running distributed ESM inference across partitions...")
