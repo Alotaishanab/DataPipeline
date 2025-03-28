@@ -19,7 +19,7 @@ os.environ["TORCH_HOME"] = "/tmp/torch_cache"
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
-    force=True
+    force=True  # ensures config is applied even if logging was already configured
 )
 logger = logging.getLogger(__name__)
 
@@ -31,6 +31,7 @@ def parse_fasta_partition(lines):
     sequence = []
     for line in lines:
         line = line.strip()
+        logger.info(f"📄 Line received: {line}")
         if line.startswith(">"):
             if sequence:
                 yield "".join(sequence)
@@ -48,8 +49,8 @@ def run_batch(batch_data, model, batch_converter):
     try:
         _, _, batch_tokens = batch_converter(batch_data)
         with torch.no_grad():
-            results = model(batch_tokens, repr_layers=[30], return_contacts=False)
-        token_representations = results["representations"][30]
+            results = model(batch_tokens, repr_layers=[33], return_contacts=False)
+        token_representations = results["representations"][33]
 
         for i, (label, seq) in enumerate(batch_data):
             embedding = token_representations[i, 1:len(seq)+1].mean(0).tolist()
@@ -73,13 +74,13 @@ def run_batch(batch_data, model, batch_converter):
 def inference_map_partition(records):
     try:
         pid = os.getpid()
-        logger.info(f"[Worker PID {pid}] ⚙️ Loading model inside partition...")
+        logger.info(f"[Worker PID {pid}] ⚙️ Partition started. Loading model...")
         logger.info(f"[Worker PID {pid}] 🔧 TORCH_HOME: {os.environ.get('TORCH_HOME')}")
 
-        model, alphabet = esm.pretrained.esm2_t30_150M_UR50D()
+        model, alphabet = esm.pretrained.esm2_t33_650M_UR50D()
         model.eval()
         batch_converter = alphabet.get_batch_converter()
-        batch_size = 4
+        batch_size = 1
         buffer = []
         count = 0
 
@@ -121,11 +122,15 @@ def main():
             logger.warning(f"⚠️ Output path {output_path} exists. Deleting it.")
             fs.delete(path, True)
 
-        logger.info("📥 Reading full FASTA file from HDFS...")
+        logger.info("📥 Reading FASTA file from HDFS...")
         df = spark.read.text(input_path)
 
         logger.info("🧠 Running distributed ESM inference across partitions...")
         rdd = df.rdd.mapPartitions(inference_map_partition)
+
+        # Optional: count to force evaluation and show activity
+        record_count = rdd.count()
+        logger.info(f"🧮 Total records processed by workers: {record_count}")
 
         logger.info("💾 Saving embeddings to HDFS...")
         rdd.saveAsTextFile(output_path)
