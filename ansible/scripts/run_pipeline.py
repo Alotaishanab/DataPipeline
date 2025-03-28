@@ -18,7 +18,8 @@ os.environ["TORCH_HOME"] = "/tmp/torch_cache"
 # ---------------------- #
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s"
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    force=True  # ensures config is applied even if logging is already configured
 )
 logger = logging.getLogger(__name__)
 
@@ -70,18 +71,18 @@ def run_batch(batch_data, model, batch_converter):
 # Partition-level inference
 # ---------------------- #
 def inference_map_partition(records):
-    import sys
     try:
-        logger.info(f"[PID {os.getpid()}] ⚙️ Initializing model on worker...")
-        print(f"[WORKER LOG] PID {os.getpid()} loading model...", file=sys.stderr)
+        pid = os.getpid()
+        logger.info(f"[Worker PID {pid}] ⚙️ Loading model inside partition...")
+        logger.info(f"[Worker PID {pid}] 🔧 TORCH_HOME: {os.environ.get('TORCH_HOME')}")
 
         model, alphabet = esm.pretrained.esm2_t33_650M_UR50D()
         model.eval()
         batch_converter = alphabet.get_batch_converter()
-        batch_size = 8
+        batch_size = 1
         buffer = []
-
         count = 0
+
         for seq in parse_fasta_partition(records):
             if not seq:
                 continue
@@ -94,7 +95,7 @@ def inference_map_partition(records):
         if buffer:
             yield from run_batch(buffer, model, batch_converter)
 
-        logger.info(f"✅ Processed {count} sequences in partition.")
+        logger.info(f"✅ Finished processing {count} sequences in partition.")
 
     except Exception as e:
         logger.error(f"💥 Partition-level error: {e}")
@@ -106,30 +107,35 @@ def inference_map_partition(records):
 # ---------------------- #
 def main():
     logger.info("🔥 Starting ESM2 Distributed Inference Job")
-    spark = SparkSession.builder.appName("ESM2-Pipeline").getOrCreate()
+    try:
+        spark = SparkSession.builder.appName("ESM2-Pipeline").getOrCreate()
 
-    input_path = "hdfs:///user/almalinux/datasets/sample_uniref50.fasta"
-    output_path = "hdfs:///user/almalinux/results/esm2_embeddings_json"
+        input_path = "hdfs:///user/almalinux/datasets/sample_uniref50.fasta"
+        output_path = "hdfs:///user/almalinux/results/esm2_embeddings_json"
 
-    # Delete output directory if it already exists
-    hadoop_conf = spark._jsc.hadoopConfiguration()
-    fs = spark._jvm.org.apache.hadoop.fs.FileSystem.get(hadoop_conf)
-    path = spark._jvm.org.apache.hadoop.fs.Path(output_path)
-    if fs.exists(path):
-        logger.warning(f"⚠️ Output path {output_path} exists. Deleting it.")
-        fs.delete(path, True)
+        # Delete output directory if it already exists
+        hadoop_conf = spark._jsc.hadoopConfiguration()
+        fs = spark._jvm.org.apache.hadoop.fs.FileSystem.get(hadoop_conf)
+        path = spark._jvm.org.apache.hadoop.fs.Path(output_path)
+        if fs.exists(path):
+            logger.warning(f"⚠️ Output path {output_path} exists. Deleting it.")
+            fs.delete(path, True)
 
-    logger.info("📥 Reading FASTA file from HDFS...")
-    df = spark.read.text(input_path)
+        logger.info("📥 Reading FASTA file from HDFS...")
+        df = spark.read.text(input_path)
 
-    logger.info("🧠 Running distributed ESM inference across partitions...")
-    rdd = df.rdd.mapPartitions(inference_map_partition)
+        logger.info("🧠 Running distributed ESM inference across partitions...")
+        rdd = df.rdd.mapPartitions(inference_map_partition)
 
-    logger.info("💾 Saving embeddings to HDFS...")
-    rdd.saveAsTextFile(output_path)
+        logger.info("💾 Saving embeddings to HDFS...")
+        rdd.saveAsTextFile(output_path)
 
-    logger.info("🏁 ✅ Job completed successfully.")
-    spark.stop()
+        logger.info("🏁 ✅ Job completed successfully.")
+        spark.stop()
+
+    except Exception as e:
+        logger.error(f"🔥 Fatal error in Spark job: {e}")
+        logger.error(traceback.format_exc())
 
 if __name__ == "__main__":
     main()
