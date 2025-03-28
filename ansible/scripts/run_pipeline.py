@@ -22,6 +22,22 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # ---------------------- #
+# FASTA Parsing function
+# ---------------------- #
+def parse_fasta_partition(lines):
+    sequence = []
+    for line in lines:
+        line = line.strip()
+        if line.startswith(">"):
+            if sequence:
+                yield "".join(sequence)
+                sequence = []
+        elif line:
+            sequence.append(line)
+    if sequence:
+        yield "".join(sequence)
+
+# ---------------------- #
 # Batch inference function
 # ---------------------- #
 def run_batch(batch_data, model, batch_converter):
@@ -57,19 +73,13 @@ def inference_map_partition(records):
         batch_size = 8
         buffer = []
 
-        for row in records:
-            try:
-                record = json.loads(row.value)
-                seq = record.get("sequence", "").strip()
-                if not seq:
-                    continue
-                buffer.append(("sequence", seq))
-                if len(buffer) == batch_size:
-                    yield from run_batch(buffer, model, batch_converter)
-                    buffer = []
-            except Exception as e:
-                logger.error(f"JSON parse or sequence error: {e}")
+        for seq in parse_fasta_partition(records):
+            if not seq:
                 continue
+            buffer.append(("sequence", seq))
+            if len(buffer) == batch_size:
+                yield from run_batch(buffer, model, batch_converter)
+                buffer = []
 
         if buffer:
             yield from run_batch(buffer, model, batch_converter)
@@ -95,7 +105,7 @@ def main():
         logger.warning(f"Output path {output_path} exists. Deleting it.")
         fs.delete(path, True)
 
-    logger.info("Reading preprocessed input from HDFS...")
+    logger.info("Reading FASTA file from HDFS...")
     df = spark.read.text(input_path)
 
     logger.info("Running distributed ESM inference...")
