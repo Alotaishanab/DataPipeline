@@ -1,98 +1,109 @@
-- name: Download and Upload Protein Dataset into HDFS
-  hosts: worker1
+- name: Setup ESM Pretrained Model Environment on Worker Nodes
+  hosts: worker_inventory
   become: yes
-  become_user: almalinux
-
   vars:
-    dataset_dir: "/mnt/data"
-    dataset_gz: "uniref50.fasta.gz"
-    dataset_fasta: "uniref50.fasta"
-    dataset_local_path: "{{ dataset_dir }}/{{ dataset_gz }}"
-    unzipped_dataset_path: "{{ dataset_dir }}/{{ dataset_fasta }}"
-    dataset_download_url: "https://ftp.uniprot.org/pub/databases/uniprot/uniref/uniref50/uniref50.fasta.gz"
-    hdfs_target_dir: "/user/almalinux/datasets"
-    hdfs_target_file: "{{ hdfs_target_dir }}/{{ dataset_fasta }}"
-    hadoop_bin: "/home/almalinux/hadoop-3.4.0/bin/hdfs"
-    hadoop_conf: "/home/almalinux/hadoop-3.4.0/etc/hadoop"
+    esm_repo: "https://github.com/facebookresearch/esm.git"
+    esm_dest: "/opt/esm"
+    torch_version: "2.0.1+cpu"
+    torch_url: "https://download.pytorch.org/whl/cpu/torch_stable.html"
+    esm_model: "esm2_t30_150M_UR50D"
 
   tasks:
-
-    - name: Ensure local dataset directory exists
-      ansible.builtin.file:
-        path: "{{ dataset_dir }}"
+    - name: Create a directory on extra disk for pip temp/cache
+      file:
+        path: "/mnt/data/pip-tmp"
         state: directory
-        mode: '0755'
+        mode: '0777'
 
-    - name: Check if dataset .gz file exists
-      ansible.builtin.stat:
-        path: "{{ dataset_local_path }}"
-      register: dataset_file
+    - name: Ensure required system packages are installed for ESM
+      dnf:
+        name:
+          - git
+          - python3
+          - python3-pip
+        state: present
+        update_cache: yes
 
-    - name: Download Protein Dataset if not present
-      ansible.builtin.get_url:
-        url: "{{ dataset_download_url }}"
-        dest: "{{ dataset_local_path }}"
-        mode: '0644'
-      when: not dataset_file.stat.exists
+    - name: Upgrade system pip to the latest version
+      pip:
+        name: pip
+        executable: pip3
+        state: latest
 
-    - name: Re-check if dataset file exists after download
-      ansible.builtin.stat:
-        path: "{{ dataset_local_path }}"
-      register: dataset_file_after
+    - name: Uninstall existing torch if present (on system pip)
+      pip:
+        name: torch
+        state: absent
+        executable: pip3
 
-    - name: Fail if dataset file still does not exist after download
-      ansible.builtin.fail:
-        msg: "❌ Dataset file not found at {{ dataset_local_path }}"
-      when: not dataset_file_after.stat.exists
+    - name: Clone the ESM repository
+      git:
+        repo: "{{ esm_repo }}"
+        dest: "{{ esm_dest }}"
+        version: "main"
 
-    - name: Decompress FASTA.GZ file to .fasta
-      become_user: root
-      ansible.builtin.shell: |
-        gunzip -c "{{ dataset_local_path }}" > "{{ unzipped_dataset_path }}"
+    - name: Check if ESM requirements file exists
+      stat:
+        path: "{{ esm_dest }}/requirements.txt"
+      register: esm_req_file
+
+    - name: Remove any Torch lines from requirements.txt if present
+      lineinfile:
+        path: "{{ esm_dest }}/requirements.txt"
+        regexp: '^torch==.*$'
+        state: absent
+      when: esm_req_file.stat.exists
+
+    - name: Create Python virtual environment for ESM
+      command: /usr/bin/python3 -m venv "{{ esm_dest }}/venv"
       args:
-        creates: "{{ unzipped_dataset_path }}"
+        creates: "{{ esm_dest }}/venv"
 
-    - name: Create HDFS target directory
-      ansible.builtin.shell: >
-        {{ hadoop_bin }} --config {{ hadoop_conf }}
-        dfs -mkdir -p {{ hdfs_target_dir }}
-      environment:
-        HADOOP_CONF_DIR: "{{ hadoop_conf }}"
-
-    - name: Upload decompressed FASTA dataset to HDFS
-      ansible.builtin.shell: >
-        {{ hadoop_bin }} --config {{ hadoop_conf }}
-        dfs -put -f "{{ unzipped_dataset_path }}" "{{ hdfs_target_dir }}/"
-      environment:
-        HADOOP_CONF_DIR: "{{ hadoop_conf }}"
-
-    - name: Verify uncompressed file exists in HDFS
-      ansible.builtin.shell: >
-        {{ hadoop_bin }} --config {{ hadoop_conf }}
-        dfs -test -e "{{ hdfs_target_file }}"
-      environment:
-        HADOOP_CONF_DIR: "{{ hadoop_conf }}"
-      register: hdfs_test
-      ignore_errors: true
-
-    - name: Fail if file was not found in HDFS
-      ansible.builtin.fail:
-        msg: "❌ Uncompressed file not found in HDFS at {{ hdfs_target_file }}"
-      when: hdfs_test.rc != 0
-
-    - name: Debug success message
-      ansible.builtin.debug:
-        msg: "✅ Dataset uploaded and verified in HDFS at {{ hdfs_target_file }}"
-      when: hdfs_test.rc == 0
-
-    - name: Remove local .fasta file after successful upload
-      ansible.builtin.file:
-        path: "{{ unzipped_dataset_path }}"
+    - name: Remove incorrect python3 symlink (if any)
+      file:
+        path: "{{ esm_dest }}/venv/bin/python3"
         state: absent
-      when: hdfs_test.rc == 0
 
-    - name: Remove local .gz file after successful upload
-      ansible.builtin.file:
-        path: "{{ dataset_local_path }}"
+    - name: Create correct python3 symlink pointing to /usr/bin/python3
+      file:
+        src: /usr/bin/python3
+        dest: "{{ esm_dest }}/venv/bin/python3"
+        state: link
+
+    - name: Ensure 'python' symlink points to 'python3'
+      file:
+        src: python3
+        dest: "{{ esm_dest }}/venv/bin/python"
+        state: link
+
+    - name: Install ESM dependencies (except Torch)
+      pip:
+        requirements: "{{ esm_dest }}/requirements.txt"
+        virtualenv: "{{ esm_dest }}/venv"
+        state: present
+      when: esm_req_file.stat.exists
+
+    - name: Install CPU-only PyTorch in the ESM virtual environment
+      pip:
+        name: "torch=={{ torch_version }}"
+        virtualenv: "{{ esm_dest }}/venv"
+        state: present
+        extra_args: "--find-links {{ torch_url }}"
+      environment:
+        TMPDIR: "/mnt/data/pip-tmp"
+        PIP_CACHE_DIR: "/mnt/data/pip-tmp"
+
+    - name: Install ESM package in the virtual environment
+      command: "{{ esm_dest }}/venv/bin/pip install -e {{ esm_dest }}"
+      args:
+        chdir: "{{ esm_dest }}"
+
+    - name: Delete previously downloaded model (esm2_t33_650M_UR50D)
+      file:
+        path: "{{ esm_dest }}/.cache/torch/hub/checkpoints/esm2_t33_650M_UR50D.pt"
         state: absent
-      when: hdfs_test.rc == 0
+
+    - name: Download pretrained ESM model ({{ esm_model }})
+      command: "{{ esm_dest }}/venv/bin/python -m esm.pretrained download {{ esm_model }}"
+      args:
+        chdir: "{{ esm_dest }}"
