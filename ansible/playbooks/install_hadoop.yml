@@ -26,6 +26,12 @@
         dest: /home/almalinux/
         remote_src: true
         src: /home/almalinux/hadoop.tar.gz
+    
+    - name: Remove Hadoop tar.gz to free disk space
+      ansible.builtin.file:
+        path: /home/almalinux/hadoop.tar.gz
+        state: absent
+
 
     - name: Fix ownership of entire Hadoop installation
       ansible.builtin.file:

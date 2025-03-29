@@ -28,10 +28,10 @@
             {{ spark_home }}/bin/spark-submit \
               --master yarn \
               --deploy-mode cluster \
-              --num-executors 12 \
-              --executor-cores 4 \
-              --executor-memory 4G \
-              --driver-memory 4G \
+              --num-executors 8 \
+              --executor-cores 2 \
+              --executor-memory 1G \
+              --driver-memory 1G \
               --conf "spark.yarn.submit.waitAppCompletion=true" \
               --conf "spark.yarn.appMasterEnv.PYSPARK_PYTHON={{ esm_venv_path }}/bin/python" \
               --conf "spark.yarn.appMasterEnv.PYTHONPATH={{ esm_venv_path }}/lib/python{{ py_version }}/site-packages" \
