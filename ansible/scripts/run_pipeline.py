@@ -109,35 +109,30 @@ def inference_map_partition(records):
 def main():
     logger.info("🔥 Starting ESM2 Distributed Inference Job")
     try:
-        spark = SparkSession.builder \
-            .appName("ESM2-Pipeline") \
-            .master("local[1]") \
-            .getOrCreate()
+        spark = (SparkSession.builder
+            .appName("ESM2-Pipeline")
+            .master("local[1]")  # local mode
+            .getOrCreate())
 
         input_path = "file:///home/almalinux/snippet.fasta"
         output_path = "file:///home/almalinux/esm2_embeddings_json_out"
 
+        # ---- For local, remove any existing output folder with Python (not Hadoop) ----
+        local_out_dir = "/home/almalinux/esm2_embeddings_json_out"
+        if os.path.exists(local_out_dir):
+            logger.warning(f"⚠️ Local output path {local_out_dir} exists. Deleting it.")
+            shutil.rmtree(local_out_dir)
 
-
-        # Delete output directory if it already exists
-        hadoop_conf = spark._jsc.hadoopConfiguration()
-        fs = spark._jvm.org.apache.hadoop.fs.FileSystem.get(hadoop_conf)
-        path = spark._jvm.org.apache.hadoop.fs.Path(output_path)
-        if fs.exists(path):
-            logger.warning(f"⚠️ Output path {output_path} exists. Deleting it.")
-            fs.delete(path, True)
-
-        logger.info("📥 Reading FASTA file from HDFS...")
+        logger.info("📥 Reading FASTA file from local filesystem...")
         df = spark.read.text(input_path)
 
         logger.info("🧠 Running distributed ESM inference across partitions...")
         rdd = df.rdd.mapPartitions(inference_map_partition)
 
-        # Optional: count to force evaluation and show activity
         record_count = rdd.count()
         logger.info(f"🧮 Total records processed by workers: {record_count}")
 
-        logger.info("💾 Saving embeddings to HDFS...")
+        logger.info("💾 Saving embeddings to local filesystem...")
         rdd.saveAsTextFile(output_path)
 
         logger.info("🏁 ✅ Job completed successfully.")
