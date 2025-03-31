@@ -77,7 +77,7 @@ def inference_map_partition(records):
         logger.info(f"[Worker PID {pid}] ⚙️ Partition started. Loading model...")
         logger.info(f"[Worker PID {pid}] 🔧 TORCH_HOME: {os.environ.get('TORCH_HOME')}")
 
-        model, alphabet = esm.pretrained.esm2_t33_650M_UR50D()
+        model, alphabet = esm.pretrained.esm2_t30_150M_UR50D()
         model.eval()
         batch_converter = alphabet.get_batch_converter()
         batch_size = 1
