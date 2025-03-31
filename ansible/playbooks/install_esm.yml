@@ -98,10 +98,13 @@
       args:
         chdir: "{{ esm_dest }}"
 
-    - name: Install NumPy in the ESM virtual environment
+    ################################################
+    # Force NumPy below 2.x to avoid "compiled with
+    # NumPy 1.x" warnings & potential incompat
+    ################################################
+    - name: Install pinned NumPy version (<2) in the ESM virtual environment
       pip:
-        name:
-          - numpy
+        name: "numpy<2"
         virtualenv: "{{ esm_dest }}/venv"
         state: present
       environment:
