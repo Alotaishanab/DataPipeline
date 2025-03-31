@@ -26,11 +26,13 @@ logger = logging.getLogger(__name__)
 # ---------------------- #
 # FASTA Parsing function
 # ---------------------- #
-def parse_fasta_partition(lines):
+def parse_fasta_partition(rows):
     logger.info("🔍 Parsing FASTA partition")
     sequence = []
-    for line in lines:
-        line = line.strip()
+    for row in rows:
+        # row is a PySpark Row, which has a field row.value
+        line = row.value  # the actual string
+        line = line.strip()  # now we can strip
         logger.info(f"📄 Line received: {line}")
         if line.startswith(">"):
             if sequence:
@@ -40,6 +42,7 @@ def parse_fasta_partition(lines):
             sequence.append(line)
     if sequence:
         yield "".join(sequence)
+
 
 # ---------------------- #
 # Batch inference function
