@@ -114,8 +114,9 @@ def main():
             .master("local[1]") \
             .getOrCreate()
 
-        input_path = "/home/almalinux/snippet.fasta"  # local file path
-        output_path = "/home/almalinux/esm2_embeddings_json_out"  # local output folder
+        input_path = "file:///home/almalinux/snippet.fasta"
+        output_path = "file:///home/almalinux/esm2_embeddings_json_out"
+
 
 
         # Delete output directory if it already exists
