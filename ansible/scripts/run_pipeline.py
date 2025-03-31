@@ -109,10 +109,14 @@ def inference_map_partition(records):
 def main():
     logger.info("🔥 Starting ESM2 Distributed Inference Job")
     try:
-        spark = SparkSession.builder.appName("ESM2-Pipeline").getOrCreate()
+        spark = SparkSession.builder \
+            .appName("ESM2-Pipeline") \
+            .master("local[1]") \
+            .getOrCreate()
 
-        input_path = "hdfs:///user/almalinux/datasets/uniref50.fasta"
-        output_path = "hdfs:///user/almalinux/results/esm2_embeddings_json"
+        input_path = "/home/almalinux/snippet.fasta"  # local file path
+        output_path = "/home/almalinux/esm2_embeddings_json_out"  # local output folder
+
 
         # Delete output directory if it already exists
         hadoop_conf = spark._jsc.hadoopConfiguration()
