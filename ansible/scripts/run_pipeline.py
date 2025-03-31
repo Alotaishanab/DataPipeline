@@ -79,8 +79,8 @@ def run_batch(batch_data, model, batch_converter):
         _, _, batch_tokens = batch_converter(truncated_batch_data)
 
         with torch.no_grad():
-            results = model(batch_tokens, repr_layers=[33], return_contacts=False)
-        token_representations = results["representations"][33]
+            results = model(batch_tokens, repr_layers=[30], return_contacts=False)
+        token_representations = results["representations"][30]
 
         # Build embeddings
         for i, (label, seq) in enumerate(truncated_batch_data):
