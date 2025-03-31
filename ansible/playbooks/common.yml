@@ -40,6 +40,12 @@
           - java-11-openjdk-devel
         state: present
       when: ansible_os_family == "RedHat"
+      register: install_redhat
+      # Retry up to 3 times, waiting 5 seconds between tries, until the task succeeds.
+      retries: 3
+      delay: 5
+      until: install_redhat is succeeded
+
 
     - name: Upgrade pip to the latest version on all machines
       pip:
