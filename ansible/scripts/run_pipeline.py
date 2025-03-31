@@ -111,7 +111,7 @@ def main():
     try:
         spark = SparkSession.builder.appName("ESM2-Pipeline").getOrCreate()
 
-        input_path = "hdfs:///user/almalinux/datasets/uniref50.fasta"
+        input_path = "hdfs:///user/almalinux/datasets/snippet.fasta"
         output_path = "hdfs:///user/almalinux/results/esm2_embeddings_json"
 
         # Delete output directory if it already exists
