@@ -6,6 +6,7 @@ import logging
 import torch
 import esm
 import traceback
+import shutil
 from pyspark.sql import SparkSession
 
 # ---------------------- #

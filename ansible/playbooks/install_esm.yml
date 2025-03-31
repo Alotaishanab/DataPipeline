@@ -98,6 +98,16 @@
       args:
         chdir: "{{ esm_dest }}"
 
+    - name: Install NumPy in the ESM virtual environment
+      pip:
+        name:
+          - numpy
+        virtualenv: "{{ esm_dest }}/venv"
+        state: present
+      environment:
+        TMPDIR: "/mnt/data/pip-tmp"
+        PIP_CACHE_DIR: "/mnt/data/pip-tmp"
+
     - name: Download pretrained ESM model ({{ esm_model }})
       command: "{{ esm_dest }}/venv/bin/python -m esm.pretrained download {{ esm_model }}"
       args:
