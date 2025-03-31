@@ -17,32 +17,23 @@
         dest: "{{ pipeline_remote_path }}"
         mode: '0755'
 
-    - name: Submit Spark job loop as background process (24-hour stress test)
+    - name: Submit Spark job (single run)
       shell: |
         nohup bash -c '
-          start=$(date +%s)
-          end=$((start + 86400))
-          while [ $(date +%s) -lt $end ]; do
-            echo ">>> Starting pipeline at $(date)" >> pipeline_loop.log
+          echo ">>> Starting pipeline at $(date)" >> pipeline_loop.log
 
-            {{ spark_home }}/bin/spark-submit \
-              --master yarn \
-              --deploy-mode cluster \
-              --num-executors 8 \
-              --executor-cores 2 \
-              --executor-memory 1G \
-              --driver-memory 1G \
-              --conf "spark.yarn.submit.waitAppCompletion=true" \
-              --conf "spark.yarn.appMasterEnv.PYSPARK_PYTHON={{ esm_venv_path }}/bin/python" \
-              --conf "spark.yarn.appMasterEnv.PYTHONPATH={{ esm_venv_path }}/lib/python{{ py_version }}/site-packages" \
-              --conf "spark.executorEnv.PYSPARK_PYTHON={{ esm_venv_path }}/bin/python" \
-              --conf "spark.executorEnv.PYTHONPATH={{ esm_venv_path }}/lib/python{{ py_version }}/site-packages" \
-              --conf "spark.executorEnv.TORCH_HOME=/tmp/torch_cache" \
-              --conf "spark.yarn.appMasterEnv.TORCH_HOME=/tmp/torch_cache" \
-              "{{ pipeline_remote_path }}" >> pipeline_loop.log 2>&1
+          {{ spark_home }}/bin/spark-submit \
+            --master yarn \
+            --deploy-mode cluster \
+            --num-executors 8 \
+            --executor-cores 2 \
+            --executor-memory 1G \
+            --driver-memory 1G \
+            --conf "spark.yarn.submit.waitAppCompletion=true" \
+            ...
+            "{{ pipeline_remote_path }}" >> pipeline_loop.log 2>&1
 
-            echo ">>> Pipeline run completed at $(date)" >> pipeline_loop.log
-          done
+          echo ">>> Pipeline run completed at $(date)" >> pipeline_loop.log
         ' &
       args:
         chdir: "/home/almalinux"
@@ -50,3 +41,4 @@
         HADOOP_CONF_DIR: "{{ hadoop_conf_dir }}"
         YARN_CONF_DIR: "{{ hadoop_conf_dir }}"
         TORCH_HOME: "/tmp/torch_cache"
+
