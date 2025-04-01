@@ -9,7 +9,6 @@
     py_version: "3.9"
     spark_home: "/home/almalinux/spark-3.5.3-bin-hadoop3-scala2.13"
     hadoop_conf_dir: "/home/almalinux/hadoop-3.4.0/etc/hadoop"
-
   tasks:
     - name: Copy pipeline code to worker1
       copy:
@@ -25,12 +24,18 @@
           {{ spark_home }}/bin/spark-submit \
             --master yarn \
             --deploy-mode cluster \
-            --num-executors 8 \
-            --executor-cores 2 \
-            --executor-memory 1G \
-            --driver-memory 1G \
+            --num-executors 4 \
+            --executor-cores 4 \
+            --executor-memory 12G \
+            --driver-memory 12G \
+            --conf "spark.yarn.executor.memoryOverhead=2G" \
             --conf "spark.yarn.submit.waitAppCompletion=true" \
-            ...
+            --conf "spark.yarn.appMasterEnv.PYSPARK_PYTHON={{ esm_venv_path }}/bin/python" \
+            --conf "spark.yarn.appMasterEnv.PYTHONPATH={{ esm_venv_path }}/lib/python{{ py_version }}/site-packages" \
+            --conf "spark.executorEnv.PYSPARK_PYTHON={{ esm_venv_path }}/bin/python" \
+            --conf "spark.executorEnv.PYTHONPATH={{ esm_venv_path }}/lib/python{{ py_version }}/site-packages" \
+            --conf "spark.executorEnv.TORCH_HOME=/tmp/torch_cache" \
+            --conf "spark.yarn.appMasterEnv.TORCH_HOME=/tmp/torch_cache" \
             "{{ pipeline_remote_path }}" >> pipeline_loop.log 2>&1
 
           echo ">>> Pipeline run completed at $(date)" >> pipeline_loop.log
@@ -41,4 +46,3 @@
         HADOOP_CONF_DIR: "{{ hadoop_conf_dir }}"
         YARN_CONF_DIR: "{{ hadoop_conf_dir }}"
         TORCH_HOME: "/tmp/torch_cache"
-

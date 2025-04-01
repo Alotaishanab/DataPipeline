@@ -166,6 +166,15 @@
               <name>yarn.nodemanager.address</name>
               <value>0.0.0.0:8041</value>
           </property>
+          <!-- Increase memory allocation to use most of the 32GB available -->
+          <property>
+              <name>yarn.nodemanager.resource.memory-mb</name>
+              <value>28000</value>
+          </property>
+          <property>
+              <name>yarn.scheduler.maximum-allocation-mb</name>
+              <value>28000</value>
+          </property>
 
     - name: Configure mapred-site.xml
       ansible.builtin.blockinfile:
