@@ -1,11 +1,16 @@
 #!/usr/bin/env python3
 
 import os
+import sys
 from pathlib import Path
 from Bio import SeqIO
 
-INPUT_FASTA = "uniref50.fasta"
-OUTPUT_DIR = "fasta_parts"
+if len(sys.argv) != 3:
+    print("Usage: split_fasta.py <input_fasta> <output_dir>")
+    sys.exit(1)
+
+INPUT_FASTA = os.path.abspath(sys.argv[1])
+OUTPUT_DIR = os.path.abspath(sys.argv[2])
 MAX_FILE_SIZE_MB = 100
 
 Path(OUTPUT_DIR).mkdir(parents=True, exist_ok=True)
