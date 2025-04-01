@@ -10,7 +10,6 @@ from io import StringIO
 from Bio import SeqIO
 from pyspark.sql import SparkSession
 
-# ---------------------- #
 os.environ["TORCH_HOME"] = "/tmp/torch_cache"
 
 logging.basicConfig(
@@ -21,21 +20,17 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 MAX_SEQ_LEN = 3000
-BATCH_SIZE = 4  # adjust based on model/memory balance
+BATCH_SIZE = 4
 
-# ---------------------- #
-# Parse full FASTA from partitioned text
-# ---------------------- #
 def parse_fasta_partition(rows):
     logger.info("🧬 Parsing FASTA partition into full sequences")
     buffer = ""
     for row in rows:
-        buffer += row.value + "\n"
+        buffer += row + "\n"
     fasta_io = StringIO(buffer)
     for record in SeqIO.parse(fasta_io, "fasta"):
         yield str(record.seq)
 
-# ---------------------- #
 def run_batch(batch_data, model, batch_converter):
     logger.info(f"✨ Running inference on batch of size {len(batch_data)}")
     try:
@@ -61,7 +56,6 @@ def run_batch(batch_data, model, batch_converter):
         for _, seq in batch_data:
             yield json.dumps({"sequence": seq, "error": str(e)})
 
-# ---------------------- #
 def inference_map_partition(records):
     try:
         pid = os.getpid()
@@ -92,24 +86,20 @@ def inference_map_partition(records):
         logger.error(traceback.format_exc())
         yield json.dumps({"error": str(e)})
 
-# ---------------------- #
 def main():
     logger.info("🔥 Starting ESM2 Inference Job")
     try:
         spark = SparkSession.builder.appName("ESM2-Pipeline").getOrCreate()
 
-        input_path = "hdfs:///user/almalinux/datasets/uniref50.fasta"
+        input_dir = "hdfs:///user/almalinux/datasets/fasta_parts"
         timestamp = spark.sparkContext._jvm.java.time.LocalDateTime.now().toString().replace(":", "_")
         output_path = f"hdfs:///user/almalinux/results/esm2_embeddings_json_{timestamp}"
 
-        df = spark.read.text(input_path)
-        if df.rdd.isEmpty():
-            logger.warning(f"📭 No records found at {input_path}")
-            return
-
-        df = df.repartition(spark.sparkContext.defaultParallelism)
-        rdd = df.rdd.mapPartitions(inference_map_partition)
-        rdd.saveAsTextFile(output_path)
+        rdd = spark.sparkContext.wholeTextFiles(input_dir).flatMap(lambda x: x[1].split('>')[1:]) \
+              .map(lambda entry: f">{entry.strip()}")
+        rdd = rdd.repartition(64)
+        results = rdd.mapPartitions(inference_map_partition)
+        results.saveAsTextFile(output_path)
 
         logger.info(f"🏁 ✅ Pipeline finished. Output: {output_path}")
         spark.stop()

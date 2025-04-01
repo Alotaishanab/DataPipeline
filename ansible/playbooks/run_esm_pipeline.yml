@@ -1,23 +1,54 @@
-- name: Run ESM Pipeline from a Worker Node Asynchronously
-  hosts: worker_inventory   # <-- All workers now
+- name: Distribute ESM Pipeline and Split Script to All Workers
+  hosts: worker_inventory
   become: yes
   become_user: almalinux
   vars:
-    esm_venv_path: "/opt/esm/venv"
     pipeline_local_source: "../scripts/run_pipeline.py"
+    split_script_local: "../scripts/split_fasta.py"
     pipeline_remote_path: "/home/almalinux/run_pipeline.py"
-    py_version: "3.9"
-    spark_home: "/home/almalinux/spark-3.5.3-bin-hadoop3-scala2.13"
-    hadoop_conf_dir: "/home/almalinux/hadoop-3.4.0/etc/hadoop"
+    split_script_remote_path: "/home/almalinux/split_fasta.py"
 
   tasks:
-    - name: Copy pipeline code to ALL worker nodes
+    - name: Copy ESM pipeline script
       copy:
         src: "{{ pipeline_local_source }}"
         dest: "{{ pipeline_remote_path }}"
         mode: '0755'
 
-- name: Submit Spark job from one worker
+    - name: Copy FASTA splitting script
+      copy:
+        src: "{{ split_script_local }}"
+        dest: "{{ split_script_remote_path }}"
+        mode: '0755'
+
+
+- name: Pre-split FASTA into one sequence per file in HDFS
+  hosts: worker1
+  become: yes
+  become_user: almalinux
+  vars:
+    esm_venv_path: "/opt/esm/venv"
+    py_version: "3.9"
+    input_fasta: "/home/almalinux/uniref50.fasta"
+    output_dir: "/home/almalinux/fasta_parts"
+    hdfs_dest: "/user/almalinux/datasets/fasta_parts"
+    split_script_path: "/home/almalinux/split_fasta.py"
+
+  tasks:
+    - name: Run FASTA splitter script
+      shell: |
+        source {{ esm_venv_path }}/bin/activate
+        python {{ split_script_path }} "{{ input_fasta }}" "{{ output_dir }}"
+      args:
+        chdir: "/home/almalinux"
+
+    - name: Upload split FASTA files to HDFS
+      shell: |
+        hdfs dfs -mkdir -p {{ hdfs_dest }}
+        hdfs dfs -put -f {{ output_dir }}/* {{ hdfs_dest }}
+
+
+- name: Submit Spark Job Using All Worker Nodes
   hosts: worker1
   become: yes
   become_user: almalinux
@@ -29,7 +60,7 @@
     hadoop_conf_dir: "/home/almalinux/hadoop-3.4.0/etc/hadoop"
 
   tasks:
-    - name: Submit Spark job (balanced across cluster)
+    - name: Submit Spark job to use 16 cores across all workers
       shell: |
         nohup bash -c '
           echo ">>> Starting pipeline at $(date)" >> pipeline_loop.log
@@ -37,9 +68,9 @@
           {{ spark_home }}/bin/spark-submit \
             --master yarn \
             --deploy-mode cluster \
-            --num-executors 4 \
+            --num-executors 8 \
             --executor-cores 2 \
-            --executor-memory 8G \
+            --executor-memory 6G \
             --driver-memory 8G \
             --conf "spark.executor.memoryOverhead=2G" \
             --conf "spark.sql.shuffle.partitions=64" \
