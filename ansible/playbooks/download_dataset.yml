@@ -14,9 +14,7 @@
     hdfs_target_dir: "/user/almalinux/datasets/fasta_parts"
     hadoop_bin: "/home/almalinux/hadoop-3.4.0/bin/hdfs"
     hadoop_conf: "/home/almalinux/hadoop-3.4.0/etc/hadoop"
-    esm_venv_path: "/opt/esm/venv"
-    split_script_local_path: "../scripts/split_fasta.py"
-    split_script_remote_path: "/home/almalinux/split_fasta.py"
+    split_chunk_size: 1000  # sequences per split file
 
   tasks:
     - name: Ensure local dataset directory exists
@@ -50,19 +48,17 @@
         state: absent
       when: not fasta_file.stat.exists
 
-    - name: Copy split_fasta.py to worker1
-      copy:
-        src: "{{ split_script_local_path }}"
-        dest: "{{ split_script_remote_path }}"
-        mode: '0755'
+    - name: Ensure seqkit is installed
+      become: yes
+      package:
+        name: seqkit
+        state: present
 
-    - name: Run FASTA splitting script
+    - name: Split FASTA using seqkit
       shell: |
-        source {{ esm_venv_path }}/bin/activate
-        python {{ split_script_remote_path }} "{{ unzipped_dataset_path }}" "{{ fasta_split_dir }}"
+        seqkit split2 "{{ unzipped_dataset_path }}" -s {{ split_chunk_size }} -O "{{ fasta_split_dir }}"
       args:
         creates: "{{ fasta_split_dir }}"
-        chdir: "/home/almalinux"
 
     - name: Ensure HDFS target directory exists
       shell: >
