@@ -1,4 +1,5 @@
-- name: Download and Upload Protein Dataset into HDFS
+---
+- name: Download and Upload Protein Dataset into HDFS (Keep Only FASTA)
   hosts: worker1
   become: yes
   become_user: almalinux
@@ -18,81 +19,60 @@
   tasks:
 
     - name: Ensure local dataset directory exists
-      ansible.builtin.file:
+      file:
         path: "{{ dataset_dir }}"
         state: directory
         mode: '0755'
 
-    - name: Check if dataset .gz file exists
-      ansible.builtin.stat:
-        path: "{{ dataset_local_path }}"
-      register: dataset_file
+    - name: Check if uncompressed FASTA file already exists
+      stat:
+        path: "{{ unzipped_dataset_path }}"
+      register: fasta_file
 
-    - name: Download Protein Dataset if not present
-      ansible.builtin.get_url:
+    - name: Download .gz dataset if .fasta does not exist
+      get_url:
         url: "{{ dataset_download_url }}"
         dest: "{{ dataset_local_path }}"
         mode: '0644'
-      when: not dataset_file.stat.exists
+      when: not fasta_file.stat.exists
 
-    - name: Re-check if dataset file exists after download
-      ansible.builtin.stat:
-        path: "{{ dataset_local_path }}"
-      register: dataset_file_after
-
-    - name: Fail if dataset file still does not exist after download
-      ansible.builtin.fail:
-        msg: "❌ Dataset file not found at {{ dataset_local_path }}"
-      when: not dataset_file_after.stat.exists
-
-    - name: Decompress FASTA.GZ file to .fasta
-      become_user: root
-      ansible.builtin.shell: |
+    - name: Decompress .gz to .fasta (only if .fasta not yet present)
+      shell: |
         gunzip -c "{{ dataset_local_path }}" > "{{ unzipped_dataset_path }}"
       args:
         creates: "{{ unzipped_dataset_path }}"
+      when: not fasta_file.stat.exists
 
-    - name: Create HDFS target directory
-      ansible.builtin.shell: >
+    - name: Remove .gz file after decompression
+      file:
+        path: "{{ dataset_local_path }}"
+        state: absent
+      when: not fasta_file.stat.exists
+
+    - name: Ensure HDFS target directory exists
+      shell: >
         {{ hadoop_bin }} --config {{ hadoop_conf }}
         dfs -mkdir -p {{ hdfs_target_dir }}
       environment:
         HADOOP_CONF_DIR: "{{ hadoop_conf }}"
 
-    - name: Upload decompressed FASTA dataset to HDFS
-      ansible.builtin.shell: >
-        {{ hadoop_bin }} --config {{ hadoop_conf }}
-        dfs -put -f "{{ unzipped_dataset_path }}" "{{ hdfs_target_dir }}/"
-      environment:
-        HADOOP_CONF_DIR: "{{ hadoop_conf }}"
-
-    - name: Verify uncompressed file exists in HDFS
-      ansible.builtin.shell: >
+    - name: Check if FASTA file already exists in HDFS
+      shell: >
         {{ hadoop_bin }} --config {{ hadoop_conf }}
         dfs -test -e "{{ hdfs_target_file }}"
-      environment:
-        HADOOP_CONF_DIR: "{{ hadoop_conf }}"
       register: hdfs_test
       ignore_errors: true
+      environment:
+        HADOOP_CONF_DIR: "{{ hadoop_conf }}"
 
-    - name: Fail if file was not found in HDFS
-      ansible.builtin.fail:
-        msg: "❌ Uncompressed file not found in HDFS at {{ hdfs_target_file }}"
+    - name: Upload FASTA to HDFS if not already there
+      shell: >
+        {{ hadoop_bin }} --config {{ hadoop_conf }}
+        dfs -put -f "{{ unzipped_dataset_path }}" "{{ hdfs_target_dir }}/"
       when: hdfs_test.rc != 0
+      environment:
+        HADOOP_CONF_DIR: "{{ hadoop_conf }}"
 
     - name: Debug success message
-      ansible.builtin.debug:
-        msg: "✅ Dataset uploaded and verified in HDFS at {{ hdfs_target_file }}"
-      when: hdfs_test.rc == 0
-
-    - name: Remove local .fasta file after successful upload
-      ansible.builtin.file:
-        path: "{{ unzipped_dataset_path }}"
-        state: absent
-      when: hdfs_test.rc == 0
-
-    - name: Remove local .gz file after successful upload
-      ansible.builtin.file:
-        path: "{{ dataset_local_path }}"
-        state: absent
-      when: hdfs_test.rc == 0
+      debug:
+        msg: "✅ Dataset is ready at HDFS path: {{ hdfs_target_file }}"
