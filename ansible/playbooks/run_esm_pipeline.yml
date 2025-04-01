@@ -1,12 +1,10 @@
-- name: Distribute ESM Pipeline and Split Script to All Workers
+- name: Distribute ESM Pipeline to All Workers
   hosts: worker_inventory
   become: yes
   become_user: almalinux
   vars:
     pipeline_local_source: "../scripts/run_pipeline.py"
-    split_script_local: "../scripts/split_fasta.py"
     pipeline_remote_path: "/home/almalinux/run_pipeline.py"
-    split_script_remote_path: "/home/almalinux/split_fasta.py"
 
   tasks:
     - name: Copy ESM pipeline script
@@ -14,38 +12,6 @@
         src: "{{ pipeline_local_source }}"
         dest: "{{ pipeline_remote_path }}"
         mode: '0755'
-
-    - name: Copy FASTA splitting script
-      copy:
-        src: "{{ split_script_local }}"
-        dest: "{{ split_script_remote_path }}"
-        mode: '0755'
-
-
-- name: Pre-split FASTA into one sequence per file in HDFS
-  hosts: worker1
-  become: yes
-  become_user: almalinux
-  vars:
-    esm_venv_path: "/opt/esm/venv"
-    py_version: "3.9"
-    input_fasta: "/mnt/data/uniref50.fasta"
-    output_dir: "/home/almalinux/fasta_parts"
-    hdfs_dest: "/user/almalinux/datasets/fasta_parts"
-    split_script_path: "/home/almalinux/split_fasta.py"
-
-  tasks:
-    - name: Run FASTA splitter script
-      shell: |
-        source {{ esm_venv_path }}/bin/activate
-        python {{ split_script_path }} "{{ input_fasta }}" "{{ output_dir }}"
-      args:
-        chdir: "/home/almalinux"
-
-    - name: Upload split FASTA files to HDFS
-      shell: |
-        hdfs dfs -mkdir -p {{ hdfs_dest }}
-        hdfs dfs -put -f {{ output_dir }}/* {{ hdfs_dest }}
 
 
 - name: Submit Spark Job Using All Worker Nodes

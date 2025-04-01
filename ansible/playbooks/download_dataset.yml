@@ -1,5 +1,4 @@
----
-- name: Download and Upload Protein Dataset into HDFS (Keep Only FASTA)
+- name: Download, Split, and Upload Protein Dataset into HDFS
   hosts: worker1
   become: yes
   become_user: almalinux
@@ -10,11 +9,13 @@
     dataset_fasta: "uniref50.fasta"
     dataset_local_path: "{{ dataset_dir }}/{{ dataset_gz }}"
     unzipped_dataset_path: "{{ dataset_dir }}/{{ dataset_fasta }}"
+    fasta_split_dir: "{{ dataset_dir }}/fasta_parts"
+    split_script_path: "/home/almalinux/split_fasta.py"
     dataset_download_url: "https://ftp.uniprot.org/pub/databases/uniprot/uniref/uniref50/uniref50.fasta.gz"
-    hdfs_target_dir: "/user/almalinux/datasets"
-    hdfs_target_file: "{{ hdfs_target_dir }}/{{ dataset_fasta }}"
+    hdfs_target_dir: "/user/almalinux/datasets/fasta_parts"
     hadoop_bin: "/home/almalinux/hadoop-3.4.0/bin/hdfs"
     hadoop_conf: "/home/almalinux/hadoop-3.4.0/etc/hadoop"
+    esm_venv_path: "/opt/esm/venv"
 
   tasks:
 
@@ -49,6 +50,14 @@
         state: absent
       when: not fasta_file.stat.exists
 
+    - name: Run FASTA splitting script
+      shell: |
+        source {{ esm_venv_path }}/bin/activate
+        python {{ split_script_path }} "{{ unzipped_dataset_path }}" "{{ fasta_split_dir }}"
+      args:
+        creates: "{{ fasta_split_dir }}"
+        chdir: "/home/almalinux"
+
     - name: Ensure HDFS target directory exists
       shell: >
         {{ hadoop_bin }} --config {{ hadoop_conf }}
@@ -56,23 +65,13 @@
       environment:
         HADOOP_CONF_DIR: "{{ hadoop_conf }}"
 
-    - name: Check if FASTA file already exists in HDFS
+    - name: Upload split FASTA files to HDFS
       shell: >
         {{ hadoop_bin }} --config {{ hadoop_conf }}
-        dfs -test -e "{{ hdfs_target_file }}"
-      register: hdfs_test
-      ignore_errors: true
-      environment:
-        HADOOP_CONF_DIR: "{{ hadoop_conf }}"
-
-    - name: Upload FASTA to HDFS if not already there
-      shell: >
-        {{ hadoop_bin }} --config {{ hadoop_conf }}
-        dfs -put -f "{{ unzipped_dataset_path }}" "{{ hdfs_target_dir }}/"
-      when: hdfs_test.rc != 0
+        dfs -put -f {{ fasta_split_dir }}/* {{ hdfs_target_dir }}/
       environment:
         HADOOP_CONF_DIR: "{{ hadoop_conf }}"
 
     - name: Debug success message
       debug:
-        msg: "✅ Dataset is ready at HDFS path: {{ hdfs_target_file }}"
+        msg: "✅ Split dataset uploaded to HDFS: {{ hdfs_target_dir }}"

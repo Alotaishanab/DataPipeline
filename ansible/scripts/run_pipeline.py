@@ -6,7 +6,6 @@ import logging
 import torch
 import esm
 import traceback
-from io import StringIO
 from Bio import SeqIO
 from pyspark.sql import SparkSession
 
@@ -21,15 +20,6 @@ logger = logging.getLogger(__name__)
 
 MAX_SEQ_LEN = 3000
 BATCH_SIZE = 4
-
-def parse_fasta_partition(rows):
-    logger.info("🧬 Parsing FASTA partition into full sequences")
-    buffer = ""
-    for row in rows:
-        buffer += row + "\n"
-    fasta_io = StringIO(buffer)
-    for record in SeqIO.parse(fasta_io, "fasta"):
-        yield str(record.seq)
 
 def run_batch(batch_data, model, batch_converter):
     logger.info(f"✨ Running inference on batch of size {len(batch_data)}")
@@ -67,8 +57,9 @@ def inference_map_partition(records):
         buffer = []
         count = 0
 
-        for seq in parse_fasta_partition(records):
-            if not seq:
+        for row in records:
+            seq = row.value.strip()
+            if not seq or seq.startswith(">"):  # ignore header lines
                 continue
             buffer.append((f"seq_{count}", seq))
             count += 1
@@ -91,15 +82,19 @@ def main():
     try:
         spark = SparkSession.builder.appName("ESM2-Pipeline").getOrCreate()
 
-        input_dir = "hdfs:///user/almalinux/datasets/fasta_parts"
+        # 👇 Updated input path to HDFS directory of split files
+        input_path = "hdfs:///user/almalinux/datasets/fasta_parts/"
         timestamp = spark.sparkContext._jvm.java.time.LocalDateTime.now().toString().replace(":", "_")
         output_path = f"hdfs:///user/almalinux/results/esm2_embeddings_json_{timestamp}"
 
-        rdd = spark.sparkContext.wholeTextFiles(input_dir).flatMap(lambda x: x[1].split('>')[1:]) \
-              .map(lambda entry: f">{entry.strip()}")
-        rdd = rdd.repartition(64)
-        results = rdd.mapPartitions(inference_map_partition)
-        results.saveAsTextFile(output_path)
+        df = spark.read.text(input_path)
+        if df.rdd.isEmpty():
+            logger.warning(f"📭 No records found at {input_path}")
+            return
+
+        df = df.repartition(64)
+        rdd = df.rdd.mapPartitions(inference_map_partition)
+        rdd.saveAsTextFile(output_path)
 
         logger.info(f"🏁 ✅ Pipeline finished. Output: {output_path}")
         spark.stop()
