@@ -8,14 +8,8 @@ import esm
 import traceback
 from pyspark.sql import SparkSession
 
-# ---------------------- #
-# Safe Torch cache path
-# ---------------------- #
 os.environ["TORCH_HOME"] = "/tmp/torch_cache"
 
-# ---------------------- #
-# Logging configuration
-# ---------------------- #
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
@@ -23,14 +17,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# ---------------------- #
-# MAX SEQUENCE LENGTH
-# ---------------------- #
 MAX_SEQ_LEN = 3000
 
-# ---------------------- #
-# FASTA Parsing Function
-# ---------------------- #
 def parse_fasta_partition(rows):
     logger.info("🔍 Parsing FASTA partition")
     sequence = []
@@ -45,9 +33,6 @@ def parse_fasta_partition(rows):
     if sequence:
         yield "".join(sequence)
 
-# ---------------------- #
-# Batch Inference Function
-# ---------------------- #
 def run_batch(batch_data, model, batch_converter):
     logger.info(f"🚀 Running inference on batch of size {len(batch_data)}")
     try:
@@ -76,9 +61,6 @@ def run_batch(batch_data, model, batch_converter):
         for _, seq in batch_data:
             yield json.dumps({"sequence": seq, "error": str(e)})
 
-# ---------------------- #
-# Partition-level Inference
-# ---------------------- #
 def inference_map_partition(records):
     try:
         pid = os.getpid()
@@ -110,13 +92,13 @@ def inference_map_partition(records):
         logger.error(traceback.format_exc())
         yield json.dumps({"error": str(e)})
 
-# ---------------------- #
-# Main Spark Job
-# ---------------------- #
 def main():
     logger.info("🔥 Starting ESM2 Distributed Inference Job")
     try:
-        spark = SparkSession.builder.appName("ESM2-Pipeline").getOrCreate()
+        spark = SparkSession.builder \
+            .appName("ESM2-Pipeline") \
+            .config("spark.sql.shuffle.partitions", "64") \
+            .getOrCreate()
 
         input_path = "hdfs:///user/almalinux/datasets/uniref50.fasta"
         output_path = "hdfs:///user/almalinux/results/esm2_embeddings_json"
@@ -124,10 +106,8 @@ def main():
         logger.info("📥 Reading FASTA file from HDFS...")
         df = spark.read.text(input_path)
 
-        # Use coalesce to evenly distribute across nodes based on executors
-        num_partitions = spark.sparkContext.defaultParallelism
-        logger.info(f"🧩 Repartitioning FASTA input into {num_partitions} partitions...")
-        df = df.repartition(num_partitions)
+        # Coalesce to 1 first, then repartition for shuffle
+        df = df.coalesce(1).repartition(spark.sparkContext.defaultParallelism)
 
         logger.info("🧠 Running distributed ESM inference across partitions...")
         rdd = df.rdd.mapPartitions(inference_map_partition)
