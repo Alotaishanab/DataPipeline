@@ -50,6 +50,7 @@
 
     - name: Ensure seqkit is installed
       become: yes
+      become_user: root
       package:
         name: seqkit
         state: present
