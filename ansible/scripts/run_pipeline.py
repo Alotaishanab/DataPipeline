@@ -6,8 +6,11 @@ import logging
 import torch
 import esm
 import traceback
+from io import StringIO
+from Bio import SeqIO
 from pyspark.sql import SparkSession
 
+# ---------------------- #
 os.environ["TORCH_HOME"] = "/tmp/torch_cache"
 
 logging.basicConfig(
@@ -18,28 +21,28 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 MAX_SEQ_LEN = 3000
+BATCH_SIZE = 4  # adjust based on model/memory balance
 
+# ---------------------- #
+# Parse full FASTA from partitioned text
+# ---------------------- #
 def parse_fasta_partition(rows):
-    logger.info("🔍 Parsing FASTA partition")
-    sequence = []
+    logger.info("🧬 Parsing FASTA partition into full sequences")
+    buffer = ""
     for row in rows:
-        line = row.value.strip()
-        if line.startswith(">"):
-            if sequence:
-                yield "".join(sequence)
-                sequence = []
-        elif line:
-            sequence.append(line)
-    if sequence:
-        yield "".join(sequence)
+        buffer += row.value + "\n"
+    fasta_io = StringIO(buffer)
+    for record in SeqIO.parse(fasta_io, "fasta"):
+        yield str(record.seq)
 
+# ---------------------- #
 def run_batch(batch_data, model, batch_converter):
-    logger.info(f"🚀 Running inference on batch of size {len(batch_data)}")
+    logger.info(f"✨ Running inference on batch of size {len(batch_data)}")
     try:
         truncated_batch = []
         for (label, seq) in batch_data:
             if len(seq) > MAX_SEQ_LEN:
-                logger.warning(f"Sequence length {len(seq)} exceeds {MAX_SEQ_LEN}, truncating.")
+                logger.warning(f"Sequence too long ({len(seq)}), truncating to {MAX_SEQ_LEN}.")
                 seq = seq[:MAX_SEQ_LEN]
             truncated_batch.append((label, seq))
 
@@ -49,77 +52,70 @@ def run_batch(batch_data, model, batch_converter):
         token_reps = results["representations"][30]
 
         for i, (label, seq) in enumerate(truncated_batch):
-            embedding = token_reps[i, 1:len(seq) + 1].mean(0).tolist()
-            yield json.dumps({
-                "sequence": seq,
-                "embedding": embedding
-            })
+            embedding = token_reps[i, 1:len(seq)+1].mean(0).tolist()
+            yield json.dumps({"sequence": seq, "embedding": embedding})
 
     except Exception as e:
-        logger.error(f"❌ Batch processing error: {e}")
+        logger.error(f"❌ Batch error: {e}")
         logger.error(traceback.format_exc())
         for _, seq in batch_data:
             yield json.dumps({"sequence": seq, "error": str(e)})
 
+# ---------------------- #
 def inference_map_partition(records):
     try:
         pid = os.getpid()
-        logger.info(f"[Worker PID {pid}] ⚙️ Partition started. Loading model...")
+        logger.info(f"[PID {pid}] 🌐 Partition starting...")
         model, alphabet = esm.pretrained.esm2_t30_150M_UR50D()
         model.eval()
         batch_converter = alphabet.get_batch_converter()
 
-        batch_size = 1
         buffer = []
         count = 0
 
         for seq in parse_fasta_partition(records):
             if not seq:
                 continue
-            count += 1
             buffer.append((f"seq_{count}", seq))
+            count += 1
 
-            if len(buffer) == batch_size:
+            if len(buffer) == BATCH_SIZE:
                 yield from run_batch(buffer, model, batch_converter)
                 buffer = []
 
         if buffer:
             yield from run_batch(buffer, model, batch_converter)
 
-        logger.info(f"✅ Finished processing {count} sequences in partition.")
+        logger.info(f"✅ Done partition, total {count} sequences.")
     except Exception as e:
-        logger.error(f"💥 Partition-level error: {e}")
+        logger.error(f"❌ Partition error: {e}")
         logger.error(traceback.format_exc())
         yield json.dumps({"error": str(e)})
 
+# ---------------------- #
 def main():
-    logger.info("🔥 Starting ESM2 Distributed Inference Job")
+    logger.info("🔥 Starting ESM2 Inference Job")
     try:
-        spark = SparkSession.builder \
-            .appName("ESM2-Pipeline") \
-            .config("spark.sql.shuffle.partitions", "64") \
-            .getOrCreate()
+        spark = SparkSession.builder.appName("ESM2-Pipeline").getOrCreate()
 
         input_path = "hdfs:///user/almalinux/datasets/uniref50.fasta"
-        output_path = "hdfs:///user/almalinux/results/esm2_embeddings_json"
+        timestamp = spark.sparkContext._jvm.java.time.LocalDateTime.now().toString().replace(":", "_")
+        output_path = f"hdfs:///user/almalinux/results/esm2_embeddings_json_{timestamp}"
 
-        logger.info("📥 Reading FASTA file from HDFS...")
         df = spark.read.text(input_path)
+        if df.rdd.isEmpty():
+            logger.warning(f"📭 No records found at {input_path}")
+            return
 
-        # Coalesce to 1 first, then repartition for shuffle
-        df = df.coalesce(1).repartition(spark.sparkContext.defaultParallelism)
-
-        logger.info("🧠 Running distributed ESM inference across partitions...")
+        df = df.repartition(spark.sparkContext.defaultParallelism)
         rdd = df.rdd.mapPartitions(inference_map_partition)
-
-        logger.info("💾 Saving embeddings to HDFS immediately...")
         rdd.saveAsTextFile(output_path)
 
-        logger.info("🏁 ✅ Job completed successfully.")
+        logger.info(f"🏁 ✅ Pipeline finished. Output: {output_path}")
         spark.stop()
 
     except Exception as e:
-        logger.error(f"🔥 Fatal error in Spark job: {e}")
+        logger.error(f"🔥 Fatal error: {e}")
         logger.error(traceback.format_exc())
 
 if __name__ == "__main__":

@@ -1,5 +1,5 @@
 - name: Run ESM Pipeline from a Worker Node Asynchronously
-  hosts: worker1
+  hosts: worker_inventory   # <-- All workers now
   become: yes
   become_user: almalinux
   vars:
@@ -9,13 +9,26 @@
     py_version: "3.9"
     spark_home: "/home/almalinux/spark-3.5.3-bin-hadoop3-scala2.13"
     hadoop_conf_dir: "/home/almalinux/hadoop-3.4.0/etc/hadoop"
+
   tasks:
-    - name: Copy pipeline code to worker1
+    - name: Copy pipeline code to ALL worker nodes
       copy:
         src: "{{ pipeline_local_source }}"
         dest: "{{ pipeline_remote_path }}"
         mode: '0755'
 
+- name: Submit Spark job from one worker
+  hosts: worker1
+  become: yes
+  become_user: almalinux
+  vars:
+    esm_venv_path: "/opt/esm/venv"
+    pipeline_remote_path: "/home/almalinux/run_pipeline.py"
+    py_version: "3.9"
+    spark_home: "/home/almalinux/spark-3.5.3-bin-hadoop3-scala2.13"
+    hadoop_conf_dir: "/home/almalinux/hadoop-3.4.0/etc/hadoop"
+
+  tasks:
     - name: Submit Spark job (balanced across cluster)
       shell: |
         nohup bash -c '

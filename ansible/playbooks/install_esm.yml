@@ -82,6 +82,15 @@
         virtualenv: "{{ esm_dest }}/venv"
         state: present
       when: esm_req_file.stat.exists
+    
+    - name: Install biopython for FASTA parsing
+      pip:
+        name: biopython
+        virtualenv: "{{ esm_dest }}/venv"
+        state: present
+      environment:
+        TMPDIR: "/mnt/data/pip-tmp"
+        PIP_CACHE_DIR: "/mnt/data/pip-tmp"
 
     - name: Install CPU-only PyTorch in the ESM virtual environment
       pip:
