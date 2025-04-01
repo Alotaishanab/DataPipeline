@@ -24,9 +24,9 @@
             --deploy-mode cluster \
             --num-executors 4 \
             --executor-cores 4 \
-            --executor-memory 12G \
-            --driver-memory 12G \
-            --conf "spark.yarn.executor.memoryOverhead=2G" \
+            --executor-memory 10G \
+            --driver-memory 8G \
+            --conf "spark.yarn.executor.memoryOverhead=4G" \
             --conf "spark.yarn.submit.waitAppCompletion=true" \
             --conf "spark.yarn.appMasterEnv.PYSPARK_PYTHON={{ esm_venv_path }}/bin/python" \
             --conf "spark.yarn.appMasterEnv.PYTHONPATH={{ esm_venv_path }}/lib/python{{ py_version }}/site-packages" \
