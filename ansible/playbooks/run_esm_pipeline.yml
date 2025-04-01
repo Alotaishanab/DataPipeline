@@ -15,12 +15,10 @@
         src: "{{ pipeline_local_source }}"
         dest: "{{ pipeline_remote_path }}"
         mode: '0755'
-
     - name: Submit Spark job (single run)
       shell: |
         nohup bash -c '
           echo ">>> Starting pipeline at $(date)" >> pipeline_loop.log
-
           {{ spark_home }}/bin/spark-submit \
             --master yarn \
             --deploy-mode cluster \
@@ -37,7 +35,6 @@
             --conf "spark.executorEnv.TORCH_HOME=/tmp/torch_cache" \
             --conf "spark.yarn.appMasterEnv.TORCH_HOME=/tmp/torch_cache" \
             "{{ pipeline_remote_path }}" >> pipeline_loop.log 2>&1
-
           echo ">>> Pipeline run completed at $(date)" >> pipeline_loop.log
         ' &
       args:

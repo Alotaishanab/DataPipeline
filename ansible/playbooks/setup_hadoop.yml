@@ -1,13 +1,13 @@
-- name: Finalize Hadoop Setup on Management Node
+---
+- name: Finalize Hadoop Setup on Management Node (Preserve HDFS Data)
   hosts: localhost
   become: yes
   become_user: almalinux
   vars:
     hadoop_home: "/home/almalinux/hadoop-3.4.0"
-
   tasks:
     - name: Stop existing NameNode if running
-      ansible.builtin.shell: |
+      shell: |
         if [ -f /tmp/hadoop-almalinux-namenode.pid ]; then
           kill -9 $(cat /tmp/hadoop-almalinux-namenode.pid) || true
           rm -f /tmp/hadoop-almalinux-namenode.pid
@@ -16,67 +16,58 @@
         executable: /bin/bash
       ignore_errors: true
 
-    - name: Ensure PID file is removed
-      ansible.builtin.file:
+    - name: Ensure NameNode PID file is removed
+      file:
         path: /tmp/hadoop-almalinux-namenode.pid
         state: absent
 
-    - name: Format Hadoop cluster (namenode)
-      ansible.builtin.shell: "{{ hadoop_home }}/bin/hdfs namenode -format -force"
+    # DO NOT format the namenode (this would wipe HDFS data)
+    #- name: Format Hadoop cluster (namenode)
+    #  shell: "{{ hadoop_home }}/bin/hdfs namenode -format -force"
+    #  args:
+    #    chdir: "{{ hadoop_home }}"
+    #  environment:
+    #    JAVA_HOME: "/usr/lib/jvm/java-11-openjdk"
+    #    PATH: "{{ hadoop_home }}/bin:{{ ansible_env.PATH }}"
+
+    - name: Restart NameNode
+      shell: "nohup {{ hadoop_home }}/bin/hdfs namenode > /tmp/namenode.log 2>&1 &"
       args:
         chdir: "{{ hadoop_home }}"
       environment:
         JAVA_HOME: "/usr/lib/jvm/java-11-openjdk"
         PATH: "{{ hadoop_home }}/bin:{{ ansible_env.PATH }}"
 
-    - name: Start NameNode
-      ansible.builtin.shell: "nohup {{ hadoop_home }}/bin/hdfs namenode > /tmp/namenode.log 2>&1 &"
+    - name: Restart DataNode on Management Node (if applicable)
+      shell: "nohup {{ hadoop_home }}/bin/hdfs datanode > /tmp/datanode.log 2>&1 &"
       args:
         chdir: "{{ hadoop_home }}"
       environment:
         JAVA_HOME: "/usr/lib/jvm/java-11-openjdk"
         PATH: "{{ hadoop_home }}/bin:{{ ansible_env.PATH }}"
 
-    - name: Start DataNode (if mgmtnode also a worker, else remove)
-      ansible.builtin.shell: "nohup {{ hadoop_home }}/bin/hdfs datanode > /tmp/datanode.log 2>&1 &"
+    - name: Restart YARN ResourceManager
+      shell: "nohup {{ hadoop_home }}/bin/yarn resourcemanager > /tmp/resourcemanager.log 2>&1 &"
       args:
         chdir: "{{ hadoop_home }}"
       environment:
         JAVA_HOME: "/usr/lib/jvm/java-11-openjdk"
         PATH: "{{ hadoop_home }}/bin:{{ ansible_env.PATH }}"
 
-    - name: Start YARN ResourceManager
-      ansible.builtin.shell: "nohup {{ hadoop_home }}/bin/yarn resourcemanager > /tmp/resourcemanager.log 2>&1 &"
-      args:
-        chdir: "{{ hadoop_home }}"
-      environment:
-        JAVA_HOME: "/usr/lib/jvm/java-11-openjdk"
-        PATH: "{{ hadoop_home }}/bin:{{ ansible_env.PATH }}"
-
-
-
-- name: Start Hadoop Services on Worker Nodes
+- name: Restart Hadoop Services on Worker Nodes (Preserve HDFS Data)
   hosts: worker_inventory
   become: yes
   become_user: almalinux
   vars:
     hadoop_home: "/home/almalinux/hadoop-3.4.0"
     java_home: "/usr/lib/jvm/java-11-openjdk"
-
   tasks:
-    - name: Stop any old DataNode
-      ansible.builtin.shell: "pkill -f 'hdfs datanode' || true"
+    - name: Stop any old DataNode processes
+      shell: "pkill -f 'hdfs datanode' || true"
       ignore_errors: true
 
-    - name: Wipe old DataNode data (fresh cluster)
-      file:
-        path: /mnt/data/hdfs/datanode
-        state: absent
-
-    # ↓↓↓ FIX: run this creation as root so we don't get permission denied
-    - name: Re-create DataNode directory on large disk
-      become: yes         # override become_user: almalinux => actually root
-      become_user: root
+    # Do not wipe out the DataNode data directory; ensure it exists instead.
+    - name: Ensure DataNode directory exists
       file:
         path: /mnt/data/hdfs/datanode
         state: directory
@@ -84,21 +75,18 @@
         group: almalinux
         mode: '0755'
 
-    - name: Start DataNode
-      ansible.builtin.shell: "nohup {{ hadoop_home }}/bin/hdfs datanode > /tmp/datanode.log 2>&1 &"
+    - name: Restart DataNode on Worker Node
+      shell: "nohup {{ hadoop_home }}/bin/hdfs datanode > /tmp/datanode.log 2>&1 &"
       args:
         chdir: "{{ hadoop_home }}"
       environment:
         JAVA_HOME: "{{ java_home }}"
         PATH: "{{ hadoop_home }}/bin:{{ ansible_env.PATH }}"
 
-    - name: Start YARN NodeManager
-      ansible.builtin.shell: "nohup {{ hadoop_home }}/bin/yarn nodemanager > /tmp/nodemanager.log 2>&1 &"
+    - name: Restart YARN NodeManager on Worker Node
+      shell: "nohup {{ hadoop_home }}/bin/yarn nodemanager > /tmp/nodemanager.log 2>&1 &"
       args:
         chdir: "{{ hadoop_home }}"
       environment:
         JAVA_HOME: "{{ java_home }}"
         PATH: "{{ hadoop_home }}/bin:{{ ansible_env.PATH }}"
-
-
-
