@@ -6,6 +6,7 @@ import logging
 import torch
 import esm
 import traceback
+from io import StringIO
 from Bio import SeqIO
 from pyspark.sql import SparkSession
 
@@ -57,16 +58,17 @@ def inference_map_partition(records):
         buffer = []
         count = 0
 
-        for row in records:
-            seq = row.value.strip()
-            if not seq or seq.startswith(">"):  # ignore header lines
-                continue
-            buffer.append((f"seq_{count}", seq))
-            count += 1
+        for filename, content in records:
+            logger.info(f"📁 Processing file: {filename}")
+            fasta_io = StringIO(content)
+            for record in SeqIO.parse(fasta_io, "fasta"):
+                seq = str(record.seq)
+                buffer.append((record.id, seq))
+                count += 1
 
-            if len(buffer) == BATCH_SIZE:
-                yield from run_batch(buffer, model, batch_converter)
-                buffer = []
+                if len(buffer) == BATCH_SIZE:
+                    yield from run_batch(buffer, model, batch_converter)
+                    buffer = []
 
         if buffer:
             yield from run_batch(buffer, model, batch_converter)
@@ -82,18 +84,12 @@ def main():
     try:
         spark = SparkSession.builder.appName("ESM2-Pipeline").getOrCreate()
 
-        # 👇 Updated input path to HDFS directory of split files
         input_path = "hdfs:///user/almalinux/datasets/fasta_parts/"
         timestamp = spark.sparkContext._jvm.java.time.LocalDateTime.now().toString().replace(":", "_")
         output_path = f"hdfs:///user/almalinux/results/esm2_embeddings_json_{timestamp}"
 
-        df = spark.read.text(input_path)
-        if df.rdd.isEmpty():
-            logger.warning(f"📭 No records found at {input_path}")
-            return
-
-        df = df.repartition(64)
-        rdd = df.rdd.mapPartitions(inference_map_partition)
+        rdd = spark.sparkContext.wholeTextFiles(input_path, minPartitions=64)
+        rdd = rdd.mapPartitions(inference_map_partition)
         rdd.saveAsTextFile(output_path)
 
         logger.info(f"🏁 ✅ Pipeline finished. Output: {output_path}")
