@@ -21,14 +21,13 @@
         path: /tmp/hadoop-almalinux-namenode.pid
         state: absent
 
-    # DO NOT format the namenode (this would wipe HDFS data)
-    #- name: Format Hadoop cluster (namenode)
-    #  shell: "{{ hadoop_home }}/bin/hdfs namenode -format -force"
-    #  args:
-    #    chdir: "{{ hadoop_home }}"
-    #  environment:
-    #    JAVA_HOME: "/usr/lib/jvm/java-11-openjdk"
-    #    PATH: "{{ hadoop_home }}/bin:{{ ansible_env.PATH }}"
+    - name: Format Hadoop cluster (namenode)
+      shell: "{{ hadoop_home }}/bin/hdfs namenode -format -force"
+      args:
+        chdir: "{{ hadoop_home }}"
+      environment:
+        JAVA_HOME: "/usr/lib/jvm/java-11-openjdk"
+        PATH: "{{ hadoop_home }}/bin:{{ ansible_env.PATH }}"
 
     - name: Restart NameNode
       shell: "nohup {{ hadoop_home }}/bin/hdfs namenode > /tmp/namenode.log 2>&1 &"
