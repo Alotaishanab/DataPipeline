@@ -134,7 +134,7 @@ def main():
         spark = SparkSession.builder.appName("ESM2-Pipeline").getOrCreate()
 
         # Use HDFS paths for input and output
-        input_path = "hdfs:///user/almalinux/datasets/snippet.fasta"
+        input_path = "hdfs:///user/almalinux/datasets/uniref50.fasta"
         output_path = "hdfs:///user/almalinux/results/esm2_embeddings_json"
 
         logger.info("📥 Reading FASTA file from HDFS...")
