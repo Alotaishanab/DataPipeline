@@ -10,16 +10,15 @@
     dataset_local_path: "{{ dataset_dir }}/{{ dataset_gz }}"
     unzipped_dataset_path: "{{ dataset_dir }}/{{ dataset_fasta }}"
     fasta_split_dir: "{{ dataset_dir }}/fasta_parts"
-    split_script_local_path: "../scripts/split_fasta.py"
-    split_script_remote_path: "/home/almalinux/split_fasta.py"
     dataset_download_url: "https://ftp.uniprot.org/pub/databases/uniprot/uniref/uniref50/uniref50.fasta.gz"
     hdfs_target_dir: "/user/almalinux/datasets/fasta_parts"
     hadoop_bin: "/home/almalinux/hadoop-3.4.0/bin/hdfs"
     hadoop_conf: "/home/almalinux/hadoop-3.4.0/etc/hadoop"
     esm_venv_path: "/opt/esm/venv"
+    split_script_local_path: "../scripts/split_fasta.py"
+    split_script_remote_path: "/home/almalinux/split_fasta.py"
 
   tasks:
-
     - name: Ensure local dataset directory exists
       file:
         path: "{{ dataset_dir }}"
