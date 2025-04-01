@@ -15,6 +15,8 @@
     hadoop_bin: "/home/almalinux/hadoop-3.4.0/bin/hdfs"
     hadoop_conf: "/home/almalinux/hadoop-3.4.0/etc/hadoop"
     split_chunk_size: 1000  # sequences per split file
+    seqkit_bin_path: "/usr/local/bin/seqkit"
+    seqkit_url: "https://github.com/shenwei356/seqkit/releases/download/v2.6.1/seqkit_linux_amd64.tar.gz"
 
   tasks:
     - name: Ensure local dataset directory exists
@@ -48,16 +50,23 @@
         state: absent
       when: not fasta_file.stat.exists
 
-    - name: Ensure seqkit is installed
-      become: yes
+    - name: Download seqkit binary archive
+      get_url:
+        url: "{{ seqkit_url }}"
+        dest: "/tmp/seqkit.tar.gz"
+        mode: '0755'
+
+    - name: Extract seqkit and move to /usr/local/bin
+      become: true
       become_user: root
-      package:
-        name: seqkit
-        state: present
+      shell: |
+        tar -xzf /tmp/seqkit.tar.gz -C /usr/local/bin --strip-components=1 seqkit
+      args:
+        creates: "{{ seqkit_bin_path }}"
 
     - name: Split FASTA using seqkit
       shell: |
-        seqkit split2 "{{ unzipped_dataset_path }}" -s {{ split_chunk_size }} -O "{{ fasta_split_dir }}"
+        {{ seqkit_bin_path }} split2 "{{ unzipped_dataset_path }}" -s {{ split_chunk_size }} -O "{{ fasta_split_dir }}"
       args:
         creates: "{{ fasta_split_dir }}"
 
