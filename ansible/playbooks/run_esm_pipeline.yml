@@ -29,7 +29,7 @@
   vars:
     esm_venv_path: "/opt/esm/venv"
     py_version: "3.9"
-    input_fasta: "/home/almalinux/uniref50.fasta"
+    input_fasta: "/mnt/data/uniref50.fasta"
     output_dir: "/home/almalinux/fasta_parts"
     hdfs_dest: "/user/almalinux/datasets/fasta_parts"
     split_script_path: "/home/almalinux/split_fasta.py"
