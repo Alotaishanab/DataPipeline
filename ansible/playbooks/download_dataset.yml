@@ -10,7 +10,8 @@
     dataset_local_path: "{{ dataset_dir }}/{{ dataset_gz }}"
     unzipped_dataset_path: "{{ dataset_dir }}/{{ dataset_fasta }}"
     fasta_split_dir: "{{ dataset_dir }}/fasta_parts"
-    split_script_path: "../scripts/split_fasta.py"
+    split_script_local_path: "../scripts/split_fasta.py"
+    split_script_remote_path: "/home/almalinux/split_fasta.py"
     dataset_download_url: "https://ftp.uniprot.org/pub/databases/uniprot/uniref/uniref50/uniref50.fasta.gz"
     hdfs_target_dir: "/user/almalinux/datasets/fasta_parts"
     hadoop_bin: "/home/almalinux/hadoop-3.4.0/bin/hdfs"
@@ -50,10 +51,16 @@
         state: absent
       when: not fasta_file.stat.exists
 
+    - name: Copy split_fasta.py to worker1
+      copy:
+        src: "{{ split_script_local_path }}"
+        dest: "{{ split_script_remote_path }}"
+        mode: '0755'
+
     - name: Run FASTA splitting script
       shell: |
         source {{ esm_venv_path }}/bin/activate
-        python {{ split_script_path }} "{{ unzipped_dataset_path }}" "{{ fasta_split_dir }}"
+        python {{ split_script_remote_path }} "{{ unzipped_dataset_path }}" "{{ fasta_split_dir }}"
       args:
         creates: "{{ fasta_split_dir }}"
         chdir: "/home/almalinux"
