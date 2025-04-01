@@ -34,11 +34,11 @@
           {{ spark_home }}/bin/spark-submit \
             --master yarn \
             --deploy-mode cluster \
-            --num-executors 8 \
-            --executor-cores 2 \
-            --executor-memory 6G \
-            --driver-memory 8G \
-            --conf "spark.executor.memoryOverhead=2G" \
+            --num-executors 16 \
+            --executor-cores 1 \
+            --executor-memory 3G \
+            --driver-memory 6G \
+            --conf "spark.executor.memoryOverhead=1G" \
             --conf "spark.sql.shuffle.partitions=64" \
             --conf "spark.yarn.submit.waitAppCompletion=true" \
             --conf "spark.yarn.appMasterEnv.PYSPARK_PYTHON={{ esm_venv_path }}/bin/python" \

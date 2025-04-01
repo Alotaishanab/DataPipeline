@@ -53,6 +53,8 @@ def inference_map_partition(records):
         logger.info(f"[PID {pid}] 🌐 Partition starting...")
         model, alphabet = esm.pretrained.esm2_t30_150M_UR50D()
         model.eval()
+        device = torch.device("cpu")
+        model = model.to(device)
         batch_converter = alphabet.get_batch_converter()
 
         buffer = []
@@ -78,6 +80,7 @@ def inference_map_partition(records):
         logger.error(f"❌ Partition error: {e}")
         logger.error(traceback.format_exc())
         yield json.dumps({"error": str(e)})
+
 
 def main():
     logger.info("🔥 Starting ESM2 Inference Job")
