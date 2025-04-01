@@ -5,6 +5,7 @@
   become_user: almalinux
   vars:
     hadoop_home: "/home/almalinux/hadoop-3.4.0"
+
   tasks:
     - name: Stop existing NameNode if running
       shell: |
@@ -53,20 +54,34 @@
         JAVA_HOME: "/usr/lib/jvm/java-11-openjdk"
         PATH: "{{ hadoop_home }}/bin:{{ ansible_env.PATH }}"
 
-- name: Restart Hadoop Services on Worker Nodes (Preserve HDFS Data)
+# -------------------------------------------------------------------
+
+- name: Restart Hadoop Services on Worker Nodes (Preserve or Reset HDFS Data)
   hosts: worker_inventory
   become: yes
   become_user: almalinux
   vars:
     hadoop_home: "/home/almalinux/hadoop-3.4.0"
     java_home: "/usr/lib/jvm/java-11-openjdk"
+    reset_datanode_storage: true  # ← toggle cleanup of stale data
+
   tasks:
     - name: Stop any old DataNode processes
       shell: "pkill -f 'hdfs datanode' || true"
       ignore_errors: true
 
-    # Do not wipe out the DataNode data directory; ensure it exists instead.
+    - name: Clean DataNode metadata (safe on fresh machines)
+      when: reset_datanode_storage
+      become: true
+      become_user: root
+      file:
+        path: /mnt/data/hdfs/datanode
+        state: absent
+      ignore_errors: true  # ← makes this task safe on new machines
+
     - name: Ensure DataNode directory exists
+      become: true
+      become_user: root
       file:
         path: /mnt/data/hdfs/datanode
         state: directory
