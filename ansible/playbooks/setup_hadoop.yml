@@ -45,8 +45,6 @@
         JAVA_HOME: "/usr/lib/jvm/java-11-openjdk"
         PATH: "{{ hadoop_home }}/bin:{{ ansible_env.PATH }}"
 
----
-
 - name: Restart Hadoop DataNode Services on Worker Nodes
   hosts: worker_inventory
   become: yes
