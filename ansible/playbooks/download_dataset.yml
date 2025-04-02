@@ -73,11 +73,12 @@
         creates: "{{ seqkit_bin_path }}"
       when: not seqkit_binary.stat.exists
 
-    - name: Split FASTA using seqkit
+    - name: Upload split FASTA files to HDFS in batches
       shell: |
-        {{ seqkit_bin_path }} split2 "{{ unzipped_dataset_path }}" -s {{ split_chunk_size }} -O "{{ fasta_split_dir }}"
-      args:
-        creates: "{{ fasta_split_dir }}"
+        find "{{ fasta_split_dir }}" -type f -print0 | xargs -0 -n 50 {{ hadoop_bin }} --config {{ hadoop_conf }} dfs -put -f -t {{ hdfs_target_dir }}
+      environment:
+        HADOOP_CONF_DIR: "{{ hadoop_conf }}"
+
 
     - name: Ensure HDFS target directory exists
       shell: >
