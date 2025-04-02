@@ -24,7 +24,7 @@
     spark_home: "/home/almalinux/spark-3.5.3-bin-hadoop3-scala2.13"
     hadoop_conf_dir: "/home/almalinux/hadoop-3.4.0/etc/hadoop"
   tasks:
-      - name: Submit Spark job to fully utilize 4 workers × 4 cores
+    - name: Submit Spark job to fully utilize 4 workers × 4 cores
       shell: |
         nohup bash -c '
           echo ">>> Starting ESM2 pipeline at $(date)" >> pipeline_loop.log
