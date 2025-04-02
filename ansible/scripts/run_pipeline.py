@@ -87,9 +87,10 @@ def main():
     try:
         spark = SparkSession.builder.appName("ESM2-Pipeline").getOrCreate()
 
-        input_path = "hdfs:///user/almalinux/datasets/fasta_parts/"
+        input_path = "file:///home/almalinux/test_fasta_parts/"
+
         timestamp = spark.sparkContext._jvm.java.time.LocalDateTime.now().toString().replace(":", "_")
-        output_path = f"hdfs:///user/almalinux/results/esm2_embeddings_json_{timestamp}"
+        output_path = f"file:///home/almalinux/test_results/esm2_embeddings_json_{timestamp}"
 
         rdd = spark.sparkContext.wholeTextFiles(input_path, minPartitions=64)
         rdd = rdd.mapPartitions(inference_map_partition)
