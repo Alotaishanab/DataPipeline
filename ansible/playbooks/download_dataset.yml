@@ -1,4 +1,4 @@
-- name: Download, Split, and Upload Protein Dataset into HDFS
+- name: Upload Full Protein FASTA File to HDFS
   hosts: worker1
   become: yes
   become_user: almalinux
@@ -9,14 +9,10 @@
     dataset_fasta: "uniref50.fasta"
     dataset_local_path: "{{ dataset_dir }}/{{ dataset_gz }}"
     unzipped_dataset_path: "{{ dataset_dir }}/{{ dataset_fasta }}"
-    fasta_split_dir: "{{ dataset_dir }}/fasta_parts"
     dataset_download_url: "https://ftp.uniprot.org/pub/databases/uniprot/uniref/uniref50/uniref50.fasta.gz"
-    hdfs_target_dir: "/user/almalinux/datasets/fasta_parts"
+    hdfs_target_file: "/user/almalinux/datasets/uniref50.fasta"
     hadoop_bin: "/home/almalinux/hadoop-3.4.0/bin/hdfs"
     hadoop_conf: "/home/almalinux/hadoop-3.4.0/etc/hadoop"
-    split_chunk_size: 1000
-    seqkit_bin_path: "/usr/local/bin/seqkit"
-    seqkit_url: "https://github.com/shenwei356/seqkit/releases/download/v2.6.1/seqkit_linux_amd64.tar.gz"
 
   tasks:
     - name: Ensure local dataset directory exists
@@ -50,43 +46,18 @@
         state: absent
       when: not fasta_file.stat.exists
 
-    - name: Check if seqkit binary is already installed
-      stat:
-        path: "{{ seqkit_bin_path }}"
-      register: seqkit_binary
-
-    - name: Download seqkit binary archive if not already present
-      get_url:
-        url: "{{ seqkit_url }}"
-        dest: "/tmp/seqkit.tar.gz"
-        mode: '0755'
-      when: not seqkit_binary.stat.exists
-
-    - name: Extract and install seqkit binary if not already present
-      become: true
-      become_user: root
-      shell: |
-        tar -xzf /tmp/seqkit.tar.gz -C /tmp
-        mv /tmp/seqkit /usr/local/bin/seqkit
-        chmod +x /usr/local/bin/seqkit
-      args:
-        creates: "{{ seqkit_bin_path }}"
-      when: not seqkit_binary.stat.exists
-
     - name: Ensure HDFS target directory exists
       shell: >
-        {{ hadoop_bin }} --config {{ hadoop_conf }}
-        dfs -mkdir -p {{ hdfs_target_dir }}
+        {{ hadoop_bin }} --config {{ hadoop_conf }} dfs -mkdir -p /user/almalinux/datasets/
       environment:
         HADOOP_CONF_DIR: "{{ hadoop_conf }}"
 
-    - name: Upload entire split FASTA directory to HDFS
+    - name: Upload full FASTA file to HDFS
       shell: >
-        {{ hadoop_bin }} --config {{ hadoop_conf }}
-        dfs -copyFromLocal -f {{ fasta_split_dir }} {{ hdfs_target_dir }}
+        {{ hadoop_bin }} --config {{ hadoop_conf }} dfs -put -f {{ unzipped_dataset_path }} {{ hdfs_target_file }}
       environment:
         HADOOP_CONF_DIR: "{{ hadoop_conf }}"
 
     - name: Debug success message
       debug:
-        msg: "✅ Split dataset uploaded to HDFS: {{ hdfs_target_dir }}"
+        msg: "✅ Full FASTA uploaded to HDFS: {{ hdfs_target_file }}"
