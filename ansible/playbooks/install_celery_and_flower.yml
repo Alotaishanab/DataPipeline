@@ -1,5 +1,4 @@
----
-- name: Install Celery and Flower
+- name: Install Celery Worker on Worker Nodes
   hosts: worker_inventory
   become: yes
   vars:
@@ -18,12 +17,11 @@
         group: "{{ esm_user }}"
         mode: '0755'
 
-    - name: Install Celery and Flower in virtualenv
+    - name: Install Celery and Redis in virtualenv
       pip:
         virtualenv: "{{ venv_path }}"
         name:
           - celery
-          - flower
           - redis
         state: latest
 
@@ -59,6 +57,36 @@
         - Reload systemd
         - Enable and start Celery Worker
 
+  handlers:
+    - name: Reload systemd
+      systemd:
+        daemon_reload: yes
+
+    - name: Enable and start Celery Worker
+      systemd:
+        name: celery-worker.service
+        enabled: yes
+        state: restarted
+
+
+- name: Install Flower UI on Management Node
+  hosts: localhost
+  become: yes
+  vars:
+    venv_path: "/opt/esm/venv"
+    celery_app_path: "/home/almalinux/celery_app"
+    redis_host: "mgmtnode"
+    redis_port: 6379
+    esm_user: "almalinux"
+
+  tasks:
+    - name: Install Flower in virtualenv
+      pip:
+        virtualenv: "{{ venv_path }}"
+        name:
+          - flower
+        state: latest
+
     - name: Create systemd unit file for Flower monitoring UI
       copy:
         dest: "/etc/systemd/system/celery-flower.service"
@@ -87,14 +115,6 @@
       systemd:
         daemon_reload: yes
 
-    - name: Enable and start Celery Worker
-      systemd:
-        name: celery-worker.service
-        enabled: yes
-        state: restarted
-
     - name: Enable and start Flower UI
       systemd:
-        name: celery-flower.service
-        enabled: yes
-        state: restarted
+        name: celery-fl
