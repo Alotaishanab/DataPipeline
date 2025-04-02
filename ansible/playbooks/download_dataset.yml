@@ -80,17 +80,10 @@
       environment:
         HADOOP_CONF_DIR: "{{ hadoop_conf }}"
 
-    - name: Upload split FASTA files to HDFS (per file)
-      find:
-        paths: "{{ fasta_split_dir }}"
-        patterns: "*"
-        file_type: file
-      register: found_files
-
-    - name: Upload each FASTA part to HDFS individually
+    - name: Upload entire split FASTA directory to HDFS
       shell: >
-        {{ hadoop_bin }} --config {{ hadoop_conf }} dfs -copyFromLocal -f {{ item.path }} {{ hdfs_target_dir }}/
-      loop: "{{ found_files.files }}"
+        {{ hadoop_bin }} --config {{ hadoop_conf }}
+        dfs -copyFromLocal -f {{ fasta_split_dir }} {{ hdfs_target_dir }}
       environment:
         HADOOP_CONF_DIR: "{{ hadoop_conf }}"
 
