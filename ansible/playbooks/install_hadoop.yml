@@ -11,23 +11,31 @@
       debug:
         msg: "The management node is set to: {{ mgmt_host }}"
 
-    - name: Download Hadoop
+    - name: Check if Hadoop is already installed
+      stat:
+        path: /home/almalinux/hadoop-3.4.0
+      register: hadoop_installed
+
+    - name: Download Hadoop tarball
       ansible.builtin.get_url:
         dest: /home/almalinux/hadoop.tar.gz
         url: "https://dlcdn.apache.org/hadoop/common/hadoop-3.4.0/hadoop-3.4.0.tar.gz"
+      when: not hadoop_installed.stat.exists
 
-    - name: Unpack tgz file
+    - name: Unpack Hadoop
       ansible.builtin.unarchive:
         dest: /home/almalinux/
         remote_src: true
         src: /home/almalinux/hadoop.tar.gz
+      when: not hadoop_installed.stat.exists
 
     - name: Remove Hadoop tar.gz to free disk space
       ansible.builtin.file:
         path: /home/almalinux/hadoop.tar.gz
         state: absent
+      when: not hadoop_installed.stat.exists
 
-    - name: Fix ownership of entire Hadoop installation
+    - name: Fix ownership of Hadoop directory
       ansible.builtin.file:
         path: /home/almalinux/hadoop-3.4.0
         state: directory
