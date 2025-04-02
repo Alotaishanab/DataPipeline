@@ -1,0 +1,100 @@
+---
+- name: Install Celery and Flower
+  hosts: worker_inventory
+  become: yes
+  vars:
+    venv_path: "/opt/esm/venv"
+    celery_app_path: "/home/almalinux/celery_app"
+    redis_host: "mgmtnode"
+    redis_port: 6379
+    esm_user: "almalinux"
+
+  tasks:
+    - name: Create Celery app directory if not exists
+      file:
+        path: "{{ celery_app_path }}"
+        state: directory
+        owner: "{{ esm_user }}"
+        group: "{{ esm_user }}"
+        mode: '0755'
+
+    - name: Install Celery and Flower in virtualenv
+      pip:
+        virtualenv: "{{ venv_path }}"
+        name:
+          - celery
+          - flower
+          - redis
+        state: latest
+
+    - name: Upload Celery worker script
+      copy:
+        src: "../scripts/celery_worker.py"
+        dest: "{{ celery_app_path }}/worker.py"
+        owner: "{{ esm_user }}"
+        group: "{{ esm_user }}"
+        mode: '0755'
+
+    - name: Create systemd unit file for Celery worker
+      copy:
+        dest: "/etc/systemd/system/celery-worker.service"
+        content: |
+          [Unit]
+          Description=Celery Worker Service
+          After=network.target
+
+          [Service]
+          Type=simple
+          User={{ esm_user }}
+          Group={{ esm_user }}
+          WorkingDirectory={{ celery_app_path }}
+          Environment="PYTHONUNBUFFERED=1"
+          ExecStart={{ venv_path }}/bin/celery -A worker worker --loglevel=info --concurrency=1 -Q esm
+          Restart=always
+          RestartSec=10
+
+          [Install]
+          WantedBy=multi-user.target
+      notify:
+        - Reload systemd
+        - Enable and start Celery Worker
+
+    - name: Create systemd unit file for Flower monitoring UI
+      copy:
+        dest: "/etc/systemd/system/celery-flower.service"
+        content: |
+          [Unit]
+          Description=Celery Flower Service
+          After=network.target
+
+          [Service]
+          Type=simple
+          User={{ esm_user }}
+          Group={{ esm_user }}
+          WorkingDirectory={{ celery_app_path }}
+          ExecStart={{ venv_path }}/bin/flower --broker=redis://{{ redis_host }}:{{ redis_port }}/0 --port=5555
+          Restart=always
+          RestartSec=10
+
+          [Install]
+          WantedBy=multi-user.target
+      notify:
+        - Reload systemd
+        - Enable and start Flower UI
+
+  handlers:
+    - name: Reload systemd
+      systemd:
+        daemon_reload: yes
+
+    - name: Enable and start Celery Worker
+      systemd:
+        name: celery-worker.service
+        enabled: yes
+        state: restarted
+
+    - name: Enable and start Flower UI
+      systemd:
+        name: celery-flower.service
+        enabled: yes
+        state: restarted

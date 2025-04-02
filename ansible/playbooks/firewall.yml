@@ -24,10 +24,6 @@
       loop:
         - 9000    # HDFS
         - 9870    # HDFS Web UI
-        - 8088    # YARN ResourceManager UI
-        - 8025    # ResourceManager ResourceTracker
-        - 8035    # ResourceManager Scheduler
-        - 8050    # ResourceManager Address
         - 3000    # Grafana
         - 9090    # Prometheus
         - 9100    # Node Exporter
@@ -40,6 +36,7 @@
         - 8042    # NodeManager Web UI
         - 8041    # NodeManager RPC
         - 8080    # Flask Web UI
+        - 5555    # Flower Monitoring UI 🚨
 
     - name: Allow HTTP and HTTPS in firewalld
       ansible.posix.firewalld:
@@ -79,10 +76,6 @@
       loop:
         - 9000
         - 9870
-        - 8088
-        - 8025
-        - 8035
-        - 8050
         - 3000
         - 9090
         - 9100
@@ -95,6 +88,7 @@
         - 8042
         - 8041
         - 8080
+        - 5555  # Flower UI
       when: ufw_installed.rc == 0
       ignore_errors: true
 

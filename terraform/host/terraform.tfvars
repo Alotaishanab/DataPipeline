@@ -20,8 +20,8 @@ mgmt_vm_tags = {
   "condenser_ingress_webserver_hostname"      = "ucabbaa-webserver"
   "condenser_ingress_hadoop_hostname"         = "ucabbaa-hadoop"
   "condenser_ingress_hadoop_port"             = "9870"
-  "condenser_ingress_yarn_hostname"           = "ucabbaa-yarn"
-  "condenser_ingress_yarn_port"               = "8088"
+  "condenser_ingress_flower_hostname"         = "ucabbaa-flower"         
+  "condenser_ingress_flower_port"             = "5555"                    
   "condenser_ingress_isAllowed"               = "true"
   "condenser_ingress_isEnabled"               = "true"
 }

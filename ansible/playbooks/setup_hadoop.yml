@@ -1,4 +1,3 @@
----
 - name: Finalize Hadoop Setup on Management Node (Preserve HDFS Data)
   hosts: localhost
   become: yes
@@ -46,38 +45,30 @@
         JAVA_HOME: "/usr/lib/jvm/java-11-openjdk"
         PATH: "{{ hadoop_home }}/bin:{{ ansible_env.PATH }}"
 
-    - name: Restart YARN ResourceManager
-      shell: "nohup {{ hadoop_home }}/bin/yarn resourcemanager > /tmp/resourcemanager.log 2>&1 &"
-      args:
-        chdir: "{{ hadoop_home }}"
-      environment:
-        JAVA_HOME: "/usr/lib/jvm/java-11-openjdk"
-        PATH: "{{ hadoop_home }}/bin:{{ ansible_env.PATH }}"
+---
 
-# -------------------------------------------------------------------
-
-- name: Restart Hadoop Services on Worker Nodes (Preserve or Reset HDFS Data)
+- name: Restart Hadoop DataNode Services on Worker Nodes
   hosts: worker_inventory
   become: yes
   become_user: almalinux
   vars:
     hadoop_home: "/home/almalinux/hadoop-3.4.0"
     java_home: "/usr/lib/jvm/java-11-openjdk"
-    reset_datanode_storage: true  # ← toggle cleanup of stale data
+    reset_datanode_storage: true
 
   tasks:
     - name: Stop any old DataNode processes
       shell: "pkill -f 'hdfs datanode' || true"
       ignore_errors: true
 
-    - name: Clean DataNode metadata (safe on fresh machines)
+    - name: Clean DataNode metadata (optional cleanup)
       when: reset_datanode_storage
       become: true
       become_user: root
       file:
         path: /mnt/data/hdfs/datanode
         state: absent
-      ignore_errors: true  # ← makes this task safe on new machines
+      ignore_errors: true
 
     - name: Ensure DataNode directory exists
       become: true
@@ -91,14 +82,6 @@
 
     - name: Restart DataNode on Worker Node
       shell: "nohup {{ hadoop_home }}/bin/hdfs datanode > /tmp/datanode.log 2>&1 &"
-      args:
-        chdir: "{{ hadoop_home }}"
-      environment:
-        JAVA_HOME: "{{ java_home }}"
-        PATH: "{{ hadoop_home }}/bin:{{ ansible_env.PATH }}"
-
-    - name: Restart YARN NodeManager on Worker Node
-      shell: "nohup {{ hadoop_home }}/bin/yarn nodemanager > /tmp/nodemanager.log 2>&1 &"
       args:
         chdir: "{{ hadoop_home }}"
       environment:

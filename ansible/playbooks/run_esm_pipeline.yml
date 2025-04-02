@@ -1,57 +1,31 @@
----
-- name: Distribute ESM Pipeline to All Workers
-  hosts: worker_inventory
+- name: Copy and Run ESM Pipeline Controller
+  hosts: mgmtnode
   become: yes
   become_user: almalinux
+
   vars:
-    pipeline_local_source: "../scripts/run_pipeline.py"
-    pipeline_remote_path: "/home/almalinux/run_pipeline.py"
+    controller_local_path: "../scripts/controller.py"
+    controller_remote_path: "/home/almalinux/esm_pipeline/controller.py"
+    venv_path: "/opt/esm/venv"
+
   tasks:
-    - name: Copy ESM pipeline script to worker nodes
-      copy:
-        src: "{{ pipeline_local_source }}"
-        dest: "{{ pipeline_remote_path }}"
+    - name: Create pipeline directory if it doesn't exist
+      file:
+        path: "{{ controller_remote_path | dirname }}"
+        state: directory
+        owner: almalinux
+        group: almalinux
         mode: '0755'
 
-- name: Submit Spark Job Using All Worker Nodes via Yarn
-  hosts: worker1
-  become: yes
-  become_user: almalinux
-  vars:
-    esm_venv_path: "/opt/esm/venv"
-    pipeline_remote_path: "/home/almalinux/run_pipeline.py"
-    py_version: "3.9"
-    spark_home: "/home/almalinux/spark-3.5.3-bin-hadoop3-scala2.13"
-    hadoop_conf_dir: "/home/almalinux/hadoop-3.4.0/etc/hadoop"
-  tasks:
-    - name: Submit Spark job to fully utilize all workers
+    - name: Copy controller.py to mgmtnode
+      copy:
+        src: "{{ controller_local_path }}"
+        dest: "{{ controller_remote_path }}"
+        mode: '0755'
+
+    - name: Run controller.py to start the pipeline
       shell: |
-        nohup bash -c '
-          echo ">>> Starting ESM2 pipeline at $(date)" >> pipeline_loop.log
-
-          {{ spark_home }}/bin/spark-submit \
-            --master yarn \
-            --deploy-mode cluster \
-            --num-executors 12 \
-            --executor-cores 1 \
-            --executor-memory 2G \
-            --conf "spark.executor.memoryOverhead=512M" \
-            --conf "spark.locality.wait=0" \
-            --conf "spark.yarn.scheduler.heartbeat.interval-ms=2000" \
-            --conf "spark.yarn.submit.waitAppCompletion=true" \
-            --conf "spark.yarn.appMasterEnv.PYSPARK_PYTHON={{ esm_venv_path }}/bin/python" \
-            --conf "spark.yarn.appMasterEnv.PYTHONPATH={{ esm_venv_path }}/lib/python{{ py_version }}/site-packages" \
-            --conf "spark.executorEnv.PYSPARK_PYTHON={{ esm_venv_path }}/bin/python" \
-            --conf "spark.executorEnv.PYTHONPATH={{ esm_venv_path }}/lib/python{{ py_version }}/site-packages" \
-            --conf "spark.executorEnv.TORCH_HOME=/tmp/torch_cache" \
-            --conf "spark.yarn.appMasterEnv.TORCH_HOME=/tmp/torch_cache" \
-            {{ pipeline_remote_path }} >> pipeline_loop.log 2>&1
-
-          echo ">>> Pipeline run completed at $(date)" >> pipeline_loop.log
-        ' &
+        source {{ venv_path }}/bin/activate
+        python {{ controller_remote_path }}
       args:
-        chdir: "/home/almalinux"
-      environment:
-        HADOOP_CONF_DIR: "{{ hadoop_conf_dir }}"
-        YARN_CONF_DIR: "{{ hadoop_conf_dir }}"
-        TORCH_HOME: "/tmp/torch_cache"
+        chdir: "{{ controller_remote_path | dirname }}"

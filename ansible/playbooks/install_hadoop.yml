@@ -1,15 +1,10 @@
-# ============================
-# 1. Hadoop Installation Fix
-# ============================
-
-- name: Install and configure Hadoop
+- name: Install and configure Hadoop (HDFS only)
   hosts: all, localhost
   become: yes
 
   vars:
     mgmt_host: "mgmtnode"
     namenode_http_port: 9870
-    yarn_rm_ui_port: 8088
 
   tasks:
     - name: Debug management node hostname
@@ -26,12 +21,11 @@
         dest: /home/almalinux/
         remote_src: true
         src: /home/almalinux/hadoop.tar.gz
-    
+
     - name: Remove Hadoop tar.gz to free disk space
       ansible.builtin.file:
         path: /home/almalinux/hadoop.tar.gz
         state: absent
-
 
     - name: Fix ownership of entire Hadoop installation
       ansible.builtin.file:
@@ -66,8 +60,7 @@
           export JAVA_HOME=$(readlink -f /usr/bin/java | sed "s:bin/java::")
           export HADOOP_HOME=/home/almalinux/hadoop-3.4.0
           export HADOOP_INSTALL=$HADOOP_HOME
-          export YARN_HOME=$HADOOP_HOME
-          export PATH=$PATH:$HADOOP_INSTALL/bin:$HOME/spark-3.5.3-bin-hadoop3-scala2.13/bin
+          export PATH=$PATH:$HADOOP_INSTALL/bin
           export HADOOP_COMMON_LIB_NATIVE_DIR=$HADOOP_HOME/lib/native
           export HADOOP_OPTS="-Djava.library.path=$HADOOP_HOME/lib/native"
           export HADOOP_CONF_DIR=$HADOOP_HOME/etc/hadoop
@@ -121,75 +114,6 @@
           <property>
               <name>dfs.datanode.ipc.address</name>
               <value>0.0.0.0:9867</value>
-          </property>
-
-    - name: Configure yarn-site.xml
-      ansible.builtin.blockinfile:
-        path: /home/almalinux/hadoop-3.4.0/etc/hadoop/yarn-site.xml
-        insertafter: "<configuration>"
-        marker: "<!-- {mark} ANSIBLE MANAGED BLOCK -->"
-        state: present
-        block: |
-          <property>
-              <name>yarn.resourcemanager.resource-tracker.address</name>
-              <value>{{ mgmt_host }}:8025</value>
-          </property>
-          <property>
-              <name>yarn.resourcemanager.scheduler.address</name>
-              <value>{{ mgmt_host }}:8035</value>
-          </property>
-          <property>
-              <name>yarn.resourcemanager.address</name>
-              <value>{{ mgmt_host }}:8050</value>
-          </property>
-          <property>
-              <name>yarn.resourcemanager.webapp.address</name>
-              <value>0.0.0.0:{{ yarn_rm_ui_port }}</value>
-          </property>
-          <property>
-              <name>yarn.log-aggregation-enable</name>
-              <value>true</value>
-          </property>
-          <property>
-              <name>yarn.nodemanager.aux-services</name>
-              <value>mapreduce_shuffle</value>
-          </property>
-          <property>
-              <name>yarn.nodemanager.aux-services.mapreduce.shuffle.class</name>
-              <value>org.apache.hadoop.mapred.ShuffleHandler</value>
-          </property>
-          <property>
-              <name>yarn.nodemanager.webapp.address</name>
-              <value>0.0.0.0:8042</value>
-          </property>
-          <property>
-              <name>yarn.nodemanager.address</name>
-              <value>0.0.0.0:8041</value>
-          </property>
-          <!-- Increase memory allocation to use most of the 32GB available -->
-          <property>
-              <name>yarn.nodemanager.resource.memory-mb</name>
-              <value>28000</value>
-          </property>
-          <property>
-              <name>yarn.scheduler.maximum-allocation-mb</name>
-              <value>28000</value>
-          </property>
-
-    - name: Configure mapred-site.xml
-      ansible.builtin.blockinfile:
-        path: /home/almalinux/hadoop-3.4.0/etc/hadoop/mapred-site.xml
-        insertafter: "<configuration>"
-        marker: "<!-- {mark} ANSIBLE MANAGED BLOCK -->"
-        state: present
-        block: |
-          <property>
-              <name>mapreduce.job.tracker</name>
-              <value>{{ mgmt_host }}:5431</value>
-          </property>
-          <property>
-              <name>mapred.framework.name</name>
-              <value>yarn</value>
           </property>
 
     - name: Fix JAVA_HOME in hadoop-env.sh

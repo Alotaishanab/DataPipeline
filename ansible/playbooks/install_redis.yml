@@ -1,0 +1,22 @@
+---
+- name: Install Redis on Management Node
+  hosts: mgmtnode
+  become: yes
+  tasks:
+    - name: Install Redis
+      ansible.builtin.yum:
+        name: redis
+        state: present
+
+    - name: Enable and start Redis service
+      ansible.builtin.systemd:
+        name: redis
+        enabled: yes
+        state: started
+
+    - name: Open Redis port in firewall
+      ansible.builtin.firewalld:
+        port: 6379/tcp
+        permanent: true
+        state: enabled
+        immediate: yes
