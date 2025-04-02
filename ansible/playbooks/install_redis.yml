@@ -1,6 +1,6 @@
 ---
 - name: Install Redis on Management Node
-  hosts: mgmtnode
+  hosts: localhost
   become: yes
   tasks:
     - name: Install Redis
