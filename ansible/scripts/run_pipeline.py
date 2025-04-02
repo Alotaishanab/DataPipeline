@@ -91,15 +91,7 @@ def main():
         timestamp = spark.sparkContext._jvm.java.time.LocalDateTime.now().toString().replace(":", "_")
         output_path = f"hdfs:///user/almalinux/results/esm2_embeddings_json_{timestamp}"
 
-        # Load files with at least some partitions
         rdd = spark.sparkContext.wholeTextFiles(input_path, minPartitions=64)
-
-        # 🚨 Force repartitioning to actually spread across workers
-        rdd = rdd.repartition(64)
-
-        logger.info(f"📦 RDD now has {rdd.getNumPartitions()} partitions")
-
-        # 🔄 Map and run
         rdd = rdd.mapPartitions(inference_map_partition)
         rdd.saveAsTextFile(output_path)
 
@@ -110,3 +102,5 @@ def main():
         logger.error(f"🔥 Fatal error: {e}")
         logger.error(traceback.format_exc())
 
+if __name__ == "__main__":
+    main()
