@@ -24,7 +24,7 @@
     spark_home: "/home/almalinux/spark-3.5.3-bin-hadoop3-scala2.13"
     hadoop_conf_dir: "/home/almalinux/hadoop-3.4.0/etc/hadoop"
   tasks:
-    - name: Submit Spark job to fully utilize 4 workers × 4 cores
+    - name: Submit Spark job to fully utilize all workers
       shell: |
         nohup bash -c '
           echo ">>> Starting ESM2 pipeline at $(date)" >> pipeline_loop.log
@@ -32,13 +32,12 @@
           {{ spark_home }}/bin/spark-submit \
             --master yarn \
             --deploy-mode cluster \
-            --num-executors 16 \
+            --num-executors 12 \
             --executor-cores 1 \
-            --executor-memory 1700M \
-            --driver-memory 4G \
+            --executor-memory 2G \
             --conf "spark.executor.memoryOverhead=512M" \
-            --conf "spark.sql.shuffle.partitions=64" \
-            --conf "spark.default.parallelism=64" \
+            --conf "spark.locality.wait=0" \
+            --conf "spark.yarn.scheduler.heartbeat.interval-ms=2000" \
             --conf "spark.yarn.submit.waitAppCompletion=true" \
             --conf "spark.yarn.appMasterEnv.PYSPARK_PYTHON={{ esm_venv_path }}/bin/python" \
             --conf "spark.yarn.appMasterEnv.PYTHONPATH={{ esm_venv_path }}/lib/python{{ py_version }}/site-packages" \
@@ -50,7 +49,6 @@
 
           echo ">>> Pipeline run completed at $(date)" >> pipeline_loop.log
         ' &
-
       args:
         chdir: "/home/almalinux"
       environment:
