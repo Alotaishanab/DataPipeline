@@ -1,3 +1,4 @@
+---
 - name: Distribute ESM Pipeline to All Workers
   hosts: worker_inventory
   become: yes
@@ -5,16 +6,14 @@
   vars:
     pipeline_local_source: "../scripts/run_pipeline.py"
     pipeline_remote_path: "/home/almalinux/run_pipeline.py"
-
   tasks:
-    - name: Copy ESM pipeline script
+    - name: Copy ESM pipeline script to worker nodes
       copy:
         src: "{{ pipeline_local_source }}"
         dest: "{{ pipeline_remote_path }}"
         mode: '0755'
 
-
-- name: Submit Spark Job Using All Worker Nodes
+- name: Submit Spark Job Using All Worker Nodes via Yarn
   hosts: worker1
   become: yes
   become_user: almalinux
@@ -24,12 +23,11 @@
     py_version: "3.9"
     spark_home: "/home/almalinux/spark-3.5.3-bin-hadoop3-scala2.13"
     hadoop_conf_dir: "/home/almalinux/hadoop-3.4.0/etc/hadoop"
-
   tasks:
-    - name: Submit Spark job to use 16 cores across all workers
+    - name: Submit Spark job to evenly distribute 188 FASTA chunks
       shell: |
         nohup bash -c '
-          echo ">>> Starting pipeline at $(date)" >> pipeline_loop.log
+          echo ">>> Starting ESM2 pipeline at $(date)" >> pipeline_loop.log
 
           {{ spark_home }}/bin/spark-submit \
             --master yarn \
@@ -47,7 +45,8 @@
             --conf "spark.executorEnv.PYTHONPATH={{ esm_venv_path }}/lib/python{{ py_version }}/site-packages" \
             --conf "spark.executorEnv.TORCH_HOME=/tmp/torch_cache" \
             --conf "spark.yarn.appMasterEnv.TORCH_HOME=/tmp/torch_cache" \
-            "{{ pipeline_remote_path }}" >> pipeline_loop.log 2>&1
+            hdfs:///user/almalinux/datasets/fasta_parts/ \
+            {{ pipeline_remote_path }} >> pipeline_loop.log 2>&1
 
           echo ">>> Pipeline run completed at $(date)" >> pipeline_loop.log
         ' &
