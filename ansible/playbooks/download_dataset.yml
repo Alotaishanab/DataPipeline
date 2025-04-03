@@ -56,7 +56,7 @@
       when: not fasta_file.stat.exists
 
     - name: Ensure seqkit is installed
-      become: true
+      become: yes
       package:
         name: seqkit
         state: present
