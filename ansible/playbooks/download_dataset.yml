@@ -1,4 +1,4 @@
-- name: Upload Full Protein FASTA File to HDFS
+- name: Upload and Split Full Protein FASTA File to HDFS
   hosts: worker1
   become: yes
   become_user: almalinux
@@ -10,7 +10,10 @@
     dataset_local_path: "{{ dataset_dir }}/{{ dataset_gz }}"
     unzipped_dataset_path: "{{ dataset_dir }}/{{ dataset_fasta }}"
     dataset_download_url: "https://ftp.uniprot.org/pub/databases/uniprot/uniref/uniref50/uniref50.fasta.gz"
-    hdfs_target_file: "/user/almalinux/datasets/uniref50.fasta"
+    split_dir: "{{ dataset_dir }}/chunks"
+    split_prefix: "chunk"
+    chunk_size: 1000
+    hdfs_target_dir: "/user/almalinux/datasets/chunks"
     hadoop_bin: "/home/almalinux/hadoop-3.4.0/bin/hdfs"
     hadoop_conf: "/home/almalinux/hadoop-3.4.0/etc/hadoop"
 
@@ -18,6 +21,12 @@
     - name: Ensure local dataset directory exists
       file:
         path: "{{ dataset_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Ensure chunk directory exists
+      file:
+        path: "{{ split_dir }}"
         state: directory
         mode: '0755'
 
@@ -46,18 +55,32 @@
         state: absent
       when: not fasta_file.stat.exists
 
-    - name: Ensure HDFS target directory exists
+    - name: Ensure seqkit is installed
+      become: true
+      package:
+        name: seqkit
+        state: present
+
+    - name: Split FASTA into chunks of {{ chunk_size }} records
+      shell: |
+        seqkit split -s {{ chunk_size }} -O {{ split_dir }} {{ unzipped_dataset_path }}
+      args:
+        creates: "{{ split_dir }}/{{ split_prefix }}_001.fasta"
+
+    - name: Ensure HDFS chunk target directory exists
       shell: >
-        {{ hadoop_bin }} --config {{ hadoop_conf }} dfs -mkdir -p /user/almalinux/datasets/
+        {{ hadoop_bin }} --config {{ hadoop_conf }} dfs -mkdir -p {{ hdfs_target_dir }}
       environment:
         HADOOP_CONF_DIR: "{{ hadoop_conf }}"
 
-    - name: Upload full FASTA file to HDFS
+    - name: Upload chunked FASTA files to HDFS
       shell: >
-        {{ hadoop_bin }} --config {{ hadoop_conf }} dfs -put -f {{ unzipped_dataset_path }} {{ hdfs_target_file }}
+        for file in {{ split_dir }}/*.fasta; do
+          {{ hadoop_bin }} --config {{ hadoop_conf }} dfs -put -f "$file" {{ hdfs_target_dir }}/
+        done
       environment:
         HADOOP_CONF_DIR: "{{ hadoop_conf }}"
 
     - name: Debug success message
       debug:
-        msg: "✅ Full FASTA uploaded to HDFS: {{ hdfs_target_file }}"
+        msg: "✅ FASTA chunks uploaded to HDFS: {{ hdfs_target_dir }}"
