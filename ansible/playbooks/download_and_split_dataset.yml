@@ -1,0 +1,90 @@
+- name: Ultra-Fast Dataset Processing & Direct Distribution
+  hosts: worker1
+  become: yes
+  become_user: almalinux
+  vars:
+    dataset_dir: "/mnt/data"
+    split_dir: "{{ dataset_dir }}/chunks"
+    dataset_url: "https://ftp.uniprot.org/pub/databases/uniprot/uniref/uniref50/uniref50.fasta.gz"
+    worker_chunk_map:
+      worker2: 002
+      worker3: 003
+      worker4: 004
+
+  tasks:
+    # Phase 1: Dataset Preparation
+    - name: Ensure directory structure exists
+      file:
+        path: "{{ item }}"
+        state: directory
+        mode: '0755'
+      loop:
+        - "{{ dataset_dir }}"
+        - "{{ split_dir }}"
+
+    - name: Download dataset if missing
+      get_url:
+        url: "{{ dataset_url }}"
+        dest: "{{ dataset_dir }}/uniref50.fasta.gz"
+        mode: '0644'
+      register: download_result
+      until: download_result is success
+      retries: 3
+      delay: 30
+
+    - name: Parallel decompress and split
+      shell: |
+        gunzip -ck {{ dataset_dir }}/uniref50.fasta.gz | \
+        /usr/local/bin/seqkit split -p 4 -O {{ split_dir }} -j 4 -
+      args:
+        creates: "{{ split_dir }}/chunk_001.fasta"
+
+    # Phase 2: Direct Distribution
+    - name: Parallel chunk distribution
+      vars:
+        target_worker: "{{ item.key }}"
+        chunk_number: "{{ item.value }}"
+      loop: "{{ worker_chunk_map | dict2items }}"
+      async: 600  # Allow up to 10 minutes per transfer
+      poll: 0  # Fire-and-forget for parallelism
+      synchronize:
+        src: "{{ split_dir }}/chunk_{{ chunk_number }}.fasta"
+        dest: "{{ split_dir }}/"
+        rsync_opts:
+          - "--compress"
+          - "--checksum"
+          - "--partial"
+          - "--bwlimit=50000"  # 50MB/s cap for network stability
+      delegate_to: "{{ target_worker }}"
+
+    # Phase 3: Verification
+    - name: Check async transfers
+      async_status:
+        jid: "{{ ansible_job_id }}"
+      register: transfer_result
+      until: transfer_result.finished
+      retries: 12
+      delay: 30
+      loop: "{{ ansible_job_ids }}"
+
+    - name: Validate local chunk
+      stat:
+        path: "{{ split_dir }}/chunk_001.fasta"
+      register: local_chunk
+
+    - name: Verify remote chunks
+      delegate_to: "{{ item.key }}"
+      stat:
+        path: "{{ split_dir }}/chunk_{{ item.value }}.fasta"
+      loop: "{{ worker_chunk_map | dict2items }}"
+      register: remote_chunks
+
+    - name: Final status
+      debug:
+        msg: |
+          🚀 Distribution Complete!
+          - worker1: {{ split_dir }}/chunk_001.fasta ({{ local_chunk.stat.size|filesizeformat }})
+          {% for item in remote_chunks.results %}
+          - {{ item.item.key }}: {{ split_dir }}/chunk_{{ item.item.value }}.fasta 
+            ({{ item.stat.size|filesizeformat if item.stat.exists else 'MISSING' }})
+          {% endfor %}
