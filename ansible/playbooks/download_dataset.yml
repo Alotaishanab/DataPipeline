@@ -13,11 +13,10 @@
     split_dir: "{{ dataset_dir }}/chunks"
     split_prefix: "chunk"
     chunk_size: 1000
-    group_size: 500
+    group_size: 500  # number of chunk files per tar.gz
     hdfs_target_dir: "/user/almalinux/datasets/tar_chunks"
     hadoop_bin: "/home/almalinux/hadoop-3.4.0/bin/hdfs"
     hadoop_conf: "/home/almalinux/hadoop-3.4.0/etc/hadoop"
-    tars_dir: "{{ dataset_dir }}/tars"
 
   tasks:
     - name: Ensure local directories exist
@@ -29,12 +28,17 @@
         - "{{ dataset_dir }}"
         - "{{ split_dir }}"
 
+    - name: Check if uncompressed FASTA file already exists
+      stat:
+        path: "{{ unzipped_dataset_path }}"
+      register: fasta_stat
+
     - name: Download .gz dataset if .fasta not yet present
       get_url:
         url: "{{ dataset_download_url }}"
         dest: "{{ dataset_local_path }}"
         mode: '0644'
-      when: not lookup('file', unzipped_dataset_path).exists
+      when: not fasta_stat.stat.exists
 
     - name: Decompress .gz to .fasta
       shell: "gunzip -c '{{ dataset_local_path }}' > '{{ unzipped_dataset_path }}'"
@@ -59,23 +63,23 @@
       args:
         creates: "{{ split_dir }}/{{ split_prefix }}_001.fasta"
 
-    - name: "Create tar.gz archives from chunked files (group size: {{ group_size }})"
+    - name: Create tar.gz archives from chunked files (group size: {{ group_size }})
       shell: |
         cd {{ split_dir }}
-        mkdir -p {{ tars_dir }}
+        mkdir -p ../tars
         i=0
         for file in *.fasta; do
           group=$((i / {{ group_size }}))
-          mkdir -p {{ tars_dir }}/group_$group
-          cp "$file" {{ tars_dir }}/group_$group/
+          mkdir -p ../tars/group_$group
+          cp "$file" ../tars/group_$group/
           i=$((i + 1))
         done
-        cd {{ tars_dir }}
+        cd ../tars
         for d in group_*; do
           tar -czf $d.tar.gz -C $d .
         done
       args:
-        creates: "{{ tars_dir }}/group_0.tar.gz"
+        creates: "{{ dataset_dir }}/tars/group_0.tar.gz"
 
     - name: Ensure HDFS tarball target directory exists
       shell: >
@@ -85,7 +89,7 @@
 
     - name: Upload .tar.gz files to HDFS
       shell: >
-        for tar in {{ tars_dir }}/*.tar.gz; do
+        for tar in {{ dataset_dir }}/tars/*.tar.gz; do
           {{ hadoop_bin }} --config {{ hadoop_conf }} dfs -put -f "$tar" {{ hdfs_target_dir }}/
         done
       environment:
