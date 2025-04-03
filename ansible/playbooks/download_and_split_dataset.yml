@@ -44,6 +44,19 @@
             extra_opts:
               - --strip-components=1
 
+        - name: Find extracted seqkit binary
+          find:
+            paths: /tmp/seqkit_install
+            patterns: seqkit
+            file_type: file
+            recurse: yes
+          register: seqkit_found
+
+        - name: Move seqkit binary to expected location
+          command: mv "{{ item.path }}" /tmp/seqkit_install/seqkit
+          loop: "{{ seqkit_found.files }}"
+          when: item.path != '/tmp/seqkit_install/seqkit'
+
         - name: Install to system
           copy:
             src: /tmp/seqkit_install/seqkit
