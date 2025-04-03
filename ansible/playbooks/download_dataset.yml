@@ -63,7 +63,7 @@
       args:
         creates: "{{ split_dir }}/{{ split_prefix }}_001.fasta"
 
-    - name: "Create tar.gz archives from chunked files (group size: {{ group_size }})"
+    - name: Create tar.gz archives from chunked files using pigz
       shell: |
         cd {{ split_dir }}
         mkdir -p ../tars
@@ -76,10 +76,11 @@
         done
         cd ../tars
         for d in group_*; do
-          tar -czf $d.tar.gz -C $d .
+          tar --use-compress-program=pigz -cf $d.tar.gz -C $d .
         done
       args:
         creates: "{{ dataset_dir }}/tars/group_0.tar.gz"
+
 
     - name: Ensure HDFS tarball target directory exists
       shell: >

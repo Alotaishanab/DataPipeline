@@ -23,5 +23,6 @@
           - git
           - python3
           - python3-pip
+          - pigz  
         state: present
         update_cache: yes
