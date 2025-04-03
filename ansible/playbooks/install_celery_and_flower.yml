@@ -80,6 +80,11 @@
     esm_user: "almalinux"
 
   tasks:
+    - name: Ensure virtualenv is installed
+      package:
+        name: python3-virtualenv
+        state: present
+
     - name: Install Flower in virtualenv
       pip:
         virtualenv: "{{ venv_path }}"
@@ -117,4 +122,6 @@
 
     - name: Enable and start Flower UI
       systemd:
-        name: celery-fl
+        name: celery-flower.service
+        enabled: yes
+        state: restarted
