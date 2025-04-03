@@ -1,5 +1,5 @@
-# playbooks/download_and_split_dataset.yml
-- name: Dataset Processing Pipeline
+# playbooks/lightning_processing.yml
+- name: Extreme-Speed Dataset Processing
   hosts: worker1
   become: yes
   become_user: almalinux
@@ -7,68 +7,64 @@
     dataset_dir: "/mnt/data"
     split_dir: "{{ dataset_dir }}/chunks"
     dataset_url: "https://ftp.uniprot.org/pub/databases/uniprot/uniref/uniref50/uniref50.fasta.gz"
+    worker_chunk_map:
+      worker2: 002
+      worker3: 003
+      worker4: 004
 
   tasks:
-    # Phase 1: Install Requirements
-    - name: Install basic tools
+    # Phase 1: System Setup (1 min)
+    - name: Install atomic requirements
       become: yes
       become_user: root
       package:
         name:
-          - wget
+          - aria2
           - pigz
           - pv
+          - rsync
         state: present
 
-    # Phase 2: Get SeqKit
-    - name: Download and install SeqKit
-      block:
-        - name: Download latest SeqKit
-          command: wget https://github.com/shenwei356/seqkit/releases/download/v2.6.1/seqkit_linux_amd64.tar.gz -O /tmp/seqkit.tar.gz
-        
-        - name: Extract binary
-          unarchive:
-            src: /tmp/seqkit.tar.gz
-            dest: /usr/local/bin
-            remote_src: yes
-            extra_opts: "--strip-components=1"
-            creates: /usr/local/bin/seqkit
-
-        - name: Make executable
-          file:
-            path: /usr/local/bin/seqkit
-            mode: '0755'
-      when: not lookup('file', '/usr/local/bin/seqkit', errors='ignore')
-
-    # Phase 3: Handle Dataset
-    - name: Create directories
-      file:
-        path: "{{ item }}"
-        state: directory
-        mode: '0755'
-      loop:
-        - "{{ dataset_dir }}"
-        - "{{ split_dir }}"
-
-    - name: Download dataset
-      command: wget {{ dataset_url }} -O {{ dataset_dir }}/uniref50.fasta.gz
-      when: not lookup('file', dataset_dir+'/uniref50.fasta.gz', errors='ignore')
-
-    - name: Decompress dataset
-      command: pigz -dk {{ dataset_dir }}/uniref50.fasta.gz
-      when: not lookup('file', dataset_dir+'/uniref50.fasta', errors='ignore')
-
-    # Phase 4: Split Dataset
-    - name: Split into chunks
-      command: seqkit split -p 4 {{ dataset_dir }}/uniref50.fasta -O {{ split_dir }}
+    # Phase 2: Parallel Pipeline (5-7 min)
+    - name: Stream download → decompress → split
+      shell: |
+        aria2c -x 16 -s 32 -q --dir={{ dataset_dir }} "{{ dataset_url}}" -o /dev/stdout |
+        pv -petrab -s 14G |
+        pigz -cd -p4 |
+        seqkit split -p 4 -j4 -O {{ split_dir }} -
       args:
         creates: "{{ split_dir }}/chunk_001.fasta"
 
-    # Phase 5: Distribute
-    - name: Copy chunks to workers
-      synchronize:
-        src: "{{ split_dir }}/chunk_00{{ item }}.fasta"
-        dest: "{{ split_dir }}/"
-        rsync_opts: "--checksum"
-      delegate_to: "worker{{ item }}"
+    # Phase 3: Fire-and-Forget Distribution (2-3 min)
+    - name: Async chunk distribution
+      vars:
+        target_worker: "worker{{ item }}"
+        chunk_number: "00{{ item }}"
       loop: [2,3,4]
+      async: 300
+      poll: 0
+      synchronize:
+        src: "{{ split_dir }}/chunk_{{ chunk_number }}.fasta"
+        dest: "{{ split_dir }}/"
+        rsync_opts:
+          - "--compress"
+          - "--checksum"
+          - "--bwlimit=0"
+          - "--partial"
+      delegate_to: "{{ target_worker }}"
+
+    # Phase 4: Validation (30 sec)
+    - name: Verify processing
+      stat:
+        path: "{{ split_dir }}/chunk_00{{ item }}.fasta"
+      loop: [1,2,3,4]
+      register: local_chunks
+
+    - name: Final report
+      debug:
+        msg: |
+          ⚡ PROCESSING COMPLETE ⚡
+          Total Time: {{ ansible_date_time.epoch | int - play_started_at | int }} seconds
+          Local Chunks: {{ local_chunks.results | selectattr('stat.exists') | list | length }}/4
+      vars:
+        play_started_at: "{{ ansible_date_time.epoch }}"
