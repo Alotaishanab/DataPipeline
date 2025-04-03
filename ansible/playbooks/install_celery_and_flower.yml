@@ -99,7 +99,6 @@
       set_fact:
         flower_exec_path: "{{ flower_info.stdout_lines | select('match', '^Location: ') | first | regex_replace('^Location: ', '') }}/bin/flower"
 
-
     - name: Create systemd unit file for Flower monitoring UI
       copy:
         dest: "/etc/systemd/system/celery-flower.service"
@@ -113,7 +112,7 @@
           User={{ esm_user }}
           Group={{ esm_user }}
           WorkingDirectory={{ celery_app_path }}
-          ExecStart={{ flower_path.stdout }} --broker=redis://{{ redis_host }}:{{ redis_port }}/0 --port=5555
+          ExecStart={{ flower_exec_path }} --broker=redis://{{ redis_host }}:{{ redis_port }}/0 --port=5555
           Restart=always
           RestartSec=10
 
