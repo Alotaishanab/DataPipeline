@@ -90,15 +90,24 @@
         state: forcereinstall
         executable: pip3
 
-    - name: Find path to flower binary
-      command: bash -c 'command -v flower'
-      register: flower_path_result
+    - name: Get flower install path from pip
+      command: pip3 show flower
+      register: flower_show
       changed_when: false
-      failed_when: flower_path_result.rc != 0
 
-    - name: Set flower_path fact
+    - name: Extract location of flower package
       set_fact:
-        flower_path: "{{ flower_path_result.stdout }}"
+        flower_install_path: "{{ flower_show.stdout | regex_search('Location: (.*)', '\\1') }}/bin/flower"
+
+    - name: Ensure flower binary exists
+      stat:
+        path: "{{ flower_install_path }}"
+      register: flower_stat
+
+    - name: Fail if flower binary not found
+      fail:
+        msg: "Flower binary not found at expected path: {{ flower_install_path }}"
+      when: not flower_stat.stat.exists
 
     - name: Create systemd unit file for Flower monitoring UI
       copy:
@@ -113,7 +122,7 @@
           User={{ esm_user }}
           Group={{ esm_user }}
           WorkingDirectory={{ celery_app_path }}
-          ExecStart={{ flower_path }} --broker=redis://{{ redis_host }}:{{ redis_port }}/0 --port=5555
+          ExecStart={{ flower_install_path }} --broker=redis://{{ redis_host }}:{{ redis_port }}/0 --port=5555
           Restart=always
           RestartSec=10
 
