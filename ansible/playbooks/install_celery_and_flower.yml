@@ -84,30 +84,30 @@
         name: python3-pip
         state: present
 
-    - name: Force-reinstall Flower globally
+    - name: Install Flower globally (force reinstall)
       pip:
         name: flower
         state: forcereinstall
         executable: pip3
 
-    - name: Get flower install path from pip
-      command: pip3 show flower
-      register: flower_show
+    - name: Detect path to flower binary using Python
+      command: python3 -m pip show flower
+      register: flower_pip_info
       changed_when: false
 
-    - name: Extract location of flower package
+    - name: Extract flower install location
       set_fact:
-        flower_install_path: "{{ flower_show.stdout | regex_search('Location: (.*)', '\\1') }}/bin/flower"
+        flower_location: "{{ flower_pip_info.stdout | regex_search('Location: (.*)', '\\1') | trim }}"
 
-    - name: Ensure flower binary exists
-      stat:
-        path: "{{ flower_install_path }}"
-      register: flower_stat
+    - name: Find flower binary using find command
+      command: "find {{ flower_location }} -type f -name flower"
+      register: flower_binary_path
+      changed_when: false
 
     - name: Fail if flower binary not found
       fail:
-        msg: "Flower binary not found at expected path: {{ flower_install_path }}"
-      when: not flower_stat.stat.exists
+        msg: "❌ Could not locate flower binary inside: {{ flower_location }}"
+      when: flower_binary_path.stdout == ""
 
     - name: Create systemd unit file for Flower monitoring UI
       copy:
@@ -122,7 +122,7 @@
           User={{ esm_user }}
           Group={{ esm_user }}
           WorkingDirectory={{ celery_app_path }}
-          ExecStart={{ flower_install_path }} --broker=redis://{{ redis_host }}:{{ redis_port }}/0 --port=5555
+          ExecStart={{ flower_binary_path.stdout }} --broker=redis://{{ redis_host }}:{{ redis_port }}/0 --port=5555
           Restart=always
           RestartSec=10
 
