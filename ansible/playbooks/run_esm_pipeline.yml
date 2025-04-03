@@ -23,7 +23,17 @@
         dest: "{{ controller_remote_path }}"
         mode: '0755'
 
-    - name: Run controller.py to start the pipeline
+    - name: Ensure virtualenv is installed
+      package:
+        name: python3-virtualenv
+        state: present
+
+    - name: Create virtual environment if it doesn't exist
+      command: python3 -m venv {{ venv_path }}
+      args:
+        creates: "{{ venv_path }}/bin/activate"
+
+    - name: Run controller.py using virtualenv
       shell: |
         source {{ venv_path }}/bin/activate
         python {{ controller_remote_path }}
