@@ -7,6 +7,7 @@
     dataset_dir: "/mnt/data"
     split_dir: "{{ dataset_dir }}/chunks"
     dataset_url: "https://ftp.uniprot.org/pub/databases/uniprot/uniref/uniref50/uniref50.fasta.gz"
+    seqkit_url: "https://github.com/shenwei356/seqkit/releases/download/v2.6.1/seqkit_linux_amd64.tar.gz"
     worker_chunk_map:
       worker2: 002
       worker3: 003
@@ -23,9 +24,32 @@
           - pigz
           - pv
           - rsync
+          - tar
         state: present
 
-    # Phase 2: Parallel Pipeline (5-7 min)
+    # Phase 2: SeqKit Installation (45 sec)
+    - name: Install SeqKit if missing
+      block:
+        - name: Download SeqKit
+          command: aria2c -x 8 -s 16 -q -d /tmp "{{ seqkit_url}}"
+          args:
+            creates: /usr/local/bin/seqkit
+
+        - name: Extract and install
+          unarchive:
+            src: "/tmp/seqkit_linux_amd64.tar.gz"
+            dest: /usr/local/bin
+            remote_src: yes
+            extra_opts: "--strip-components=1"
+            creates: /usr/local/bin/seqkit
+
+        - name: Set executable permissions
+          file:
+            path: /usr/local/bin/seqkit
+            mode: '0755'
+      when: not lookup('file', '/usr/local/bin/seqkit', errors='ignore')
+
+    # Phase 3: Parallel Pipeline (5-7 min)
     - name: Stream download → decompress → split
       shell: |
         aria2c -x 16 -s 32 -q --dir={{ dataset_dir }} "{{ dataset_url}}" -o /dev/stdout |
@@ -35,7 +59,7 @@
       args:
         creates: "{{ split_dir }}/chunk_001.fasta"
 
-    # Phase 3: Fire-and-Forget Distribution (2-3 min)
+    # Phase 4: Fire-and-Forget Distribution (2-3 min)
     - name: Async chunk distribution
       vars:
         target_worker: "worker{{ item }}"
@@ -53,7 +77,7 @@
           - "--partial"
       delegate_to: "{{ target_worker }}"
 
-    # Phase 4: Validation (30 sec)
+    # Phase 5: Validation (30 sec)
     - name: Verify processing
       stat:
         path: "{{ split_dir }}/chunk_00{{ item }}.fasta"
