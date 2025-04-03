@@ -8,7 +8,15 @@
     venv_path: "/opt/esm/venv"
 
   tasks:
-    - name: Create virtual environment using built-in venv (run as almalinux)
+    - name: Ensure /opt/esm directory exists (owned by almalinux)
+      file:
+        path: "/opt/esm"
+        state: directory
+        owner: almalinux
+        group: almalinux
+        mode: '0755'
+
+    - name: Create virtual environment using built-in venv
       become_user: almalinux
       command: python3 -m venv {{ venv_path }}
       args:
