@@ -90,11 +90,15 @@
         executable: pip3
         state: latest
 
-    - name: Locate flower binary
-      command: which flower
-      register: flower_path
+    - name: Locate flower binary using pip show
+      command: pip3 show flower
+      register: flower_info
       changed_when: false
-      failed_when: flower_path.rc != 0
+
+    - name: Extract flower binary path
+      set_fact:
+        flower_exec_path: "{{ flower_info.stdout_lines | select('match', '^Location: ') | first | regex_replace('^Location: ', '') }}/bin/flower"
+
 
     - name: Create systemd unit file for Flower monitoring UI
       copy:
