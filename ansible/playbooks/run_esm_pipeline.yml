@@ -1,7 +1,6 @@
 - name: Copy and Run ESM Pipeline Controller
   hosts: localhost
   become: yes
-  become_user: almalinux
 
   vars:
     controller_local_path: "../scripts/controller.py"
@@ -9,7 +8,19 @@
     venv_path: "/opt/esm/venv"
 
   tasks:
+    - name: Ensure virtualenv is installed (run as root)
+      ansible.builtin.package:
+        name: python3-virtualenv
+        state: present
+
+    - name: Create virtual environment if it doesn't exist (run as almalinux)
+      become_user: almalinux
+      command: python3 -m venv {{ venv_path }}
+      args:
+        creates: "{{ venv_path }}/bin/activate"
+
     - name: Create pipeline directory if it doesn't exist
+      become_user: almalinux
       file:
         path: "{{ controller_remote_path | dirname }}"
         state: directory
@@ -18,22 +29,14 @@
         mode: '0755'
 
     - name: Copy controller.py to mgmtnode
+      become_user: almalinux
       copy:
         src: "{{ controller_local_path }}"
         dest: "{{ controller_remote_path }}"
         mode: '0755'
 
-    - name: Ensure virtualenv is installed
-      package:
-        name: python3-virtualenv
-        state: present
-
-    - name: Create virtual environment if it doesn't exist
-      command: python3 -m venv {{ venv_path }}
-      args:
-        creates: "{{ venv_path }}/bin/activate"
-
     - name: Run controller.py using virtualenv
+      become_user: almalinux
       shell: |
         source {{ venv_path }}/bin/activate
         python {{ controller_remote_path }}
