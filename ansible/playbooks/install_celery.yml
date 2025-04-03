@@ -68,3 +68,30 @@
         enabled: yes
         state: restarted
 
+# ---------------------------------------------
+
+- name: Install Celery and Redis modules on Management Node (localhost)
+  hosts: localhost
+  become: yes
+  vars:
+    venv_path: "/opt/esm/venv"
+
+  tasks:
+    - name: Ensure venv directory exists
+      file:
+        path: "{{ venv_path }}"
+        state: directory
+        mode: '0755'
+
+    - name: Create virtual environment if not present
+      command: python3 -m venv "{{ venv_path }}"
+      args:
+        creates: "{{ venv_path }}/bin/activate"
+
+    - name: Install Celery and Redis in virtualenv on mgmtnode
+      pip:
+        virtualenv: "{{ venv_path }}"
+        name:
+          - celery
+          - redis
+        state: latest
