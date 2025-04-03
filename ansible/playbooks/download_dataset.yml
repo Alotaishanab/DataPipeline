@@ -1,4 +1,4 @@
-- name: Upload and Split Full Protein FASTA File to HDFS
+- name: Split, Compress, and Upload FASTA Chunks to HDFS
   hosts: worker1
   become: yes
   become_user: almalinux
@@ -11,96 +11,85 @@
     unzipped_dataset_path: "{{ dataset_dir }}/{{ dataset_fasta }}"
     dataset_download_url: "https://ftp.uniprot.org/pub/databases/uniprot/uniref/uniref50/uniref50.fasta.gz"
     split_dir: "{{ dataset_dir }}/chunks"
+    split_prefix: "chunk"
     chunk_size: 1000
-    hdfs_target_dir: "/user/almalinux/datasets/chunks"
+    group_size: 500  # number of chunk files per tar.gz
+    hdfs_target_dir: "/user/almalinux/datasets/tar_chunks"
     hadoop_bin: "/home/almalinux/hadoop-3.4.0/bin/hdfs"
     hadoop_conf: "/home/almalinux/hadoop-3.4.0/etc/hadoop"
-    seqkit_url: "https://github.com/shenwei356/seqkit/releases/download/v2.6.1/seqkit_linux_amd64.tar.gz"
-    seqkit_tar: "/tmp/seqkit_linux_amd64.tar.gz"
-    seqkit_bin: "/usr/local/bin/seqkit"
 
   tasks:
-    - name: Ensure local dataset directory exists
+    - name: Ensure local directories exist
       file:
-        path: "{{ dataset_dir }}"
+        path: "{{ item }}"
         state: directory
         mode: '0755'
+      loop:
+        - "{{ dataset_dir }}"
+        - "{{ split_dir }}"
 
-    - name: Ensure chunk directory exists
-      file:
-        path: "{{ split_dir }}"
-        state: directory
-        mode: '0755'
-
-    - name: Check if uncompressed FASTA file already exists
-      stat:
-        path: "{{ unzipped_dataset_path }}"
-      register: fasta_file
-
-    - name: Download .gz dataset if .fasta does not exist
+    - name: Download .gz dataset if .fasta not yet present
       get_url:
         url: "{{ dataset_download_url }}"
         dest: "{{ dataset_local_path }}"
         mode: '0644'
-      when: not fasta_file.stat.exists
+      when: not lookup('ansible.builtin.file', unzipped_dataset_path).exists
 
-    - name: Decompress .gz to .fasta (only if .fasta not yet present)
-      shell: |
-        gunzip -c "{{ dataset_local_path }}" > "{{ unzipped_dataset_path }}"
+    - name: Decompress .gz to .fasta
+      shell: "gunzip -c '{{ dataset_local_path }}' > '{{ unzipped_dataset_path }}'"
       args:
         creates: "{{ unzipped_dataset_path }}"
-      when: not fasta_file.stat.exists
 
-    - name: Remove .gz file after decompression
-      file:
-        path: "{{ dataset_local_path }}"
-        state: absent
-      when: not fasta_file.stat.exists
-
-    - name: Check if seqkit is already installed
-      stat:
-        path: "{{ seqkit_bin }}"
-      register: seqkit_stat
-
-    - name: Download seqkit binary if not present
+    - name: Download seqkit binary
       get_url:
-        url: "{{ seqkit_url }}"
-        dest: "{{ seqkit_tar }}"
+        url: "https://github.com/shenwei356/seqkit/releases/download/v2.5.1/seqkit_linux_amd64.tar.gz"
+        dest: "/tmp/seqkit.tar.gz"
         mode: '0755'
-      when: not seqkit_stat.stat.exists
-      become: yes
 
-    - name: Extract and install seqkit binary
-      shell: |
-        tar -xzf {{ seqkit_tar }} -C /tmp
-        mv /tmp/seqkit /usr/local/bin/seqkit
-        chmod +x /usr/local/bin/seqkit
-      args:
-        creates: "{{ seqkit_bin }}"
-      become: yes
-      when: not seqkit_stat.stat.exists
-
+    - name: Extract seqkit binary
+      unarchive:
+        src: "/tmp/seqkit.tar.gz"
+        dest: "/usr/local/bin/"
+        remote_src: yes
+        extra_opts: ["--strip-components=1"]
 
     - name: Split FASTA into chunks of {{ chunk_size }} records
-      shell: |
-        {{ seqkit_bin }} split -s {{ chunk_size }} -O {{ split_dir }} {{ unzipped_dataset_path }}
+      shell: "/usr/local/bin/seqkit split -s {{ chunk_size }} -O {{ split_dir }} {{ unzipped_dataset_path }}"
       args:
-        creates: "{{ split_dir }}/chunk_001.fasta"
+        creates: "{{ split_dir }}/{{ split_prefix }}_001.fasta"
 
-    - name: Ensure HDFS chunk target directory exists
+    - name: Create tar.gz archives from chunked files (group size: {{ group_size }})
+      shell: |
+        cd {{ split_dir }}
+        mkdir -p ../tars
+        i=0
+        for file in *.fasta; do
+          group=$((i / {{ group_size }}))
+          mkdir -p ../tars/group_$group
+          cp "$file" ../tars/group_$group/
+          i=$((i + 1))
+        done
+        cd ../tars
+        for d in group_*; do
+          tar -czf $d.tar.gz -C $d .
+        done
+      args:
+        creates: "{{ dataset_dir }}/tars/group_0.tar.gz"
+
+    - name: Ensure HDFS tarball target directory exists
       shell: >
         {{ hadoop_bin }} --config {{ hadoop_conf }} dfs -mkdir -p {{ hdfs_target_dir }}
       environment:
         HADOOP_CONF_DIR: "{{ hadoop_conf }}"
 
-    - name: Upload chunked FASTA files to HDFS
-      shell: |
-        for file in {{ split_dir }}/*.fasta; do
-          {{ hadoop_bin }} --config {{ hadoop_conf }} dfs -put -f "$file" {{ hdfs_target_dir }}/
+    - name: Upload .tar.gz files to HDFS
+      shell: >
+        for tar in {{ dataset_dir }}/tars/*.tar.gz; do
+          {{ hadoop_bin }} --config {{ hadoop_conf }} dfs -put -f "$tar" {{ hdfs_target_dir }}/
         done
       environment:
         HADOOP_CONF_DIR: "{{ hadoop_conf }}"
 
     - name: Debug success message
       debug:
-        msg: "✅ FASTA chunks uploaded to HDFS: {{ hdfs_target_dir }}"
+        msg: "✅ FASTA chunk tarballs uploaded to HDFS: {{ hdfs_target_dir }}"
