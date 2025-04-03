@@ -37,6 +37,15 @@
         src: "{{ controller_local_path }}"
         dest: "{{ controller_remote_path }}"
         mode: '0755'
+    
+    - name: Copy celery_worker.py to mgmtnode for controller to import
+      copy:
+        src: "../scripts/celery_worker.py"
+        dest: "/home/almalinux/esm_pipeline/celery_worker.py"
+        owner: almalinux
+        group: almalinux
+        mode: '0755'
+
 
     - name: Run controller.py using virtualenv
       become_user: almalinux
