@@ -63,7 +63,7 @@
       args:
         creates: "{{ split_dir }}/{{ split_prefix }}_001.fasta"
 
-    - name: Create tar.gz archives from chunked files (group size: {{ group_size }})
+    - name: "Create tar.gz archives from chunked files (group size: {{ group_size }})"
       shell: |
         cd {{ split_dir }}
         mkdir -p ../tars
