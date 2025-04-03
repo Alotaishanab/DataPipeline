@@ -57,12 +57,17 @@
         state: absent
       when: not fasta_file.stat.exists
 
+    - name: Check if seqkit is already installed
+      stat:
+        path: "{{ seqkit_bin }}"
+      register: seqkit_stat
+
     - name: Download seqkit binary if not present
       get_url:
         url: "{{ seqkit_url }}"
         dest: "{{ seqkit_tar }}"
         mode: '0755'
-      when: not lookup('ansible.builtin.stat', seqkit_bin).stat.exists
+      when: not seqkit_stat.stat.exists
       become: yes
 
     - name: Extract and install seqkit binary
@@ -73,7 +78,8 @@
       args:
         creates: "{{ seqkit_bin }}"
       become: yes
-      when: not lookup('ansible.builtin.stat', seqkit_bin).stat.exists
+      when: not seqkit_stat.stat.exists
+
 
     - name: Split FASTA into chunks of {{ chunk_size }} records
       shell: |
