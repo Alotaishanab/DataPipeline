@@ -73,7 +73,6 @@
   hosts: localhost
   become: yes
   vars:
-    venv_path: "/opt/esm/venv"
     celery_app_path: "/home/almalinux/celery_app"
     redis_host: "mgmtnode"
     redis_port: 6379
@@ -85,17 +84,10 @@
         name: python3-pip
         state: present
 
-    - name: Install virtualenv using pip (instead of broken system pkg)
+    - name: Install Flower globally
       pip:
-        name: virtualenv
+        name: flower
         executable: pip3
-        state: latest
-
-    - name: Install Flower in virtualenv
-      pip:
-        virtualenv: "{{ venv_path }}"
-        name:
-          - flower
         state: latest
 
     - name: Create systemd unit file for Flower monitoring UI
@@ -111,7 +103,7 @@
           User={{ esm_user }}
           Group={{ esm_user }}
           WorkingDirectory={{ celery_app_path }}
-          ExecStart={{ venv_path }}/bin/flower --broker=redis://{{ redis_host }}:{{ redis_port }}/0 --port=5555
+          ExecStart=/usr/local/bin/flower --broker=redis://{{ redis_host }}:{{ redis_port }}/0 --port=5555
           Restart=always
           RestartSec=10
 
@@ -131,4 +123,3 @@
         name: celery-flower.service
         enabled: yes
         state: restarted
-
