@@ -8,12 +8,7 @@
     venv_path: "/opt/esm/venv"
 
   tasks:
-    - name: Ensure virtualenv is installed (run as root)
-      ansible.builtin.package:
-        name: python3-virtualenv
-        state: present
-
-    - name: Create virtual environment if it doesn't exist (run as almalinux)
+    - name: Create virtual environment using built-in venv (run as almalinux)
       become_user: almalinux
       command: python3 -m venv {{ venv_path }}
       args:
