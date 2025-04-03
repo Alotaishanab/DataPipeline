@@ -11,11 +11,13 @@
     unzipped_dataset_path: "{{ dataset_dir }}/{{ dataset_fasta }}"
     dataset_download_url: "https://ftp.uniprot.org/pub/databases/uniprot/uniref/uniref50/uniref50.fasta.gz"
     split_dir: "{{ dataset_dir }}/chunks"
-    split_prefix: "chunk"
     chunk_size: 1000
     hdfs_target_dir: "/user/almalinux/datasets/chunks"
     hadoop_bin: "/home/almalinux/hadoop-3.4.0/bin/hdfs"
     hadoop_conf: "/home/almalinux/hadoop-3.4.0/etc/hadoop"
+    seqkit_url: "https://github.com/shenwei356/seqkit/releases/download/v2.6.1/seqkit_linux_amd64.tar.gz"
+    seqkit_tar: "/tmp/seqkit_linux_amd64.tar.gz"
+    seqkit_bin: "/usr/local/bin/seqkit"
 
   tasks:
     - name: Ensure local dataset directory exists
@@ -55,17 +57,29 @@
         state: absent
       when: not fasta_file.stat.exists
 
-    - name: Ensure seqkit is installed
+    - name: Download seqkit binary if not present
+      get_url:
+        url: "{{ seqkit_url }}"
+        dest: "{{ seqkit_tar }}"
+        mode: '0755'
+      when: not lookup('ansible.builtin.stat', seqkit_bin).stat.exists
       become: yes
-      package:
-        name: seqkit
-        state: present
+
+    - name: Extract and install seqkit binary
+      shell: |
+        tar -xzf {{ seqkit_tar }} -C /tmp
+        mv /tmp/seqkit /usr/local/bin/seqkit
+        chmod +x /usr/local/bin/seqkit
+      args:
+        creates: "{{ seqkit_bin }}"
+      become: yes
+      when: not lookup('ansible.builtin.stat', seqkit_bin).stat.exists
 
     - name: Split FASTA into chunks of {{ chunk_size }} records
       shell: |
-        seqkit split -s {{ chunk_size }} -O {{ split_dir }} {{ unzipped_dataset_path }}
+        {{ seqkit_bin }} split -s {{ chunk_size }} -O {{ split_dir }} {{ unzipped_dataset_path }}
       args:
-        creates: "{{ split_dir }}/{{ split_prefix }}_001.fasta"
+        creates: "{{ split_dir }}/chunk_001.fasta"
 
     - name: Ensure HDFS chunk target directory exists
       shell: >
@@ -74,7 +88,7 @@
         HADOOP_CONF_DIR: "{{ hadoop_conf }}"
 
     - name: Upload chunked FASTA files to HDFS
-      shell: >
+      shell: |
         for file in {{ split_dir }}/*.fasta; do
           {{ hadoop_bin }} --config {{ hadoop_conf }} dfs -put -f "$file" {{ hdfs_target_dir }}/
         done
