@@ -9,6 +9,10 @@
     dataset_url: "https://ftp.uniprot.org/pub/databases/uniprot/uniref/uniref50/uniref50.fasta.gz"
     seqkit_version: "2.6.1"
     seqkit_url: "https://github.com/shenwei356/seqkit/releases/download/v{{ seqkit_version }}/seqkit_linux_amd64.tar.gz"
+    worker_chunk_map:
+      worker2: 002
+      worker3: 003
+      worker4: 004
 
   tasks:
     # Phase 0: System Preparation
@@ -89,7 +93,7 @@
       args:
         creates: "{{ split_dir }}/chunk_001.fasta"
 
-    # Phase 4: Distribution
+    # Phase 4: Fixed Distribution Section
     - name: Prepare worker directories
       delegate_to: "{{ item }}"
       file:
@@ -98,29 +102,24 @@
         mode: '0755'
       loop: "{{ groups['worker_inventory'] }}"
 
-    - name: Distribute chunks
-      vars:
-        worker_chunk_map:
-          worker2: 002
-          worker3: 003
-          worker4: 004
+    - name: Check existing chunks on workers
+      delegate_to: "{{ item.key }}"
+      stat:
+        path: "{{ split_dir }}/chunk_{{ item.value }}.fasta"
       loop: "{{ worker_chunk_map | dict2items }}"
-      block:
-        - name: Check existing chunk on {{ item.key }}
-          delegate_to: "{{ item.key }}"
-          stat:
-            path: "{{ split_dir }}/chunk_{{ item.value }}.fasta"
-          register: chunk_check
+      register: chunk_checks
 
-        - name: Transfer chunk_{{ item.value }}.fasta to {{ item.key }}
-          synchronize:
-            src: "{{ split_dir }}/chunk_{{ item.value }}.fasta"
-            dest: "{{ split_dir }}/"
-            rsync_opts:
-              - "--compress"
-              - "--checksum"
-              - "--bwlimit=0"
-          when: not chunk_check.stat.exists
+    - name: Distribute missing chunks
+      synchronize:
+        src: "{{ split_dir }}/chunk_{{ item.item.value }}.fasta"
+        dest: "{{ split_dir }}/"
+        rsync_opts:
+          - "--compress"
+          - "--checksum"
+          - "--bwlimit=0"
+      delegate_to: "{{ item.item.key }}"
+      loop: "{{ chunk_checks.results }}"
+      when: not item.stat.exists
 
     # Phase 5: Validation
     - name: Verify local chunks
