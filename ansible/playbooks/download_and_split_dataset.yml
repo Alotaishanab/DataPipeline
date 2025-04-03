@@ -1,5 +1,5 @@
 # playbooks/download_and_split_dataset.yml
-- name: Ultra-Reliable Dataset Processing Pipeline
+- name: Robust Dataset Processing Pipeline
   hosts: worker1
   become: yes
   become_user: almalinux
@@ -16,7 +16,7 @@
 
   tasks:
     # Phase 0: System Preparation
-    - name: Install critical dependencies as root
+    - name: Install critical dependencies
       become: yes
       become_user: root
       package:
@@ -26,22 +26,43 @@
           - pv
           - tar
           - gzip
+          - ca-certificates
         state: present
 
-    # Phase 1: SeqKit Installation
-    - name: Create temporary directory for SeqKit
+    # Phase 1: SeqKit Installation with Validation
+    - name: Clean previous SeqKit installs
+      file:
+        path: /tmp/seqkit
+        state: absent
+      ignore_errors: yes
+
+    - name: Create temp directory
       file:
         path: /tmp/seqkit
         state: directory
         mode: '0755'
 
-    - name: Download and extract SeqKit
+    - name: Download SeqKit tarball
+      get_url:
+        url: "{{ seqkit_url }}"
+        dest: /tmp/seqkit.tar.gz
+        checksum: "sha256:5a6cbb3e23c42a4e7a79a5e5e5c5e5c5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5"  # Replace with actual checksum
+        timeout: 60
+        validate_certs: yes
+
+    - name: Extract SeqKit binary
       unarchive:
-        src: "{{ seqkit_url }}"
+        src: /tmp/seqkit.tar.gz
         dest: /tmp/seqkit
         remote_src: yes
         extra_opts: "--strip-components=1"
         creates: /tmp/seqkit/seqkit
+
+    - name: Verify extracted binary
+      stat:
+        path: /tmp/seqkit/seqkit
+      register: seqkit_verify
+      failed_when: not seqkit_verify.stat.exists
 
     - name: Install SeqKit system-wide
       copy:
@@ -49,12 +70,10 @@
         dest: /usr/local/bin/seqkit
         mode: '0755'
         remote_src: yes
-      when: '"seqkit" not in command_output'
-      vars:
-        command_output: "{{ lookup('pipe', 'command -v seqkit || echo missing') }}"
+      when: seqkit_verify.stat.exists
 
     # Phase 2: Dataset Handling
-    - name: Ensure dataset directory structure
+    - name: Create dataset directories
       file:
         path: "{{ item }}"
         state: directory
@@ -63,37 +82,40 @@
         - "{{ dataset_dir }}"
         - "{{ split_dir }}"
 
-    - name: Check for existing dataset
+    - name: Check existing dataset
       stat:
         path: "{{ dataset_dir }}/uniref50.fasta"
       register: dataset_check
 
     - name: Download and process dataset
+      when: not dataset_check.stat.exists
       block:
-        - name: Multi-threaded download with aria2
-          shell: |
-            aria2c -x 16 -s 32 \
-              --dir={{ dataset_dir }} \
-              --out=uniref50.fasta.gz \
-              "{{ dataset_url}}"
+        - name: Parallel download with aria2
+          command: >
+            aria2c -x 16 -s 32
+            --dir={{ dataset_dir }}
+            --out=uniref50.fasta.gz
+            "{{ dataset_url}}"
+          args:
+            creates: "{{ dataset_dir }}/uniref50.fasta.gz"
 
         - name: Stream decompress with progress
-          shell: |
-            pv {{ dataset_dir }}/uniref50.fasta.gz | \
+          command: >
+            pv {{ dataset_dir }}/uniref50.fasta.gz |
             pigz -cd > {{ dataset_dir }}/uniref50.fasta
           args:
             creates: "{{ dataset_dir }}/uniref50.fasta"
-      when: not dataset_check.stat.exists
 
     # Phase 3: Parallel Processing
-    - name: Split dataset using all cores
-      shell: |
-        pv -petrab -s $(stat -c%s "{{ dataset_dir }}/uniref50.fasta") "{{ dataset_dir }}/uniref50.fasta" | \
+    - name: Split dataset
+      command: >
+        pv -petrab -s $(stat -c%s "{{ dataset_dir }}/uniref50.fasta")
+        "{{ dataset_dir }}/uniref50.fasta" |
         seqkit split -p 4 -j $(nproc) -O {{ split_dir }} -
       args:
         creates: "{{ split_dir }}/chunk_001.fasta"
 
-    # Phase 4: Fixed Distribution Section
+    # Phase 4: Distribution with Validation
     - name: Prepare worker directories
       delegate_to: "{{ item }}"
       file:
@@ -102,7 +124,7 @@
         mode: '0755'
       loop: "{{ groups['worker_inventory'] }}"
 
-    - name: Check existing chunks on workers
+    - name: Check existing chunks
       delegate_to: "{{ item.key }}"
       stat:
         path: "{{ split_dir }}/chunk_{{ item.value }}.fasta"
@@ -117,11 +139,12 @@
           - "--compress"
           - "--checksum"
           - "--bwlimit=0"
+          - "--partial"
       delegate_to: "{{ item.item.key }}"
       loop: "{{ chunk_checks.results }}"
       when: not item.stat.exists
 
-    # Phase 5: Validation
+    # Phase 5: Final Verification
     - name: Verify local chunks
       stat:
         path: "{{ split_dir }}/chunk_00{{ item }}.fasta"
@@ -138,8 +161,9 @@
     - name: Final report
       debug:
         msg: |
-          🚀 SUCCESS! Dataset Distribution Complete
+          ✅ SUCCESSFUL EXECUTION
           Local Chunks: {{ local_chunks.results | selectattr('stat.exists') | list | length }}/4
           {% for result in remote_chunks.results %}
-          - {{ result.item.key }}: {{ '✅' if result.stat.exists else '❌' }} {{ split_dir }}/chunk_{{ result.item.value }}.fasta
+          - {{ result.item.key }}: {{ split_dir }}/chunk_{{ result.item.value }}.fasta
+            Status: {{ '✅ Exists' if result.stat.exists else '❌ Missing' }}
           {% endfor %}
