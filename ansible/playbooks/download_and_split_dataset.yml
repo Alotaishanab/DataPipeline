@@ -13,6 +13,7 @@
   tasks:
     # Phase 0: Dependency Installation
     - name: Install required system packages
+      become: yes
       package:
         name:
           - aria2
