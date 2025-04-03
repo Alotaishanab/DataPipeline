@@ -73,66 +73,63 @@
   hosts: localhost
   become: yes
   vars:
-    flower_user: "almalinux"
-    flower_group: "almalinux"
+    redis_host: "mgmtnode"
+    redis_port: 6379
     flower_port: 5555
-    flower_log_dir: "/var/log/flower"
-    flower_pid_file: "/var/run/flower/flower.pid"
-    flower_broker_url: "redis://localhost:6379/0"  # Adjust to your broker URL
-    flower_basic_auth: "flower:flower"  # Set to desired basic auth credentials
+    celery_app_path: "/home/almalinux/celery_app"
+    esm_user: "almalinux"
 
   tasks:
-    - name: Install Flower using pip
-      pip:
-        name: flower
+    - name: Ensure pip is available
+      package:
+        name: python3-pip
         state: present
-        executable: pip3
 
-    - name: Create Flower log directory
-      file:
-        path: "{{ flower_log_dir }}"
-        state: directory
-        owner: "{{ flower_user }}"
-        group: "{{ flower_group }}"
-        mode: '0755'
+    - name: Install flower globally and force path to /usr/local/bin
+      command: >
+        pip3 install --break-system-packages --force-reinstall flower
+      args:
+        creates: /usr/local/bin/flower
 
-    - name: Create directory for Flower PID file
-      file:
-        path: "{{ flower_pid_file | dirname }}"
-        state: directory
-        owner: "{{ flower_user }}"
-        group: "{{ flower_group }}"
-        mode: '0755'
+    - name: Find flower binary location
+      command: which flower
+      register: flower_bin
+      changed_when: false
 
-    - name: Create systemd service file for Flower
+    - name: Debug flower path
+      debug:
+        msg: "Flower binary is at {{ flower_bin.stdout }}"
+
+    - name: Create systemd unit for Flower
       copy:
-        dest: /etc/systemd/system/flower.service
+        dest: /etc/systemd/system/celery-flower.service
         content: |
           [Unit]
-          Description=Flower Celery Monitoring Tool
+          Description=Celery Flower Service
           After=network.target
 
           [Service]
           Type=simple
-          User={{ flower_user }}
-          Group={{ flower_group }}
-          WorkingDirectory=/home/{{ flower_user }}
-          ExecStart=/usr/local/bin/flower --port={{ flower_port }} --broker={{ flower_broker_url }} --basic_auth={{ flower_basic_auth }} --log-file-prefix={{ flower_log_dir }}/flower.log --pidfile={{ flower_pid_file }}
+          User={{ esm_user }}
+          Group={{ esm_user }}
+          WorkingDirectory={{ celery_app_path }}
+          ExecStart={{ flower_bin.stdout }} --broker=redis://{{ redis_host }}:{{ redis_port }}/0 --port={{ flower_port }}
           Restart=always
+          RestartSec=5
 
           [Install]
           WantedBy=multi-user.target
-      notify: Reload systemd
-
-    - name: Start and enable Flower service
-      systemd:
-        name: flower
-        state: started
-        enabled: yes
-        daemon_reload: yes
+      notify:
+        - Reload systemd
+        - Enable and start Flower UI
 
   handlers:
     - name: Reload systemd
       systemd:
         daemon_reload: yes
 
+    - name: Enable and start Flower UI
+      systemd:
+        name: celery-flower.service
+        enabled: yes
+        state: restarted
