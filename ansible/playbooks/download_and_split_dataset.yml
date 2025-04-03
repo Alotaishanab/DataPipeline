@@ -41,7 +41,7 @@
             src: /tmp/seqkit_install/seqkit.tar.gz
             dest: /tmp/seqkit_install
             remote_src: yes
-            extra_opts: "--strip-components=1"
+            strip_components: 1
 
         - name: Install to system
           copy:
@@ -63,17 +63,17 @@
       vars:
         command_output: "{{ lookup('pipe', 'command -v seqkit || echo missing') }}"
 
-    # Phase 3: Parallel Pipeline (5-7 min)
+    # Phase 3: Parallel Pipeline (5–7 min)
     - name: Stream download → decompress → split
       shell: |
-        aria2c -x 16 -s 32 -q --dir={{ dataset_dir }} "{{ dataset_url}}" -o /dev/stdout |
+        aria2c -x 16 -s 32 -q --dir={{ dataset_dir }} "{{ dataset_url }}" -o /dev/stdout |
         pv -petrab -s 14G |
         pigz -cd -p4 |
         seqkit split -p 4 -j4 -O {{ split_dir }} -
       args:
         creates: "{{ split_dir }}/chunk_001.fasta"
 
-    # Phase 4: Fire-and-Forget Distribution (2-3 min)
+    # Phase 4: Fire-and-Forget Distribution (2–3 min)
     - name: Async chunk distribution
       vars:
         target_worker: "worker{{ item }}"
