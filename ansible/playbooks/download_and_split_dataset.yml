@@ -52,10 +52,24 @@
             recurse: yes
           register: seqkit_found
 
+        - name: Debug: Show found files
+          debug:
+            var: seqkit_found.files
+
         - name: Move seqkit binary to expected location
           command: mv "{{ item.path }}" /tmp/seqkit_install/seqkit
           loop: "{{ seqkit_found.files }}"
           when: item.path != '/tmp/seqkit_install/seqkit'
+
+        - name: Ensure seqkit binary exists before installing
+          stat:
+            path: /tmp/seqkit_install/seqkit
+          register: seqkit_stat
+
+        - name: Fail if seqkit binary was not found
+          fail:
+            msg: "Expected binary not found at /tmp/seqkit_install/seqkit"
+          when: not seqkit_stat.stat.exists
 
         - name: Install to system
           copy:
