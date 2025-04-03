@@ -90,6 +90,12 @@
         executable: pip3
         state: latest
 
+    - name: Locate flower binary
+      command: which flower
+      register: flower_path
+      changed_when: false
+      failed_when: flower_path.rc != 0
+
     - name: Create systemd unit file for Flower monitoring UI
       copy:
         dest: "/etc/systemd/system/celery-flower.service"
@@ -103,7 +109,7 @@
           User={{ esm_user }}
           Group={{ esm_user }}
           WorkingDirectory={{ celery_app_path }}
-          ExecStart=/usr/local/bin/flower --broker=redis://{{ redis_host }}:{{ redis_port }}/0 --port=5555
+          ExecStart={{ flower_path.stdout }} --broker=redis://{{ redis_host }}:{{ redis_port }}/0 --port=5555
           Restart=always
           RestartSec=10
 
