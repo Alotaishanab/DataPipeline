@@ -14,6 +14,7 @@
     # Phase 0: Dependency Installation
     - name: Install required system packages
       become: yes
+      become_user: root
       package:
         name:
           - aria2
