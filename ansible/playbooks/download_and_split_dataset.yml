@@ -1,4 +1,5 @@
-- name: Ultra-Fast Dataset Processing & Direct Distribution
+# playbooks/ultra_fast_dataset.yml
+- name: High-Speed Dataset Processing with Dependency Management
   hosts: worker1
   become: yes
   become_user: almalinux
@@ -6,85 +7,114 @@
     dataset_dir: "/mnt/data"
     split_dir: "{{ dataset_dir }}/chunks"
     dataset_url: "https://ftp.uniprot.org/pub/databases/uniprot/uniref/uniref50/uniref50.fasta.gz"
-    worker_chunk_map:
-      worker2: 002
-      worker3: 003
-      worker4: 004
+    seqkit_version: "2.6.1"
+    seqkit_url: "https://github.com/shenwei356/seqkit/releases/download/v{{ seqkit_version }}/seqkit_linux_amd64.tar.gz"
 
   tasks:
-    # Phase 1: Dataset Preparation
-    - name: Ensure directory structure exists
-      file:
-        path: "{{ item }}"
-        state: directory
-        mode: '0755'
-      loop:
-        - "{{ dataset_dir }}"
-        - "{{ split_dir }}"
+    # Phase 0: Dependency Installation
+    - name: Install required system packages
+      package:
+        name:
+          - aria2
+          - pigz
+          - pv
+        state: present
 
-    - name: Download dataset if missing
-      get_url:
-        url: "{{ dataset_url }}"
-        dest: "{{ dataset_dir }}/uniref50.fasta.gz"
-        mode: '0644'
-      register: download_result
-      until: download_result is success
-      retries: 3
-      delay: 30
+    - name: Install SeqKit binary
+      block:
+        - name: Download SeqKit
+          unarchive:
+            src: "{{ seqkit_url }}"
+            dest: /tmp/seqkit
+            remote_src: yes
+            extra_opts: "--strip-components=1"
+            creates: /usr/local/bin/seqkit
 
-    - name: Parallel decompress and split
+        - name: Install SeqKit system-wide
+          copy:
+            src: /tmp/seqkit/seqkit
+            dest: /usr/local/bin/seqkit
+            mode: '0755'
+            remote_src: yes
+      when: not lookup('file', '/usr/local/bin/seqkit', errors='ignore')
+
+    # Phase 1: Accelerated Dataset Download
+    - name: Check for existing dataset
+      stat:
+        path: "{{ dataset_dir }}/uniref50.fasta"
+      register: dataset_check
+
+    - name: Fast dataset download with aria2
+      block:
+        - name: Create dataset directory
+          file:
+            path: "{{ dataset_dir }}"
+            state: directory
+            mode: '0755'
+
+        - name: Download with aria2 (multi-threaded)
+          shell: |
+            aria2c -x 16 -s 32 \
+              --dir={{ dataset_dir }} \
+              --out=uniref50.fasta.gz \
+              "{{ dataset_url}}" && \
+            pv {{ dataset_dir }}/uniref50.fasta.gz | pigz -cd > {{ dataset_dir }}/uniref50.fasta
+          args:
+            creates: "{{ dataset_dir }}/uniref50.fasta"
+      when: not dataset_check.stat.exists
+
+    # Phase 2: Parallel Processing Pipeline
+    - name: Parallel split with progress
       shell: |
-        gunzip -ck {{ dataset_dir }}/uniref50.fasta.gz | \
-        /usr/local/bin/seqkit split -p 4 -O {{ split_dir }} -j 4 -
+        pv -petrab -s $(stat -c%s "{{ dataset_dir }}/uniref50.fasta") "{{ dataset_dir }}/uniref50.fasta" | \
+        seqkit split -p 4 -j $(nproc) -O {{ split_dir }} -
       args:
         creates: "{{ split_dir }}/chunk_001.fasta"
+      when: not dataset_check.stat.exists
 
-    # Phase 2: Direct Distribution
-    - name: Parallel chunk distribution
+    # Phase 3: Intelligent Distribution
+    - name: Direct chunk distribution
       vars:
-        target_worker: "{{ item.key }}"
-        chunk_number: "{{ item.value }}"
-      loop: "{{ worker_chunk_map | dict2items }}"
-      async: 600  # Allow up to 10 minutes per transfer
-      poll: 0  # Fire-and-forget for parallelism
-      synchronize:
-        src: "{{ split_dir }}/chunk_{{ chunk_number }}.fasta"
-        dest: "{{ split_dir }}/"
-        rsync_opts:
-          - "--compress"
-          - "--checksum"
-          - "--partial"
-          - "--bwlimit=50000"  # 50MB/s cap for network stability
-      delegate_to: "{{ target_worker }}"
-
-    # Phase 3: Verification
-    - name: Check async transfers
-      async_status:
-        jid: "{{ ansible_job_id }}"
-      register: transfer_result
-      until: transfer_result.finished
-      retries: 12
-      delay: 30
-      loop: "{{ ansible_job_ids }}"
-
-    - name: Validate local chunk
-      stat:
-        path: "{{ split_dir }}/chunk_001.fasta"
-      register: local_chunk
-
-    - name: Verify remote chunks
+        worker_chunks:
+          worker2: chunk_002.fasta
+          worker3: chunk_003.fasta
+          worker4: chunk_004.fasta
+      loop: "{{ worker_chunks | dict2items }}"
       delegate_to: "{{ item.key }}"
-      stat:
-        path: "{{ split_dir }}/chunk_{{ item.value }}.fasta"
-      loop: "{{ worker_chunk_map | dict2items }}"
-      register: remote_chunks
+      run_once: yes
+      changed_when: false
+      block:
+        - name: Check remote chunk existence
+          delegate_to: worker1
+          stat:
+            path: "{{ split_dir }}/{{ item.value }}"
+          register: chunk_check
 
-    - name: Final status
+        - name: Parallel rsync transfer
+          synchronize:
+            src: "{{ split_dir }}/{{ item.value }}"
+            dest: "{{ split_dir }}/"
+            rsync_opts:
+              - "--compress"
+              - "--checksum"
+              - "--partial"
+              - "--bwlimit=0"
+          delegate_to: worker1
+          when: not chunk_check.stat.exists
+
+    # Phase 4: Validation
+    - name: Verify local chunks
+      stat:
+        path: "{{ split_dir }}/chunk_00{{ item }}.fasta"
+      loop: [1,2,3,4]
+      register: local_chunks
+
+    - name: Final verification
       debug:
         msg: |
-          🚀 Distribution Complete!
-          - worker1: {{ split_dir }}/chunk_001.fasta ({{ local_chunk.stat.size|filesizeformat }})
-          {% for item in remote_chunks.results %}
-          - {{ item.item.key }}: {{ split_dir }}/chunk_{{ item.item.value }}.fasta 
-            ({{ item.stat.size|filesizeformat if item.stat.exists else 'MISSING' }})
-          {% endfor %}
+          ✅ Processing Complete!
+          - Local chunks: {{ local_chunks.results | selectattr('stat.exists') | list | length }}/4
+          - Worker distribution:
+            {% for worker in ['worker2', 'worker3', 'worker4'] %}
+            - {{ worker }}: {{ lookup('pipe', 'ssh ' + worker + ' ls ' + split_dir + '/chunk_00' + (loop.index+1)|string + '.fastasta 2>/dev/null') | trim }}
+            {% endfor %}
