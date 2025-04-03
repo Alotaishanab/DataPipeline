@@ -73,31 +73,47 @@
       when: not dataset_check.stat.exists
 
     # Phase 3: Corrected Distribution Section
-    - name: Distribute chunks to workers
-      vars:
-        worker_chunk_map:
-          worker2: chunk_002.fasta
-          worker3: chunk_003.fasta
-          worker4: chunk_004.fasta
-      loop: "{{ worker_chunk_map | dict2items }}"
-      delegate_to: "{{ item.key }}"
-      run_once: yes
-      block:
-        - name: Check if chunk exists on worker
-          stat:
-            path: "{{ split_dir }}/{{ item.value }}"
-          register: chunk_check
+    - name: Prepare worker directories
+      delegate_to: "{{ item }}"
+      file:
+        path: "{{ split_dir }}"
+        state: directory
+        mode: '0755'
+      loop: "{{ groups['worker_inventory'] }}"
+      when: inventory_hostname == "worker1"
 
-        - name: Transfer chunk if missing
-          synchronize:
-            src: "{{ split_dir }}/{{ item.value }}"
-            dest: "{{ split_dir }}/"
-            rsync_opts:
-              - "--compress"
-              - "--checksum"
-              - "--partial"
-              - "--bwlimit=0"
-          when: not chunk_check.stat.exists
+    - name: Distribute chunk_002 to worker2
+      synchronize:
+        src: "{{ split_dir }}/chunk_002.fasta"
+        dest: "{{ split_dir }}/"
+        rsync_opts:
+          - "--compress"
+          - "--checksum"
+          - "--bwlimit=0"
+      delegate_to: worker2
+      when: inventory_hostname == "worker1"
+
+    - name: Distribute chunk_003 to worker3
+      synchronize:
+        src: "{{ split_dir }}/chunk_003.fasta"
+        dest: "{{ split_dir }}/"
+        rsync_opts:
+          - "--compress"
+          - "--checksum"
+          - "--bwlimit=0"
+      delegate_to: worker3
+      when: inventory_hostname == "worker1"
+
+    - name: Distribute chunk_004 to worker4
+      synchronize:
+        src: "{{ split_dir }}/chunk_004.fasta"
+        dest: "{{ split_dir }}/"
+        rsync_opts:
+          - "--compress"
+          - "--checksum"
+          - "--bwlimit=0"
+      delegate_to: worker4
+      when: inventory_hostname == "worker1"
 
     # Phase 4: Validation
     - name: Verify local chunks
@@ -106,12 +122,18 @@
       loop: [1,2,3,4]
       register: local_chunks
 
-    - name: Final verification
+    - name: Verify remote chunks
+      delegate_to: "{{ item }}"
+      stat:
+        path: "{{ split_dir }}/chunk_00{{ loop.index + 1 }}.fasta"
+      loop: ["worker2", "worker3", "worker4"]
+      register: remote_chunks
+
+    - name: Final status
       debug:
         msg: |
           ✅ Processing Complete!
-          - Local chunks: {{ local_chunks.results | selectattr('stat.exists') | list | length }}/4
-          - Worker distribution:
-            {% for worker in ['worker2', 'worker3', 'worker4'] %}
-            - {{ worker }}: {{ lookup('pipe', 'ssh ' + worker + ' ls ' + split_dir + '/chunk_00' + (loop.index+1)|string + '.fasta 2>/dev/null') | trim }}
-            {% endfor %}
+          - worker1: {{ split_dir }}/chunk_001.fasta
+          - worker2: {{ split_dir }}/chunk_002.fasta {{ '✅' if remote_chunks.results[0].stat.exists else '❌' }}
+          - worker3: {{ split_dir }}/chunk_003.fasta {{ '✅' if remote_chunks.results[1].stat.exists else '❌' }}
+          - worker4: {{ split_dir }}/chunk_004.fasta {{ '✅' if remote_chunks.results[2].stat.exists else '❌' }}
