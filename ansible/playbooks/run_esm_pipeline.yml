@@ -1,5 +1,5 @@
 - name: Copy and Run ESM Pipeline Controller
-  hosts: mgmtnode
+  hosts: localhost
   become: yes
   become_user: almalinux
 
