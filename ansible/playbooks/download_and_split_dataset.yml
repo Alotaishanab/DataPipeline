@@ -1,5 +1,5 @@
 # playbooks/download_and_split_dataset.yml
-- name: High-Speed Dataset Processing with Dependency Management
+- name: High-Speed Dataset Processing
   hosts: worker1
   become: yes
   become_user: almalinux
@@ -11,7 +11,7 @@
     seqkit_url: "https://github.com/shenwei356/seqkit/releases/download/v{{ seqkit_version }}/seqkit_linux_amd64.tar.gz"
 
   tasks:
-    # Phase 0: Dependency Installation
+    # Phase 0: Dependency Installation (critical fix)
     - name: Install required system packages
       become: yes
       become_user: root
@@ -20,25 +20,28 @@
           - aria2
           - pigz
           - pv
+          - unzip  # Required for tar.gz extraction
         state: present
 
     - name: Install SeqKit binary
       block:
-        - name: Download SeqKit
+        - name: Download and extract SeqKit
           unarchive:
             src: "{{ seqkit_url }}"
             dest: /tmp/seqkit
             remote_src: yes
             extra_opts: "--strip-components=1"
-            creates: /usr/local/bin/seqkit
+            creates: /tmp/seqkit/seqkit  # Correct path check
 
-        - name: Install SeqKit system-wide
-          copy:
-            src: /tmp/seqkit/seqkit
-            dest: /usr/local/bin/seqkit
-            mode: '0755'
-            remote_src: yes
+    - name: Install SeqKit system-wide
+      copy:
+        src: /tmp/seqkit/seqkit
+        dest: /usr/local/bin/seqkit
+        mode: '0755'
+        remote_src: yes
       when: not lookup('file', '/usr/local/bin/seqkit', errors='ignore')
+
+    # Rest of the playbook remains the same...
 
     # Phase 1: Accelerated Dataset Download
     - name: Check for existing dataset
