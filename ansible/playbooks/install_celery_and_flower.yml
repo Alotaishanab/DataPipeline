@@ -80,10 +80,16 @@
     esm_user: "almalinux"
 
   tasks:
-    - name: Ensure virtualenv is installed
+    - name: Ensure pip is available
       package:
-        name: python3-virtualenv
+        name: python3-pip
         state: present
+
+    - name: Install virtualenv using pip (instead of broken system pkg)
+      pip:
+        name: virtualenv
+        executable: pip3
+        state: latest
 
     - name: Install Flower in virtualenv
       pip:
@@ -125,3 +131,4 @@
         name: celery-flower.service
         enabled: yes
         state: restarted
+
