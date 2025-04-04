@@ -41,8 +41,6 @@
             src: /tmp/seqkit_install/seqkit.tar.gz
             dest: /tmp/seqkit_install
             remote_src: yes
-            extra_opts:
-              - --strip-components=1
 
         - name: List files after extraction (debug)
           shell: ls -laR /tmp/seqkit_install
@@ -51,15 +49,15 @@
         - debug:
             msg: "{{ extracted_ls.stdout_lines }}"
 
-        - name: Find extracted seqkit binary
+        - name: Find actual seqkit binary
           find:
             paths: /tmp/seqkit_install
-            patterns: seqkit
+            patterns: seqkit*
             file_type: file
             recurse: yes
           register: seqkit_found
 
-        - name: Show found files
+        - name: Debug: Show found files
           debug:
             var: seqkit_found.files
 
