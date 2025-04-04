@@ -9,6 +9,11 @@
     seqkit_url: "https://github.com/shenwei356/seqkit/releases/download/v2.6.1/seqkit_linux_amd64.tar.gz"
 
   tasks:
+    # Phase 0: System info (Debug)
+    - name: Print system architecture
+      debug:
+        msg: "🧠 Remote architecture is {{ ansible_architecture }}"
+
     # Phase 1: System Setup
     - name: Install critical requirements
       become: yes
@@ -22,19 +27,31 @@
           - tar
         state: present
 
-    # Phase 2: Guaranteed SeqKit Installation
+    # Phase 2: SeqKit Installation
     - name: Install SeqKit (atomic steps)
       block:
+        - name: Remove broken seqkit binary (if exists)
+          become: yes
+          become_user: root
+          file:
+            path: /usr/local/bin/seqkit
+            state: absent
+
         - name: Create temp directory
           file:
             path: /tmp/seqkit_install
             state: directory
             mode: '0755'
 
-        - name: Download SeqKit tarball
+        - name: Download SeqKit tarball using aria2
           command: aria2c -x 8 -s 16 -q "{{ seqkit_url }}" -d /tmp/seqkit_install -o seqkit.tar.gz
           args:
             creates: /tmp/seqkit_install/seqkit.tar.gz
+
+        - name: Verify seqkit tarball is a valid archive
+          shell: tar -tf /tmp/seqkit_install/seqkit.tar.gz
+          register: tar_check
+          failed_when: tar_check.rc != 0
 
         - name: Extract binary
           unarchive:
@@ -42,24 +59,13 @@
             dest: /tmp/seqkit_install
             remote_src: yes
 
-        - name: List files after extraction (debug)
-          shell: ls -laR /tmp/seqkit_install
-          register: extracted_ls
-
-        - debug:
-            msg: "{{ extracted_ls.stdout_lines }}"
-
         - name: Find actual seqkit binary
           find:
             paths: /tmp/seqkit_install
-            patterns: seqkit*
+            patterns: seqkit
             file_type: file
             recurse: yes
           register: seqkit_found
-
-        - name: Show found files
-          debug:
-            var: seqkit_found.files
 
         - name: Move seqkit binary to expected location
           command: mv "{{ item.path }}" /tmp/seqkit_install/seqkit
@@ -90,6 +96,9 @@
           register: seqkit_check
           changed_when: false
 
+        - name: Show SeqKit version
+          debug:
+            msg: "✅ Installed SeqKit version: {{ seqkit_check.stdout }}"
 
         - name: Cleanup temp files
           file:
@@ -99,7 +108,7 @@
       vars:
         command_output: "{{ lookup('pipe', 'command -v seqkit || echo missing') }}"
 
-    # Phase 3: Parallel Pipeline (5–7 min)
+    # Phase 3: Parallel Dataset Split Pipeline
     - name: Stream download → decompress → split
       shell: |
         aria2c -x 16 -s 32 -q --dir={{ dataset_dir }} "{{ dataset_url }}" -o /dev/stdout |
@@ -109,7 +118,7 @@
       args:
         creates: "{{ split_dir }}/chunk_001.fasta"
 
-    # Phase 4: Fire-and-Forget Distribution (2–3 min)
+    # Phase 4: Fire-and-Forget Distribution
     - name: Async chunk distribution
       vars:
         target_worker: "worker{{ item }}"
@@ -127,7 +136,7 @@
           - "--partial"
       delegate_to: "{{ target_worker }}"
 
-    # Phase 5: Validation (30 sec)
+    # Phase 5: Validation
     - name: Verify processing
       stat:
         path: "{{ split_dir }}/chunk_00{{ item }}.fasta"
