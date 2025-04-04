@@ -87,28 +87,32 @@
       args:
         creates: "{{ split_dir }}/chunk_001.fasta"
 
-    # Phase 4: Chunk Distribution
-    - name: Distribute chunks to other workers
-      vars:
-        target_worker: "worker{{ item }}"
-        chunk_number: "00{{ item }}"
-      loop: [2,3,4]
-      synchronize:
-        src: "{{ split_dir }}/chunk_{{ chunk_number }}.fasta"
-        dest: "{{ split_dir }}/"
-        rsync_opts:
-          - "--compress"
-          - "--checksum"
-          - "--bwlimit=0"
-          - "--partial"
-          - "-e ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
-      delegate_to: "{{ target_worker }}"
+    # Phase 4a: Gzip remote-bound chunks for fast transfer
+    - name: Gzip chunks 002-004 for faster transfer
+      shell: pigz -f {{ split_dir }}/chunk_00{{ item }}.fasta
+      loop: [2, 3, 4]
+
+    # Phase 4b: Rsync compressed chunks to worker2/3/4
+    - name: Rsync compressed chunks to remote workers
+      shell: >
+        rsync -avz -e "ssh -i /home/almalinux/.ssh/id_workers
+        -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+        {{ split_dir }}/chunk_00{{ item }}.fasta.gz
+        almalinux@worker{{ item }}:{{ split_dir }}/
+      loop: [2, 3, 4]
+      delegate_to: worker1
+
+    # Phase 4c: Decompress on destination
+    - name: Decompress received chunks on remote workers
+      shell: gunzip -f {{ split_dir }}/chunk_00{{ item }}.fasta.gz
+      loop: [2, 3, 4]
+      delegate_to: "worker{{ item }}"
 
     # Phase 5: Validation
     - name: Verify chunk files exist
       stat:
         path: "{{ split_dir }}/chunk_00{{ item }}.fasta"
-      loop: [1,2,3,4]
+      loop: [1, 2, 3, 4]
       register: local_chunks
 
     - name: Final report
