@@ -65,7 +65,7 @@
       register: worker_public_key
 
 - name: Distribute id_workers SSH public key to all workers
-  hosts: workers
+  hosts: worker_inventory
   become: yes
   vars:
     key_path: /home/almalinux/.ssh/id_workers
