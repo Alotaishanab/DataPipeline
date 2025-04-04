@@ -77,6 +77,8 @@
           when: not seqkit_stat.stat.exists
 
         - name: Install to system
+          become: yes
+          become_user: root
           copy:
             src: /tmp/seqkit_install/seqkit
             dest: /usr/local/bin/seqkit
