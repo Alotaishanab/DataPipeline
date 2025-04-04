@@ -86,9 +86,10 @@
             remote_src: yes
 
         - name: Verify installation
-          command: seqkit version
+          command: /usr/local/bin/seqkit version
           register: seqkit_check
           changed_when: false
+
 
         - name: Cleanup temp files
           file:
