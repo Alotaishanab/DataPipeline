@@ -114,7 +114,7 @@
         aria2c -x 16 -s 32 -q --dir={{ dataset_dir }} "{{ dataset_url }}" -o /dev/stdout |
         pv -petrab -s 14G |
         pigz -cd -p4 |
-        seqkit split -p 4 -j4 -O {{ split_dir }} -
+        /usr/local/bin/seqkit split -p 4 -j4 -O {{ split_dir }} -
       args:
         creates: "{{ split_dir }}/chunk_001.fasta"
 
