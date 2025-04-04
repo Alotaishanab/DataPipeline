@@ -77,22 +77,19 @@
       vars:
         command_output: "{{ lookup('pipe', 'command -v seqkit || echo missing') }}"
 
-    # Phase 3: Parallel Dataset Split Pipeline
-    - name: Stream download → decompress → split (if not already done)
+    # Phase 3: Stream download → decompress → split → compress chunks immediately
+    - name: Stream download → decompress → split and compress chunks
       shell: |
+        mkdir -p {{ split_dir }}
         aria2c -x 16 -s 32 -q --dir={{ dataset_dir }} "{{ dataset_url }}" -o /dev/stdout |
         pv -petrab -s 14G |
         pigz -cd -p4 |
         /usr/local/bin/seqkit split -p 4 -j4 -O {{ split_dir }} -
+        find {{ split_dir }} -type f -name "*.fasta" -exec pigz -f {} +
       args:
-        creates: "{{ split_dir }}/chunk_001.fasta"
+        creates: "{{ split_dir }}/chunk_001.fasta.gz"
 
-    # Phase 4a: Gzip remote-bound chunks for fast transfer
-    - name: Gzip chunks 002-004 for faster transfer
-      shell: pigz -f {{ split_dir }}/chunk_00{{ item }}.fasta
-      loop: [2, 3, 4]
-
-    # Phase 4b: Rsync compressed chunks to worker2/3/4
+    # Phase 4: Rsync .gz chunks to worker2/3/4
     - name: Rsync compressed chunks to remote workers
       shell: >
         rsync -avz -e "ssh -i /home/almalinux/.ssh/id_workers
@@ -102,7 +99,7 @@
       loop: [2, 3, 4]
       delegate_to: worker1
 
-    # Phase 4c: Decompress on destination
+    # Phase 4b: Decompress on destination
     - name: Decompress received chunks on remote workers
       shell: gunzip -f {{ split_dir }}/chunk_00{{ item }}.fasta.gz
       loop: [2, 3, 4]
