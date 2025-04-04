@@ -9,11 +9,6 @@
     seqkit_url: "https://github.com/shenwei356/seqkit/releases/download/v2.6.1/seqkit_linux_amd64.tar.gz"
 
   tasks:
-    # Phase 0: System info (Debug)
-    - name: Print system architecture
-      debug:
-        msg: "🧠 Remote architecture is {{ ansible_architecture }}"
-
     # Phase 1: System Setup
     - name: Install critical requirements
       become: yes
@@ -28,15 +23,8 @@
         state: present
 
     # Phase 2: SeqKit Installation
-    - name: Install SeqKit (atomic steps)
+    - name: Install SeqKit (only if not already available)
       block:
-        - name: Remove broken seqkit binary (if exists)
-          become: yes
-          become_user: root
-          file:
-            path: /usr/local/bin/seqkit
-            state: absent
-
         - name: Create temp directory
           file:
             path: /tmp/seqkit_install
@@ -72,16 +60,6 @@
           loop: "{{ seqkit_found.files }}"
           when: item.path != '/tmp/seqkit_install/seqkit'
 
-        - name: Ensure seqkit binary exists before installing
-          stat:
-            path: /tmp/seqkit_install/seqkit
-          register: seqkit_stat
-
-        - name: Fail if seqkit binary was not found
-          fail:
-            msg: "Expected binary not found at /tmp/seqkit_install/seqkit"
-          when: not seqkit_stat.stat.exists
-
         - name: Install to system
           become: yes
           become_user: root
@@ -90,15 +68,6 @@
             dest: /usr/local/bin/seqkit
             mode: '0755'
             remote_src: yes
-
-        - name: Verify installation
-          command: /usr/local/bin/seqkit version
-          register: seqkit_check
-          changed_when: false
-
-        - name: Show SeqKit version
-          debug:
-            msg: "✅ Installed SeqKit version: {{ seqkit_check.stdout }}"
 
         - name: Cleanup temp files
           file:
@@ -109,7 +78,7 @@
         command_output: "{{ lookup('pipe', 'command -v seqkit || echo missing') }}"
 
     # Phase 3: Parallel Dataset Split Pipeline
-    - name: Stream download → decompress → split
+    - name: Stream download → decompress → split (if not already done)
       shell: |
         aria2c -x 16 -s 32 -q --dir={{ dataset_dir }} "{{ dataset_url }}" -o /dev/stdout |
         pv -petrab -s 14G |
@@ -118,14 +87,12 @@
       args:
         creates: "{{ split_dir }}/chunk_001.fasta"
 
-    # Phase 4: Fire-and-Forget Distribution
-    - name: Async chunk distribution
+    # Phase 4: Chunk Distribution
+    - name: Distribute chunks to other workers
       vars:
         target_worker: "worker{{ item }}"
         chunk_number: "00{{ item }}"
       loop: [2,3,4]
-      async: 300
-      poll: 0
       synchronize:
         src: "{{ split_dir }}/chunk_{{ chunk_number }}.fasta"
         dest: "{{ split_dir }}/"
@@ -137,7 +104,7 @@
       delegate_to: "{{ target_worker }}"
 
     # Phase 5: Validation
-    - name: Verify processing
+    - name: Verify chunk files exist
       stat:
         path: "{{ split_dir }}/chunk_00{{ item }}.fasta"
       loop: [1,2,3,4]
@@ -147,7 +114,4 @@
       debug:
         msg: |
           ⚡ PROCESSING COMPLETE ⚡
-          Total Time: {{ ansible_date_time.epoch | int - play_started_at | int }} seconds
           Local Chunks: {{ local_chunks.results | selectattr('stat.exists') | list | length }}/4
-      vars:
-        play_started_at: "{{ ansible_date_time.epoch }}"
