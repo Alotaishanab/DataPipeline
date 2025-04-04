@@ -101,6 +101,7 @@
           - "--checksum"
           - "--bwlimit=0"
           - "--partial"
+          - "-e ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
       delegate_to: "{{ target_worker }}"
 
     # Phase 5: Validation

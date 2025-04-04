@@ -1,56 +1,42 @@
-- name: Copy and Run ESM Pipeline Controller
-  hosts: localhost
+- name: Trigger ESM Pipeline on workers
+  hosts: worker_inventory
   become: yes
+  become_user: almalinux
 
   vars:
-    controller_local_path: "../scripts/controller.py"
-    controller_remote_path: "/home/almalinux/esm_pipeline/controller.py"
     venv_path: "/opt/esm/venv"
+    controller_dir: "/home/almalinux/esm_pipeline"
+    controller_remote_path: "{{ controller_dir }}/controller.py"
+    celery_worker_remote_path: "{{ controller_dir }}/celery_worker.py"
 
   tasks:
-    - name: Ensure /opt/esm directory exists (owned by almalinux)
+    - name: Ensure pipeline directory exists
       file:
-        path: "/opt/esm"
+        path: "{{ controller_dir }}"
         state: directory
         owner: almalinux
         group: almalinux
         mode: '0755'
 
-    - name: Create virtual environment using built-in venv
-      become_user: almalinux
-      command: python3 -m venv {{ venv_path }}
-      args:
-        creates: "{{ venv_path }}/bin/activate"
-
-    - name: Create pipeline directory if it doesn't exist
-      become_user: almalinux
-      file:
-        path: "{{ controller_remote_path | dirname }}"
-        state: directory
-        owner: almalinux
-        group: almalinux
-        mode: '0755'
-
-    - name: Copy controller.py to mgmtnode
-      become_user: almalinux
+    - name: Copy controller.py to worker
       copy:
-        src: "{{ controller_local_path }}"
+        src: "../scripts/controller.py"
         dest: "{{ controller_remote_path }}"
+        owner: almalinux
+        group: almalinux
         mode: '0755'
-    
-    - name: Copy celery_worker.py to mgmtnode for controller to import
+
+    - name: Copy celery_worker.py to worker
       copy:
         src: "../scripts/celery_worker.py"
-        dest: "/home/almalinux/esm_pipeline/celery_worker.py"
+        dest: "{{ celery_worker_remote_path }}"
         owner: almalinux
         group: almalinux
         mode: '0755'
 
-
-    - name: Run controller.py using virtualenv
-      become_user: almalinux
+    - name: Run controller.py in ESM virtualenv (auto-discovers chunk)
       shell: |
         source {{ venv_path }}/bin/activate
         python {{ controller_remote_path }}
       args:
-        chdir: "{{ controller_remote_path | dirname }}"
+        chdir: "{{ controller_dir }}"

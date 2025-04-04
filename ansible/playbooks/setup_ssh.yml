@@ -37,3 +37,49 @@
       authorized_key:
         user: almalinux
         key: "{{ hostvars['localhost'].localhost_ssh_key['content'] | b64decode }}"
+
+
+- name: Generate id_workers SSH key on worker1 and distribute it
+  hosts: worker1
+  become: yes
+  vars:
+    key_path: /home/almalinux/.ssh/id_workers
+  tasks:
+    - name: Ensure ~/.ssh directory exists
+      file:
+        path: "{{ key_path | dirname }}"
+        state: directory
+        owner: almalinux
+        group: almalinux
+        mode: '0700'
+
+    - name: Generate id_workers SSH key pair (if not already present)
+      command: ssh-keygen -t rsa -b 2048 -f "{{ key_path }}" -N ""
+      args:
+        creates: "{{ key_path }}"
+      become_user: almalinux
+
+    - name: Read public key content
+      slurp:
+        src: "{{ key_path }}.pub"
+      register: worker_public_key
+
+- name: Distribute id_workers SSH public key to all workers
+  hosts: workers
+  become: yes
+  vars:
+    key_path: /home/almalinux/.ssh/id_workers
+  tasks:
+    - name: Ensure ~/.ssh directory exists
+      file:
+        path: "{{ key_path | dirname }}"
+        state: directory
+        owner: almalinux
+        group: almalinux
+        mode: '0700'
+
+    - name: Add id_workers public key from worker1 to authorized_keys
+      authorized_key:
+        user: almalinux
+        key: "{{ hostvars['worker1'].worker_public_key['content'] | b64decode }}"
+
