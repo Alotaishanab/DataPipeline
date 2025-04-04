@@ -59,7 +59,7 @@
             recurse: yes
           register: seqkit_found
 
-        - name: Debug: Show found files
+        - name: Show found files
           debug:
             var: seqkit_found.files
 
