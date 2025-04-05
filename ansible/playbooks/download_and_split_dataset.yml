@@ -5,18 +5,20 @@
   vars:
     dataset_dir: "/mnt/data"
     split_dir: "{{ dataset_dir }}/chunks"
-    fasta_gz: "{{ dataset_dir }}/uniref50.fasta.gz"
-    fasta_raw: "{{ dataset_dir }}/uniref50.fasta"
     dataset_url: "https://ftp.uniprot.org/pub/databases/uniprot/uniref/uniref50/uniref50.fasta.gz"
     seqkit_url: "https://github.com/shenwei356/seqkit/releases/download/v2.6.1/seqkit_linux_amd64.tar.gz"
+    chunk_count: 4
+    remote_workers:
+      - worker2
+      - worker3
+      - worker4
 
   tasks:
     # Phase 1: System Setup
     - name: Install critical requirements
-      become_user: root
       package:
         name:
-          - aria2
+          - wget
           - pigz
           - pv
           - rsync
@@ -24,125 +26,74 @@
         state: present
 
     # Phase 2: SeqKit Installation
-    - name: Install SeqKit (only if not already available)
+    - name: Install SeqKit if not already installed
       block:
-        - name: Create temp directory
+        - name: Create temp directory for SeqKit
           file:
             path: /tmp/seqkit_install
             state: directory
             mode: '0755'
 
         - name: Download SeqKit tarball
-          command: aria2c -x 8 -s 16 -q "{{ seqkit_url }}" -d /tmp/seqkit_install -o seqkit.tar.gz
-          args:
-            creates: /tmp/seqkit_install/seqkit.tar.gz
+          get_url:
+            url: "{{ seqkit_url }}"
+            dest: /tmp/seqkit_install/seqkit.tar.gz
+            mode: '0644'
 
-        - name: Extract binary
+        - name: Extract SeqKit binary
           unarchive:
             src: /tmp/seqkit_install/seqkit.tar.gz
             dest: /tmp/seqkit_install
             remote_src: yes
 
-        - name: Find actual seqkit binary
-          find:
-            paths: /tmp/seqkit_install
-            patterns: seqkit
-            file_type: file
-            recurse: yes
-          register: seqkit_found
+        - name: Move SeqKit binary to /usr/local/bin
+          command: mv /tmp/seqkit_install/seqkit /usr/local/bin/seqkit
+          args:
+            creates: /usr/local/bin/seqkit
 
-        - name: Move seqkit binary to expected location
-          command: mv "{{ item.path }}" /tmp/seqkit_install/seqkit
-          loop: "{{ seqkit_found.files }}"
-          when: item.path != '/tmp/seqkit_install/seqkit'
-
-        - name: Install to system
-          become_user: root
-          copy:
-            src: /tmp/seqkit_install/seqkit
-            dest: /usr/local/bin/seqkit
-            mode: '0755'
-            remote_src: yes
-
-        - name: Cleanup temp files
+        - name: Set executable permissions for SeqKit
           file:
-            path: /tmp/seqkit_install
-            state: absent
-      when: '"seqkit" not in command_output'
+            path: /usr/local/bin/seqkit
+            mode: '0755'
+      when: seqkit_check.rc != 0
       vars:
-        command_output: "{{ lookup('pipe', 'command -v seqkit || echo missing') }}"
+        seqkit_check:
+          rc: "{{ 'seqkit --version' | command | failed | ternary(1, 0) }}"
 
-    # Phase 3a: Download FASTA GZ file
-    - name: Download dataset if not already downloaded
-      command: aria2c -x 16 -s 32 -q -d {{ dataset_dir }} -o uniref50.fasta.gz "{{ dataset_url }}"
-      args:
-        creates: "{{ fasta_gz }}"
+    # Phase 3: Stream download → decompress → split
+    - name: Ensure dataset and split directories exist
+      file:
+        path: "{{ item }}"
+        state: directory
+        mode: '0755'
+      loop:
+        - "{{ dataset_dir }}"
+        - "{{ split_dir }}"
 
-    # Phase 3b: Decompress FASTA GZ
-    - name: Decompress FASTA file
-      command: pigz -cd {{ fasta_gz }} > {{ fasta_raw }}
-      args:
-        creates: "{{ fasta_raw }}"
-
-    # Phase 3c: Split into chunks
-    - name: Split FASTA using seqkit
-      command: /usr/local/bin/seqkit split -p 4 -j 4 -O {{ split_dir }} {{ fasta_raw }}
-      args:
-        creates: "{{ split_dir }}/chunk_001_0.fasta"
-
-    # Phase 3d: Compress all chunks
-    - name: Compress all FASTA chunks
+    - name: Stream download → decompress → split
       shell: |
-        find {{ split_dir }} -type f -name "*.fasta" -exec pigz -f {} +
+        wget -qO- "{{ dataset_url }}" |
+        pv -petrab -s 14G |
+        pigz -cd -p4 |
+        seqkit split2 -p {{ chunk_count }} -j 4 -O {{ split_dir }} -
       args:
-        executable: /bin/bash
+        creates: "{{ split_dir }}/chunk_001.fasta"
 
-    # Phase 4: Distribute .gz chunks
-    - name: Wait for compressed chunks to exist
-      vars:
-        chunk_map:
-          worker2: "002"
-          worker3: "003"
-          worker4: "004"
-      wait_for:
-        path: "{{ split_dir }}/chunk_{{ chunk_map[item] }}_0.fasta.gz"
-        timeout: 60
-        state: present
-      loop: [worker2, worker3, worker4]
+    - name: Compress chunk files
+      command: pigz -f {{ split_dir }}/chunk_00{{ item }}.fasta
+      loop: "{{ range(1, chunk_count + 1)|list }}"
 
+    # Phase 4: Distribute Chunks to Remote Workers
     - name: Rsync compressed chunks to remote workers
-      vars:
-        chunk_map:
-          worker2: "002"
-          worker3: "003"
-          worker4: "004"
-      shell: >
-        rsync -avz -e "ssh -i /home/almalinux/.ssh/id_workers
-        -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
-        {{ split_dir }}/chunk_{{ chunk_map[item] }}_0.fasta.gz
-        almalinux@{{ hostvars[item].ansible_host }}:{{ split_dir }}/
-      loop: [worker2, worker3, worker4]
-      delegate_to: worker1
+      synchronize:
+        src: "{{ split_dir }}/chunk_00{{ item + 1 }}.fasta.gz"
+        dest: "{{ split_dir }}/"
+        mode: push
+      delegate_to: "{{ remote_workers[item] }}"
+      loop: "{{ range(chunk_count - 1)|list }}"
 
+    # Phase 5: Decompress Chunks on Remote Workers
     - name: Decompress chunks on remote workers
-      vars:
-        chunk_map:
-          worker2: "002"
-          worker3: "003"
-          worker4: "004"
-      shell: gunzip -f {{ split_dir }}/chunk_{{ chunk_map[item] }}_0.fasta.gz
-      loop: [worker2, worker3, worker4]
-      delegate_to: "{{ item }}"
-
-    # Phase 5: Final validation
-    - name: Verify chunks exist on all nodes
-      stat:
-        path: "{{ split_dir }}/chunk_00{{ item }}_0.fasta"
-      loop: [1, 2, 3, 4]
-      register: chunk_stats
-
-    - name: Final report
-      debug:
-        msg: |
-          ⚡ PROCESSING COMPLETE ⚡
-          Chunk Files Present: {{ chunk_stats.results | selectattr('stat.exists') | list | length }}/4
+      command: pigz -d -f {{ split_dir }}/chunk_00{{ item + 1 }}.fasta.gz
+      delegate_to: "{{ remote_workers[item] }}"
+      loop: "{{ range(chunk_count - 1)|list }}"
