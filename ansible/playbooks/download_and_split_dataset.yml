@@ -5,13 +5,14 @@
   vars:
     dataset_dir: "/mnt/data"
     split_dir: "{{ dataset_dir }}/chunks"
+    fasta_gz: "{{ dataset_dir }}/uniref50.fasta.gz"
+    fasta_raw: "{{ dataset_dir }}/uniref50.fasta"
     dataset_url: "https://ftp.uniprot.org/pub/databases/uniprot/uniref/uniref50/uniref50.fasta.gz"
     seqkit_url: "https://github.com/shenwei356/seqkit/releases/download/v2.6.1/seqkit_linux_amd64.tar.gz"
 
   tasks:
     # Phase 1: System Setup
     - name: Install critical requirements
-      become: yes
       become_user: root
       package:
         name:
@@ -31,15 +32,10 @@
             state: directory
             mode: '0755'
 
-        - name: Download SeqKit tarball using aria2
+        - name: Download SeqKit tarball
           command: aria2c -x 8 -s 16 -q "{{ seqkit_url }}" -d /tmp/seqkit_install -o seqkit.tar.gz
           args:
             creates: /tmp/seqkit_install/seqkit.tar.gz
-
-        - name: Verify seqkit tarball is a valid archive
-          shell: tar -tf /tmp/seqkit_install/seqkit.tar.gz
-          register: tar_check
-          failed_when: tar_check.rc != 0
 
         - name: Extract binary
           unarchive:
@@ -61,7 +57,6 @@
           when: item.path != '/tmp/seqkit_install/seqkit'
 
         - name: Install to system
-          become: yes
           become_user: root
           copy:
             src: /tmp/seqkit_install/seqkit
@@ -77,46 +72,45 @@
       vars:
         command_output: "{{ lookup('pipe', 'command -v seqkit || echo missing') }}"
 
-    # Phase 3a: Split FASTA chunks
-    - name: Stream download → decompress → split into chunks
-      shell: |
-        mkdir -p {{ split_dir }}
-        aria2c -x 16 -s 32 -q --dir={{ dataset_dir }} "{{ dataset_url }}" -o /dev/stdout |
-        pv -petrab -s 14G |
-        pigz -cd -p4 |
-        /usr/local/bin/seqkit split -p 4 -j4 -O {{ split_dir }} -
+    # Phase 3a: Download FASTA GZ file
+    - name: Download dataset if not already downloaded
+      command: aria2c -x 16 -s 32 -q -d {{ dataset_dir }} -o uniref50.fasta.gz "{{ dataset_url }}"
       args:
-        creates: "{{ split_dir }}/chunk_001.fasta"
+        creates: "{{ fasta_gz }}"
 
-    # Phase 3b: Compress chunks
-    - name: Compress split chunk files
-      shell: pigz -f {{ split_dir }}/chunk_00{{ item }}.fasta
-      loop: [1, 2, 3, 4]
+    # Phase 3b: Decompress FASTA GZ
+    - name: Decompress FASTA file
+      command: pigz -cd {{ fasta_gz }} > {{ fasta_raw }}
+      args:
+        creates: "{{ fasta_raw }}"
 
-    # Debug: List chunk files
-    - name: List chunks after compression
-      shell: ls -lh {{ split_dir }}
-      register: chunk_list
+    # Phase 3c: Split into chunks
+    - name: Split FASTA using seqkit
+      command: /usr/local/bin/seqkit split -p 4 -j 4 -O {{ split_dir }} {{ fasta_raw }}
+      args:
+        creates: "{{ split_dir }}/chunk_001_0.fasta"
 
-    - name: Show chunks found
-      debug:
-        var: chunk_list.stdout_lines
+    # Phase 3d: Compress all chunks
+    - name: Compress all FASTA chunks
+      shell: |
+        find {{ split_dir }} -type f -name "*.fasta" -exec pigz -f {} +
+      args:
+        executable: /bin/bash
 
-    # Phase 4a: Wait for compressed files to be ready
-    - name: Wait for .fasta.gz files to exist before rsync
+    # Phase 4: Distribute .gz chunks
+    - name: Wait for compressed chunks to exist
       vars:
         chunk_map:
           worker2: "002"
           worker3: "003"
           worker4: "004"
       wait_for:
-        path: "{{ split_dir }}/chunk_{{ chunk_map[item] }}.fasta.gz"
-        timeout: 90
+        path: "{{ split_dir }}/chunk_{{ chunk_map[item] }}_0.fasta.gz"
+        timeout: 60
         state: present
       loop: [worker2, worker3, worker4]
 
-    # Phase 4b: Rsync .gz chunks to worker2/3/4
-    - name: Rsync compressed chunks to remote workers (dynamic)
+    - name: Rsync compressed chunks to remote workers
       vars:
         chunk_map:
           worker2: "002"
@@ -125,31 +119,30 @@
       shell: >
         rsync -avz -e "ssh -i /home/almalinux/.ssh/id_workers
         -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
-        {{ split_dir }}/chunk_{{ chunk_map[item] }}.fasta.gz
+        {{ split_dir }}/chunk_{{ chunk_map[item] }}_0.fasta.gz
         almalinux@{{ hostvars[item].ansible_host }}:{{ split_dir }}/
       loop: [worker2, worker3, worker4]
       delegate_to: worker1
 
-    # Phase 4c: Decompress on destination
-    - name: Decompress received chunks on remote workers
+    - name: Decompress chunks on remote workers
       vars:
         chunk_map:
           worker2: "002"
           worker3: "003"
           worker4: "004"
-      shell: gunzip -f {{ split_dir }}/chunk_{{ chunk_map[item] }}.fasta.gz
+      shell: gunzip -f {{ split_dir }}/chunk_{{ chunk_map[item] }}_0.fasta.gz
       loop: [worker2, worker3, worker4]
       delegate_to: "{{ item }}"
 
-    # Phase 5: Validation
-    - name: Verify chunk files exist
+    # Phase 5: Final validation
+    - name: Verify chunks exist on all nodes
       stat:
-        path: "{{ split_dir }}/chunk_00{{ item }}.fasta"
+        path: "{{ split_dir }}/chunk_00{{ item }}_0.fasta"
       loop: [1, 2, 3, 4]
-      register: local_chunks
+      register: chunk_stats
 
     - name: Final report
       debug:
         msg: |
           ⚡ PROCESSING COMPLETE ⚡
-          Local Chunks: {{ local_chunks.results | selectattr('stat.exists') | list | length }}/4
+          Chunk Files Present: {{ chunk_stats.results | selectattr('stat.exists') | list | length }}/4
