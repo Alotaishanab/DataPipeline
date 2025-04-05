@@ -90,21 +90,33 @@
         creates: "{{ split_dir }}/chunk_001.fasta.gz"
 
     # Phase 4: Rsync .gz chunks to worker2/3/4
-    - name: Rsync compressed chunks to remote workers (using inventory IPs)
+    - name: Rsync compressed chunks to remote workers (dynamic)
+      vars:
+        chunk_map:
+          worker2: "002"
+          worker3: "003"
+          worker4: "004"
       shell: >
         rsync -avz -e "ssh -i /home/almalinux/.ssh/id_workers
         -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
-        {{ split_dir }}/chunk_{{ item }}.fasta.gz
+        {{ split_dir }}/chunk_{{ chunk_map[item] }}.fasta.gz
         almalinux@{{ hostvars[item].ansible_host }}:{{ split_dir }}/
       loop: [worker2, worker3, worker4]
       delegate_to: worker1
 
 
+
     # Phase 4b: Decompress on destination
     - name: Decompress received chunks on remote workers
-      shell: gunzip -f {{ split_dir }}/chunk_00{{ item }}.fasta.gz
-      loop: [2, 3, 4]
-      delegate_to: "worker{{ item }}"
+      vars:
+        chunk_map:
+          worker2: "002"
+          worker3: "003"
+          worker4: "004"
+      shell: gunzip -f {{ split_dir }}/chunk_{{ chunk_map[item] }}.fasta.gz
+      loop: [worker2, worker3, worker4]
+      delegate_to: "{{ item }}"
+
 
     # Phase 5: Validation
     - name: Verify chunk files exist
