@@ -11,4 +11,4 @@
 - import_playbook: download_and_split_dataset.yml  # Upload dataset into the NFS share
 - import_playbook: monitoring_and_logging.yml     # Configure monitoring/logging
 - import_playbook: install_webserver.yml     # Configure monitoring/logging
-- import_playbook: run_esm_pipeline.yml
+#- import_playbook: run_esm_pipeline.yml

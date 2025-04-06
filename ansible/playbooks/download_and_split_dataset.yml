@@ -1,99 +1,127 @@
-- name: Extreme-Speed Dataset Processing
+- name: Download and Split UniRef50 on Worker1, then upload to MinIO
   hosts: worker1
   become: yes
   become_user: almalinux
+
   vars:
     dataset_dir: "/mnt/data"
-    split_dir: "{{ dataset_dir }}/chunks"
+    chunk_dir: "{{ dataset_dir }}/chunks"
     dataset_url: "https://ftp.uniprot.org/pub/databases/uniprot/uniref/uniref50/uniref50.fasta.gz"
+
     seqkit_url: "https://github.com/shenwei356/seqkit/releases/download/v2.6.1/seqkit_linux_amd64.tar.gz"
-    chunk_count: 4
-    remote_workers:
-      - worker2
-      - worker3
-      - worker4
+    chunk_count: 32
+
+    # Adjust these for MinIO environment
+    minio_bin: "/usr/local/bin/mc"
+    minio_alias: "myminio"          # The alias you configured for your mgmtnode's MinIO
+    minio_bucket: "fasta-bucket/chunks"  # Where you want chunk files stored
 
   tasks:
-    # Phase 1: System Setup
-    - name: Install critical requirements
-      package:
+    ################################################################
+    # 1. Ensure necessary packages, including pigz & seqkit
+    ################################################################
+    - name: Install required packages
+      ansible.builtin.package:
         name:
           - wget
           - pigz
-          - pv
-          - rsync
           - tar
         state: present
 
-    # Phase 2: SeqKit Installation
-    - name: Install SeqKit if not already installed
+    - name: Check if seqkit is installed
+      ansible.builtin.command: seqkit version
+      register: seqkit_check
+      failed_when: false
+      changed_when: false
+
+    - name: Install SeqKit if not installed
       block:
-        - name: Create temp directory for SeqKit
-          file:
+        - name: Create temp dir for seqkit
+          ansible.builtin.file:
             path: /tmp/seqkit_install
             state: directory
             mode: '0755'
 
         - name: Download SeqKit tarball
-          get_url:
+          ansible.builtin.get_url:
             url: "{{ seqkit_url }}"
             dest: /tmp/seqkit_install/seqkit.tar.gz
             mode: '0644'
 
         - name: Extract SeqKit binary
-          unarchive:
+          ansible.builtin.unarchive:
             src: /tmp/seqkit_install/seqkit.tar.gz
             dest: /tmp/seqkit_install
             remote_src: yes
 
-        - name: Move SeqKit binary to /usr/local/bin
-          command: mv /tmp/seqkit_install/seqkit /usr/local/bin/seqkit
+        - name: Move seqkit to /usr/local/bin
+          ansible.builtin.command: mv /tmp/seqkit_install/seqkit /usr/local/bin/seqkit
           args:
             creates: /usr/local/bin/seqkit
 
-        - name: Set executable permissions for SeqKit
-          file:
+        - name: Set executable permissions
+          ansible.builtin.file:
             path: /usr/local/bin/seqkit
             mode: '0755'
       when: seqkit_check.rc != 0
-      vars:
-        seqkit_check:
-          rc: "{{ 'seqkit --version' | command | failed | ternary(1, 0) }}"
 
-    # Phase 3: Stream download → decompress → split
-    - name: Ensure dataset and split directories exist
-      file:
+    ################################################################
+    # 2. Create directories
+    ################################################################
+    - name: Ensure dataset and chunk directories exist
+      ansible.builtin.file:
         path: "{{ item }}"
         state: directory
         mode: '0755'
       loop:
         - "{{ dataset_dir }}"
-        - "{{ split_dir }}"
+        - "{{ chunk_dir }}"
 
-    - name: Stream download → decompress → split
-      shell: |
-        wget -qO- "{{ dataset_url }}" |
-        pv -petrab -s 14G |
-        pigz -cd -p4 |
-        seqkit split2 -p {{ chunk_count }} -j 4 -O {{ split_dir }} -
+    ################################################################
+    # 3. Download & decompress
+    ################################################################
+    - name: Download UniRef50 FASTA (compressed)
+      ansible.builtin.command: >
+        wget -O {{ dataset_dir }}/uniref50.fasta.gz {{ dataset_url }}
       args:
-        creates: "{{ split_dir }}/chunk_001.fasta"
+        creates: "{{ dataset_dir }}/uniref50.fasta.gz"
 
-    - name: Compress chunk files
-      command: pigz -f {{ split_dir }}/chunk_00{{ item }}.fasta
+    - name: Decompress the FASTA
+      ansible.builtin.command: >
+        pigz -d -f {{ dataset_dir }}/uniref50.fasta.gz
+      args:
+        removes: "{{ dataset_dir }}/uniref50.fasta.gz"
+        creates: "{{ dataset_dir }}/uniref50.fasta"
+
+    ################################################################
+    # 4. Split into N chunks
+    ################################################################
+    - name: Split the FASTA into {{ chunk_count }} chunks
+      ansible.builtin.command: >
+        seqkit split2 -p {{ chunk_count }} -j 4
+        -O {{ chunk_dir }} {{ dataset_dir }}/uniref50.fasta
+      args:
+        creates: "{{ chunk_dir }}/chunk_001.fasta"
+
+    ################################################################
+    # 5. (Optional) Compress each chunk
+    ################################################################
+    - name: Compress each chunk
+      ansible.builtin.command: pigz -f {{ chunk_dir }}/chunk_{{ "%03d"|format(item) }}.fasta
       loop: "{{ range(1, chunk_count + 1)|list }}"
 
-    # Phase 4: Distribute Chunks to Remote Workers
-    - name: Rsync compressed chunks to remote workers
-      synchronize:
-        src: "{{ split_dir }}/chunk_00{{ item + 1 }}.fasta.gz"
-        dest: "{{ split_dir }}/"
-        mode: push
-      delegate_to: "{{ remote_workers[item] }}"
-      loop: "{{ range(chunk_count - 1)|list }}"
+    ################################################################
+    # 6. Upload chunks to MinIO
+    ################################################################
+    - name: Upload chunks to MinIO
+      ansible.builtin.shell: >
+        {{ minio_bin }} cp
+        {{ chunk_dir }}/chunk_{{ "%03d"|format(item) }}.fasta.gz
+        {{ minio_alias }}/{{ minio_bucket }}/chunk_{{ "%03d"|format(item) }}.fasta.gz
+      loop: "{{ range(1, chunk_count + 1)|list }}"
 
-    # Phase 5: Decompress Chunks on Remote Workers
-    - name: Decompress chunks on remote workers
-      command: pigz -d -f {{ split_dir }}/chunk_00{{ item + 1 }}.fasta.gz
-      delegate_to: "{{ remote_workers[item] }}"
-      loop: "{{ range(chunk_count - 1)|list }}"
+      # OR a simpler approach:
+      # - name: Mirror entire chunks folder
+      #   ansible.builtin.shell: >
+      #     {{ minio_bin }} mirror {{ chunk_dir }} {{ minio_alias }}/{{ minio_bucket }}
+
