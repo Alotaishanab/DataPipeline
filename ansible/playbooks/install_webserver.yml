@@ -98,12 +98,13 @@
         mode: '0644'
         content: |
           <VirtualHost *:80>
-              ServerName localhost
+              ServerName {{ ansible_fqdn }}
               ProxyPreserveHost On
-              ProxyPass / http://127.0.0.1:8080/
-              ProxyPassReverse / http://127.0.0.1:8080/
+              ProxyPass / http://{{ ansible_default_ipv4.address }}:{{ flask_ui_port }}/
+              ProxyPassReverse / http://{{ ansible_default_ipv4.address }}:{{ flask_ui_port }}/
           </VirtualHost>
       notify: restart_httpd
+
 
     - name: Allow port 80 in firewalld
       firewalld:

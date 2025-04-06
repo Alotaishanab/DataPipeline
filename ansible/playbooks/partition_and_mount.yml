@@ -1,3 +1,5 @@
+---
+# playbook 1: partition and mount disk on /data, and create dataset/results folders
 - name: Partition /dev/vdb and mount at /data on workers
   hosts: worker_inventory
   become: yes
@@ -10,28 +12,28 @@
 
   tasks:
     - name: Check if /data is already mounted
-      ansible.builtin.shell: "mountpoint -q {{ mount_point }}"
+      shell: "mountpoint -q {{ mount_point }}"
       register: mountpoint_result
       changed_when: false
       failed_when: false
 
     - name: Debug mount status
-      ansible.builtin.debug:
+      debug:
         msg: "Mount {{ mount_point }} is_mounted={{ (mountpoint_result.rc == 0) }} ; forcibly wiping={{ clean_minio_data }}"
 
     - name: Kill processes & forcibly unmount if we are wiping
       block:
         - name: Kill processes using /data
-          ansible.builtin.shell: fuser -km {{ mount_point }} || true
+          shell: fuser -km {{ mount_point }} || true
           ignore_errors: true
 
         - name: Lazy unmount /data
-          ansible.builtin.shell: "umount -l {{ mount_point }} || true"
+          shell: "umount -l {{ mount_point }} || true"
           ignore_errors: true
       when: mountpoint_result.rc == 0 and clean_minio_data
 
     - name: Wipe existing filesystem signatures from /dev/vdb if forcibly
-      ansible.builtin.command: "wipefs -a {{ device_to_mount }}"
+      command: "wipefs -a {{ device_to_mount }}"
       when: clean_minio_data
       ignore_errors: true
 
@@ -54,22 +56,25 @@
       when: (partition_result.changed or clean_minio_data) and (mountpoint_result.rc != 0 or clean_minio_data)
 
     - name: Create /data directory
-      ansible.builtin.file:
+      file:
         path: "{{ mount_point }}"
         state: directory
         mode: '0755'
 
     - name: Mount /dev/vdb1 on /data
-      ansible.builtin.mount:
+      mount:
         path: "{{ mount_point }}"
         src: "{{ device_to_mount }}1"
         fstype: xfs
         state: mounted
 
-    - name: Ensure /data is owned by minio-user (we will create minio-user soon in the MinIO play)
-      ansible.builtin.file:
-        path: "{{ mount_point }}"
+    - name: Create results and datasets subdirectories on /data
+      file:
+        path: "/data/{{ item }}"
         state: directory
-        owner: root
-        group: root
-        mode: '0755'
+        owner: nobody
+        group: nobody
+        mode: '0777'
+      loop:
+        - datasets
+        - results

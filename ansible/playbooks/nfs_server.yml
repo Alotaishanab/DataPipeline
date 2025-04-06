@@ -3,32 +3,40 @@
   become: yes
   gather_facts: yes
   vars:
-    # Path on each worker where the extra disk is mounted for datasets.
     dataset_mount_point: "/mnt/datasets"
+    result_mount_point: "/mnt/results"
   tasks:
     - name: Install NFS utilities
       yum:
         name: nfs-utils
         state: present
 
-    - name: Partition, format, and mount extra disk (if not already done)
-      debug:
-        msg: "Extra disk should already be mounted at {{ dataset_mount_point }} on this worker."
-
-    - name: Create mount point for datasets
+    - name: Ensure bind mount target directories exist
       file:
-        path: "{{ dataset_mount_point }}"
+        path: "{{ item }}"
         state: directory
         owner: root
         group: root
         mode: '0755'
+      loop:
+        - "{{ dataset_mount_point }}"
+        - "{{ result_mount_point }}"
 
-    - name: Set permissions on dataset directory for NFS
-      file:
+    - name: Bind mount /data/datasets to /mnt/datasets
+      mount:
+        src: /data/datasets
         path: "{{ dataset_mount_point }}"
-        owner: nobody
-        group: nobody
-        mode: '0777'
+        fstype: none
+        opts: bind
+        state: mounted
+
+    - name: Bind mount /data/results to /mnt/results
+      mount:
+        src: /data/results
+        path: "{{ result_mount_point }}"
+        fstype: none
+        opts: bind
+        state: mounted
 
     - name: Ensure 'nfsnobody' group exists
       group:
@@ -43,26 +51,21 @@
         comment: 'Anon NFS User'
         state: present
 
-    - name: Create mount point for results
-      file:
-        path: "/mnt/results"
-        state: directory
-
-    - name: Ensure proper permissions on datasets and results directories
+    - name: Set permissions on export directories
       file:
         path: "{{ item }}"
         owner: nobody
         group: nobody
         mode: '0777'
       loop:
-        - /mnt/datasets
-        - /mnt/results
+        - "{{ dataset_mount_point }}"
+        - "{{ result_mount_point }}"
 
     - name: Configure NFS exports
       copy:
         content: |
           {{ dataset_mount_point }} *(rw,sync,no_root_squash)
-          /mnt/results *(rw,sync,no_root_squash)
+          {{ result_mount_point }} *(rw,sync,no_root_squash)
         dest: /etc/exports
         owner: root
         group: root
@@ -76,9 +79,3 @@
         name: nfs-server
         state: started
         enabled: yes
-
-  handlers:
-    - name: reload_firewalld
-      systemd:
-        name: firewalld
-        state: reloaded
