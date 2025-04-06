@@ -25,7 +25,7 @@
     - name: Copy TLS generation stub
       ansible.builtin.copy:
         mode: "0700"
-        src: "./files/generate_certs.sh"
+        src: "../templates/generate_certs.sh"
         dest: "/root/generate_certs.sh"
       when: generate_certs_sh is defined and generate_certs_sh | bool
 
@@ -110,7 +110,7 @@
     ################################################################
     - name: Configure MinIO environment
       ansible.builtin.template:
-        src: "files/minio.j2"             # Your environment template
+        src: "../templates/minio.j2"             # Your environment template
         dest: "/etc/default/minio"
         owner: root
         group: minio-user
@@ -179,7 +179,7 @@
 
     - name: Setup mc for local access
       ansible.builtin.template:
-        src: "files/mc_config.json.j2"
+        src: "../templates/mc_config.json.j2"
         dest: "/home/almalinux/.mc/config.json"
         owner: almalinux
         group: almalinux
