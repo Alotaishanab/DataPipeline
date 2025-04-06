@@ -1,6 +1,0 @@
-spark.authenticate true
-spark.authenticate.secret {{ lookup('ansible.builtin.password', './.sparkpass', length=16) }}
-spark.executor.cores 2
-spark.executor.instances {{ groups['worker_inventory'] | length }}
-spark.default.parallelism {{ 2 * (groups['worker_inventory'] | length) }}
-spark.master yarn

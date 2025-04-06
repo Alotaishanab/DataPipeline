@@ -1,4 +1,4 @@
-- name: Configure firewall for Hadoop cluster and monitoring
+- name: Configure firewall for cluster and monitoring
   hosts: all, localhost
   become: true
   become_user: root
@@ -22,21 +22,13 @@
         state: enabled
         immediate: true
       loop:
-        - 9000    # HDFS
-        - 9870    # HDFS Web UI
-        - 3000    # Grafana
-        - 9090    # Prometheus
-        - 9100    # Node Exporter
-        - 9864    # DataNode Web UI
-        - 9866    # DataNode Data Transfer
-        - 9867    # DataNode IPC
-        - 50010   # Legacy DataNode transfer
-        - 50020   # Legacy IPC
-        - 50075   # Legacy UI
-        - 8042    # NodeManager Web UI
-        - 8041    # NodeManager RPC
-        - 8080    # Flask Web UI
-        - 5555    # Flower Monitoring UI 🚨
+        - 3000   # Grafana
+        - 5555   # Celery Flower UI
+        - 8080   # Flask Web UI
+        - 9000   # MinIO main endpoint
+        - 9001   # MinIO console
+        - 9090   # Prometheus
+        - 9100   # Node Exporter
 
     - name: Allow HTTP and HTTPS in firewalld
       ansible.posix.firewalld:
@@ -74,21 +66,13 @@
     - name: Allow required ports in UFW
       ansible.builtin.command: ufw allow {{ item }}/tcp
       loop:
-        - 9000
-        - 9870
-        - 3000
-        - 9090
-        - 9100
-        - 9864
-        - 9866
-        - 9867
-        - 50010
-        - 50020
-        - 50075
-        - 8042
-        - 8041
-        - 8080
-        - 5555  # Flower UI
+        - 3000   # Grafana
+        - 5555   # Celery Flower UI
+        - 8080   # Flask Web UI
+        - 9000   # MinIO main endpoint
+        - 9001   # MinIO console
+        - 9090   # Prometheus
+        - 9100   # Node Exporter
       when: ufw_installed.rc == 0
       ignore_errors: true
 
