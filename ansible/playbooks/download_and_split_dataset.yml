@@ -12,8 +12,8 @@
 
     # Adjust these for MinIO environment
     minio_bin: "/usr/local/bin/mc"
-    minio_alias: "myminio"          # The alias you configured for your mgmtnode's MinIO
-    minio_bucket: "fasta-bucket/chunks"  # Where you want chunk files stored
+    minio_alias: "myminio"
+    minio_bucket: "fasta-bucket/chunks"  
 
   tasks:
     ################################################################
@@ -93,12 +93,15 @@
         creates: "{{ dataset_dir }}/uniref50.fasta"
 
     ################################################################
-    # 4. Split into N chunks (using absolute path for seqkit)
+    # 4. Split into N chunks (use -f so files go directly in chunk_dir)
     ################################################################
     - name: Split the FASTA into {{ chunk_count }} chunks
       ansible.builtin.command: >
-        /usr/local/bin/seqkit split2 -p {{ chunk_count }} -j 4
-        -O {{ chunk_dir }} {{ dataset_dir }}/uniref50.fasta
+        /usr/local/bin/seqkit split2
+        -p {{ chunk_count }} -j 4
+        -f
+        -O {{ chunk_dir }}
+        {{ dataset_dir }}/uniref50.fasta
       args:
         creates: "{{ chunk_dir }}/chunk_001.fasta"
 
