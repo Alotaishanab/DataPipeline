@@ -1,5 +1,5 @@
 - name: Setup Flask Upload App and Expose Results via Apache
-  hosts: host
+  hosts: localhost
   become: yes
 
   vars:
