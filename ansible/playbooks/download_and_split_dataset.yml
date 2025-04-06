@@ -93,11 +93,11 @@
         creates: "{{ dataset_dir }}/uniref50.fasta"
 
     ################################################################
-    # 4. Split into N chunks
+    # 4. Split into N chunks (using absolute path for seqkit)
     ################################################################
     - name: Split the FASTA into {{ chunk_count }} chunks
       ansible.builtin.command: >
-        seqkit split2 -p {{ chunk_count }} -j 4
+        /usr/local/bin/seqkit split2 -p {{ chunk_count }} -j 4
         -O {{ chunk_dir }} {{ dataset_dir }}/uniref50.fasta
       args:
         creates: "{{ chunk_dir }}/chunk_001.fasta"
@@ -118,9 +118,3 @@
         {{ chunk_dir }}/chunk_{{ "%03d"|format(item) }}.fasta.gz
         {{ minio_alias }}/{{ minio_bucket }}/chunk_{{ "%03d"|format(item) }}.fasta.gz
       loop: "{{ range(1, chunk_count + 1)|list }}"
-
-      # OR a simpler approach:
-      # - name: Mirror entire chunks folder
-      #   ansible.builtin.shell: >
-      #     {{ minio_bin }} mirror {{ chunk_dir }} {{ minio_alias }}/{{ minio_bucket }}
-
