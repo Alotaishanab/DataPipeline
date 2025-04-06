@@ -1,6 +1,24 @@
-# Right now, you probably have:
-# MINIO_OPTS="--address 127.0.0.1:9000 --console-address :9001"
-# or it might be missing the IPv4 portion, defaulting to 127.0.0.1
+# /etc/default/minio
+# ------------------------------------------------------------------------------
+# MinIO Root Credentials
+# ------------------------------------------------------------------------------
+MINIO_ROOT_USER="myminioadmin"
+MINIO_ROOT_PASSWORD="superSecretPassword"
 
-# Make it listen on all interfaces (0.0.0.0) for IPv4
+# ------------------------------------------------------------------------------
+# Distributed cluster endpoints.
+# Each line references a node and the path to its data directory.
+# If mgmtnode has no disk, you can either omit it or reference a small dir on mgmtnode.
+# ------------------------------------------------------------------------------
+MINIO_VOLUMES="
+  http://mgmtnode/data/minio
+  http://worker1/data/minio
+  http://worker2/data/minio
+  http://worker3/data/minio
+  http://worker4/data/minio
+"
+
+# ------------------------------------------------------------------------------
+# MinIO listening ports for S3 + console.
+# ------------------------------------------------------------------------------
 MINIO_OPTS="--address :9000 --console-address :9001"
