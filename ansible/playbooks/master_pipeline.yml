@@ -2,8 +2,8 @@
 - import_playbook: set_hostnames.yml          # Set mgmtnode, worker1..worker4
 - import_playbook: setup_ssh.yml             
 - import_playbook: firewall.yml
-- import_playbook: partition_and_mount_workers.yml  
-- import_playbook: install_distributed_minio.yml
+- import_playbook: partition_and_mount.yml  
+- import_playbook: distributed_minio.yml
 - import_playbook: install_esm.yml            # Setup ESM environment on host
 - import_playbook: install_celery.yml         # Set up Celery workers
 - import_playbook: install_redis.yml

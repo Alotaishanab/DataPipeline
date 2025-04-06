@@ -1,5 +1,5 @@
 - name: Install and configure distributed MinIO
-  hosts: all  # mgmtnode + worker_inventory
+  hosts: all, localhost  # mgmtnode + worker_inventory
   become: yes
   gather_facts: yes
 
