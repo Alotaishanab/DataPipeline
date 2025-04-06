@@ -1,10 +1,12 @@
 - name: Deploy Flask Upload UI
   hosts: localhost
   become: yes
+
   vars:
     flask_ui_dir: /opt/data_pipeline/ui
     flask_ui_script: /opt/data_pipeline/ui/upload_dataset.py
     flask_ui_port: 8080
+    flask_ui_hostname: "{{ ansible_hostname }}"
 
   tasks:
     - name: Install Flask and dependencies
@@ -98,10 +100,10 @@
         mode: '0644'
         content: |
           <VirtualHost *:80>
-              ServerName localhost
+              ServerName {{ flask_ui_hostname }}
               ProxyPreserveHost On
-              ProxyPass / http://localhost:8080/
-              ProxyPassReverse / http://localhost:8080/
+              ProxyPass / http://127.0.0.1:{{ flask_ui_port }}/
+              ProxyPassReverse / http://127.0.0.1:{{ flask_ui_port }}/
           </VirtualHost>
       notify: restart_httpd
 
