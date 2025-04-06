@@ -1,11 +1,6 @@
-MINIO_ROOT_USER=myminioadmin
-MINIO_ROOT_PASSWORD=superSecret123
+# Right now, you probably have:
+# MINIO_OPTS="--address 127.0.0.1:9000 --console-address :9001"
+# or it might be missing the IPv4 portion, defaulting to 127.0.0.1
 
-# The official distributed mode:
-# Each node references all 5 endpoints
-# (If mgmtnode has no real disk, you can still reference mgmtnode/data/minio, 
-#  it just won't store much, or skip it.)
-MINIO_VOLUMES="{{ distributed_volumes | trim }}"
-
-# Listen on all interfaces for S3 + console
+# Make it listen on all interfaces (0.0.0.0) for IPv4
 MINIO_OPTS="--address :9000 --console-address :9001"
