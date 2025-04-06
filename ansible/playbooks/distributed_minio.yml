@@ -60,7 +60,7 @@
     ################################################################
     - name: Create /etc/default/minio
       ansible.builtin.template:
-        src: minio_env.j2
+        src: ../templates/minio_env.j2
         dest: /etc/default/minio
         owner: root
         group: minio-user
