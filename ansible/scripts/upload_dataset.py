@@ -8,7 +8,7 @@ app = Flask(__name__)
 
 # Configurations
 UPLOAD_FOLDER = '/mnt/uploads'
-SPLIT_SCRIPT = '/home/almalinux/scripts/split_uploaded_fasta.py'
+SPLIT_SCRIPT = './scripts/split_uploaded_fasta.py'
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)

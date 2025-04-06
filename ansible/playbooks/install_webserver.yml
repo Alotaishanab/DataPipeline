@@ -1,55 +1,47 @@
-- name: Deploy Flask Upload UI
-  hosts: localhost
+- name: Setup Flask Upload App and Expose Results via Apache
+  hosts: host
   become: yes
 
   vars:
-    flask_ui_dir: /opt/data_pipeline/ui
-    flask_ui_script: /opt/data_pipeline/ui/upload_dataset.py
-    flask_ui_port: 8080
-    flask_ui_hostname: "{{ ansible_hostname }}"
+    flask_app_path: /opt/data_pipeline/upload_dataset.py
+    flask_app_port: 8080
+    flask_work_dir: /opt/data_pipeline
+    results_path: /mnt/results
 
   tasks:
-    - name: Install Flask and dependencies
+    - name: Install Flask for Upload App
       pip:
         name:
           - flask
           - flask_cors
         state: present
 
-    - name: Ensure /mnt/uploads exists and is owned by almalinux
-      ansible.builtin.file:
+    - name: Ensure base working directory exists
+      file:
+        path: "{{ flask_work_dir }}"
+        state: directory
+        owner: almalinux
+        group: almalinux
+        mode: '0755'
+
+    - name: Ensure upload directory exists
+      file:
         path: /mnt/uploads
         state: directory
         owner: almalinux
         group: almalinux
         mode: '0775'
 
-    - name: Ensure /opt/data_pipeline directory exists
-      file:
-        path: /opt/data_pipeline
-        state: directory
-        owner: almalinux
-        group: almalinux
-        mode: '0755'
-
-    - name: Create Flask UI directory
-      file:
-        path: "{{ flask_ui_dir }}"
-        state: directory
-        owner: almalinux
-        group: almalinux
-        mode: '0755'
-
-    - name: Deploy upload_dataset.py
+    - name: Copy upload_dataset.py Flask app
       copy:
-        src: ../scripts/upload_dataset.py
-        dest: "{{ flask_ui_script }}"
+        src: ../../scripts/upload_dataset.py
+        dest: "{{ flask_app_path }}"
         mode: '0755'
         owner: almalinux
         group: almalinux
-      notify: restart_flask_ui
+      notify: restart_flask_upload_app
 
-    - name: Create systemd service for Flask UI
+    - name: Create systemd service for Flask Upload App
       copy:
         dest: /etc/systemd/system/flask_upload_ui.service
         mode: '0644'
@@ -62,24 +54,19 @@
           Type=simple
           User=almalinux
           Group=almalinux
-          WorkingDirectory={{ flask_ui_dir }}
-          ExecStart=/usr/bin/python3 {{ flask_ui_script }}
+          WorkingDirectory={{ flask_work_dir }}
+          ExecStart=/usr/bin/python3 {{ flask_app_path }}
           Restart=always
 
           [Install]
           WantedBy=multi-user.target
-      notify: restart_flask_ui
+      notify: restart_flask_upload_app
 
     - name: Start and enable Flask Upload UI
       systemd:
         name: flask_upload_ui
         state: started
         enabled: yes
-
-    - name: Force restart Flask Upload UI every time
-      systemd:
-        name: flask_upload_ui
-        state: restarted
 
     - name: Install Apache httpd
       yum:
@@ -92,42 +79,9 @@
         state: started
         enabled: yes
 
-    - name: Create Apache proxy config for Flask UI
+    - name: Create Apache proxy config for Flask and results
       copy:
-        dest: /etc/httpd/conf.d/flask_ui_proxy.conf
+        dest: /etc/httpd/conf.d/data_pipeline.conf
         owner: root
         group: root
-        mode: '0644'
-        content: |
-          <VirtualHost *:80>
-              ServerName {{ flask_ui_hostname }}
-              ProxyPreserveHost On
-              ProxyPass / http://127.0.0.1:{{ flask_ui_port }}/
-              ProxyPassReverse / http://127.0.0.1:{{ flask_ui_port }}/
-          </VirtualHost>
-      notify: restart_httpd
-
-    - name: Allow port 80 in firewalld
-      firewalld:
-        port: 80/tcp
-        permanent: yes
-        state: enabled
-        immediate: yes
-      when: ansible_service_mgr == 'systemd'
-
-    - name: Reload firewalld for HTTP
-      service:
-        name: firewalld
-        state: reloaded
-      when: ansible_service_mgr == 'systemd'
-
-  handlers:
-    - name: restart_httpd
-      systemd:
-        name: httpd
-        state: restarted
-
-    - name: restart_flask_ui
-      systemd:
-        name: flask_upload_ui
-        state: restarted
+        mode:
