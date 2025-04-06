@@ -1,7 +1,6 @@
 - name: Download and Split UniRef50 on Worker1, then upload to MinIO
   hosts: worker1
   become: yes
-  become_user: almalinux
 
   vars:
     dataset_dir: "/mnt/data"
