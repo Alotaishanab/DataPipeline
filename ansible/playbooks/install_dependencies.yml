@@ -2,6 +2,7 @@
   hosts: localhost
   gather_facts: yes
   become: yes
+
   tasks:
     - name: Check if community.general collection is installed
       stat:
@@ -23,6 +24,31 @@
           - git
           - python3
           - python3-pip
-          - pigz  
+          - pigz
         state: present
         update_cache: yes
+
+    # ------------------ Moved httpd tasks here ------------------ #
+    - name: Install httpd
+      yum:
+        name: httpd
+        state: present
+
+    - name: Ensure httpd service is started and enabled
+      systemd:
+        name: httpd
+        state: started
+        enabled: yes
+
+    - name: Open port 80 in firewalld for httpd
+      firewalld:
+        port: 80/tcp
+        permanent: yes
+        state: enabled
+      when: ansible_service_mgr == 'systemd'
+
+    - name: Reload firewalld to apply changes for httpd
+      service:
+        name: firewalld
+        state: reloaded
+      when: ansible_service_mgr == 'systemd'

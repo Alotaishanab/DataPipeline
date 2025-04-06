@@ -2,6 +2,7 @@
   hosts: all,localhost
   become: yes
   gather_facts: yes
+
   tasks:
     - name: Install EPEL repository
       yum:
@@ -32,7 +33,7 @@
             url: "https://github.com/prometheus/node_exporter/releases/download/v1.5.0/node_exporter-1.5.0.linux-amd64.tar.gz"
             dest: "/tmp/node_exporter.tar.gz"
             mode: '0644'
-            force: yes  
+            force: yes
 
         - name: Extract Node Exporter
           unarchive:
@@ -92,29 +93,6 @@
         state: reloaded
       when: ansible_service_mgr == 'systemd'
 
-    - name: Install httpd
-      yum:
-        name: httpd
-        state: present
-
-    - name: Ensure httpd service is started and enabled
-      systemd:
-        name: httpd
-        state: started
-        enabled: yes
-
-    - name: Open port 80 in firewalld for httpd
-      firewalld:
-        port: 80/tcp
-        permanent: yes
-        state: enabled
-      when: ansible_service_mgr == 'systemd'
-
-    - name: Reload firewalld to apply changes for httpd
-      service:
-        name: firewalld
-        state: reloaded
-      when: ansible_service_mgr == 'systemd'
 
 - name: Install and Configure Prometheus on Control Node
   hosts: localhost
