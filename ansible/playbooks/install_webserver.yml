@@ -34,7 +34,7 @@
 
     - name: Copy upload_dataset.py Flask app
       copy:
-        src: ../../scripts/upload_dataset.py
+        src: ../scripts/upload_dataset.py
         dest: "{{ flask_app_path }}"
         mode: '0755'
         owner: almalinux
