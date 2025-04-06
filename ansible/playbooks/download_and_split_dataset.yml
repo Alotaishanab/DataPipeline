@@ -1,4 +1,4 @@
-- name: Download and Split UniRef50 on Worker1, then upload to MinIO
+- name: Download and Split UniRef50 on Worker1, then upload to MinIO (no SeqKit)
   hosts: worker1
   become: yes
 
@@ -7,62 +7,25 @@
     chunk_dir: "{{ dataset_dir }}/chunks"
     dataset_url: "https://ftp.uniprot.org/pub/databases/uniprot/uniref/uniref50/uniref50.fasta.gz"
 
-    seqkit_url: "https://github.com/shenwei356/seqkit/releases/download/v2.6.1/seqkit_linux_amd64.tar.gz"
+    # How many total chunks we want
     chunk_count: 32
 
-    # Adjust these for MinIO environment
+    # MinIO environment
     minio_bin: "/usr/local/bin/mc"
     minio_alias: "myminio"
-    minio_bucket: "fasta-bucket/chunks"  
+    minio_bucket: "fasta-bucket/chunks"
 
   tasks:
     ################################################################
-    # 1. Ensure necessary packages, including pigz & seqkit
+    # 1. Ensure necessary packages
     ################################################################
     - name: Install required packages
       ansible.builtin.package:
         name:
           - wget
           - pigz
-          - tar
         state: present
-
-    - name: Check if seqkit is installed
-      ansible.builtin.command: seqkit version
-      register: seqkit_check
-      failed_when: false
-      changed_when: false
-
-    - name: Install SeqKit if not installed
-      block:
-        - name: Create temp dir for seqkit
-          ansible.builtin.file:
-            path: /tmp/seqkit_install
-            state: directory
-            mode: '0755'
-
-        - name: Download SeqKit tarball
-          ansible.builtin.get_url:
-            url: "{{ seqkit_url }}"
-            dest: /tmp/seqkit_install/seqkit.tar.gz
-            mode: '0644'
-
-        - name: Extract SeqKit binary
-          ansible.builtin.unarchive:
-            src: /tmp/seqkit_install/seqkit.tar.gz
-            dest: /tmp/seqkit_install
-            remote_src: yes
-
-        - name: Move seqkit to /usr/local/bin
-          ansible.builtin.command: mv /tmp/seqkit_install/seqkit /usr/local/bin/seqkit
-          args:
-            creates: /usr/local/bin/seqkit
-
-        - name: Set executable permissions
-          ansible.builtin.file:
-            path: /usr/local/bin/seqkit
-            mode: '0755'
-      when: seqkit_check.rc != 0
+        update_cache: yes
 
     ################################################################
     # 2. Create directories
@@ -93,31 +56,71 @@
         creates: "{{ dataset_dir }}/uniref50.fasta"
 
     ################################################################
-    # 4. Split into N chunks (use -f so files go directly in chunk_dir)
+    # 4. Count how many sequences & calculate chunk size
     ################################################################
-    - name: Split the FASTA into {{ chunk_count }} chunks
-      ansible.builtin.command: >
-        /usr/local/bin/seqkit split2
-        -p {{ chunk_count }} -j 4
-        -f
-        -O {{ chunk_dir }}
-        {{ dataset_dir }}/uniref50.fasta
+    - name: Count how many sequences in the FASTA
+      ansible.builtin.shell: "grep '^>' {{ dataset_dir }}/uniref50.fasta | wc -l"
+      register: seq_count
+
+    - name: Calculate how many sequences per chunk
+      set_fact:
+        chunk_size: "{{ (seq_count.stdout|int / chunk_count) | round(0,'ceil') }}"
+
+    ################################################################
+    # 5. Split the FASTA into N chunks using awk
+    ################################################################
+    - name: Split the FASTA by sequence
+      ansible.builtin.shell: >
+        awk -v chunk_size={{ chunk_size }} -v out="{{ chunk_dir }}" '
+          BEGIN {
+            file_n = 1;
+            seq_seen = 0;
+          }
+          /^>/ {
+            seq_seen++;
+            # If we exceeded the chunk_size, move to the next chunk
+            if (seq_seen > chunk_size) {
+              seq_seen=1;
+              file_n++;
+            }
+          }
+          {
+            outFile = sprintf("%s/chunk_%03d.fasta", out, file_n);
+            print >> outFile
+          }
+        ' {{ dataset_dir }}/uniref50.fasta
       args:
         creates: "{{ chunk_dir }}/chunk_001.fasta"
 
     ################################################################
-    # 5. (Optional) Compress each chunk
+    # 6. Compress each chunk
     ################################################################
+    - name: Find created chunk files
+      ansible.builtin.find:
+        paths: "{{ chunk_dir }}"
+        patterns: "chunk_*.fasta"
+      register: chunk_files
+
     - name: Compress each chunk
-      ansible.builtin.command: pigz -f {{ chunk_dir }}/chunk_{{ "%03d"|format(item) }}.fasta
-      loop: "{{ range(1, chunk_count + 1)|list }}"
+      ansible.builtin.command: pigz -f {{ item.path }}
+      loop: "{{ chunk_files.files }}"
+      loop_control:
+        label: "{{ item.path }}"
 
     ################################################################
-    # 6. Upload chunks to MinIO
+    # 7. Upload chunks to MinIO
     ################################################################
-    - name: Upload chunks to MinIO
+    - name: Find compressed .gz chunk files
+      ansible.builtin.find:
+        paths: "{{ chunk_dir }}"
+        patterns: "chunk_*.fasta.gz"
+      register: gz_chunk_files
+
+    - name: Upload compressed chunks to MinIO
       ansible.builtin.shell: >
         {{ minio_bin }} cp
-        {{ chunk_dir }}/chunk_{{ "%03d"|format(item) }}.fasta.gz
-        {{ minio_alias }}/{{ minio_bucket }}/chunk_{{ "%03d"|format(item) }}.fasta.gz
-      loop: "{{ range(1, chunk_count + 1)|list }}"
+        {{ item.path }}
+        {{ minio_alias }}/{{ minio_bucket }}/{{ item.path | basename }}
+      loop: "{{ gz_chunk_files.files }}"
+      loop_control:
+        label: "{{ item.path }}"
