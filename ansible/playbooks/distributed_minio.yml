@@ -1,0 +1,77 @@
+- name: Install and configure distributed MinIO
+  hosts: all  # mgmtnode + worker_inventory
+  become: yes
+  gather_facts: yes
+
+  vars:
+    minio_rpm_url: "https://dl.min.io/server/minio/release/linux-amd64/minio.rpm"
+    minio_mc_url:  "https://dl.min.io/client/mc/release/linux-amd64/mc"
+
+    # Our distributed endpoints. Each node references mgmtnode + 4 workers.
+    # Adjust if mgmtnode has no local disk, but you still name it so it can run the server.
+    distributed_volumes: |
+      http://mgmtnode/data/minio 
+      http://workernode1/data/minio
+      http://workernode2/data/minio
+      http://workernode3/data/minio
+      http://workernode4/data/minio
+
+  tasks:
+    ################################################################
+    # 1. Create minio-user + group
+    ################################################################
+    - name: Create minio group
+      ansible.builtin.group:
+        name: minio-user
+        state: present
+
+    - name: Create minio user
+      ansible.builtin.user:
+        name: minio-user
+        groups: minio-user
+        password_lock: true
+        state: present
+
+    ################################################################
+    # 2. Download & install MinIO + mc
+    ################################################################
+    - name: Remove old minio.rpm if present
+      ansible.builtin.file:
+        path: /root/minio.rpm
+        state: absent
+
+    - name: Download MinIO RPM
+      ansible.builtin.get_url:
+        url: "{{ minio_rpm_url }}"
+        dest: /root/minio.rpm
+        mode: "0644"
+
+    - name: Install MinIO
+      ansible.builtin.shell: "dnf install -y /root/minio.rpm"
+
+    - name: Install MinIO client (mc)
+      ansible.builtin.get_url:
+        url: "{{ minio_mc_url }}"
+        dest: /usr/local/bin/mc
+        mode: "0755"
+
+    ################################################################
+    # 3. Setup environment file with Distributed Endpoints
+    ################################################################
+    - name: Create /etc/default/minio
+      ansible.builtin.template:
+        src: minio_env.j2
+        dest: /etc/default/minio
+        owner: root
+        group: minio-user
+        mode: "0640"
+      # We'll define minio_env.j2 below
+
+    ################################################################
+    # 4. Start MinIO
+    ################################################################
+    - name: Enable + start MinIO
+      ansible.builtin.systemd_service:
+        name: minio
+        state: started
+        enabled: true

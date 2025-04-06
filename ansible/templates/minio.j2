@@ -1,7 +1,0 @@
-# minio.j2
-MINIO_ROOT_USER=myminioadmin
-MINIO_ROOT_PASSWORD="{{ lookup('ansible.builtin.password', './.miniopass', length=16) }}"
-MINIO_VOLUMES="/data/minio"
-
-# Listen on all interfaces (0.0.0.0:9000) so others can reach it
-MINIO_OPTS="--address :9000 --console-address :9001"

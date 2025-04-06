@@ -1,14 +1,13 @@
----
-- import_playbook: common.yml                 # Your common configuration playbook
-- import_playbook: mount_extra_disk.yml         # Your disk mounting playbook 
-- import_playbook: set_hostnames.yml
+- import_playbook: common.yml                 # Common configuration
+- import_playbook: set_hostnames.yml          # Set mgmtnode, worker1..worker4
 - import_playbook: setup_ssh.yml             
 - import_playbook: firewall.yml
-- import_playbook: install_minio.yml
-- import_playbook: install_esm.yml              # Setup ESM environment on host
-- import_playbook: install_celery.yml        # Set up Celery workers
+- import_playbook: partition_and_mount_workers.yml  
+- import_playbook: install_distributed_minio.yml
+- import_playbook: install_esm.yml            # Setup ESM environment on host
+- import_playbook: install_celery.yml         # Set up Celery workers
 - import_playbook: install_redis.yml
 - import_playbook: install_webserver.yml   
-- import_playbook: download_and_split_dataset.yml  # Upload dataset into the NFS share
+- import_playbook: download_and_split_dataset.yml  # Upload dataset into the NFS share (if needed)
 - import_playbook: monitoring_and_logging.yml     # Configure monitoring/logging
 #- import_playbook: run_esm_pipeline.yml

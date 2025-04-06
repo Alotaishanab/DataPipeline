@@ -1,0 +1,75 @@
+- name: Partition /dev/vdb and mount at /data on workers
+  hosts: worker_inventory
+  become: yes
+  gather_facts: yes
+
+  vars:
+    clean_minio_data: false
+    device_to_mount: "/dev/vdb"
+    mount_point: "/data"
+
+  tasks:
+    - name: Check if /data is already mounted
+      ansible.builtin.shell: "mountpoint -q {{ mount_point }}"
+      register: mountpoint_result
+      changed_when: false
+      failed_when: false
+
+    - name: Debug mount status
+      ansible.builtin.debug:
+        msg: "Mount {{ mount_point }} is_mounted={{ (mountpoint_result.rc == 0) }} ; forcibly wiping={{ clean_minio_data }}"
+
+    - name: Kill processes & forcibly unmount if we are wiping
+      block:
+        - name: Kill processes using /data
+          ansible.builtin.shell: fuser -km {{ mount_point }} || true
+          ignore_errors: true
+
+        - name: Lazy unmount /data
+          ansible.builtin.shell: "umount -l {{ mount_point }} || true"
+          ignore_errors: true
+      when: mountpoint_result.rc == 0 and clean_minio_data
+
+    - name: Wipe existing filesystem signatures from /dev/vdb if forcibly
+      ansible.builtin.command: "wipefs -a {{ device_to_mount }}"
+      when: clean_minio_data
+      ignore_errors: true
+
+    - name: Partition /dev/vdb
+      community.general.parted:
+        device: "{{ device_to_mount }}"
+        number: 1
+        state: present
+        part_type: primary
+        fs_type: xfs
+        part_start: "0%"
+        part_end: "100%"
+      register: partition_result
+
+    - name: Create XFS filesystem
+      community.general.filesystem:
+        dev: "{{ device_to_mount }}1"
+        fstype: xfs
+        force: yes
+      when: (partition_result.changed or clean_minio_data) and (mountpoint_result.rc != 0 or clean_minio_data)
+
+    - name: Create /data directory
+      ansible.builtin.file:
+        path: "{{ mount_point }}"
+        state: directory
+        mode: '0755'
+
+    - name: Mount /dev/vdb1 on /data
+      ansible.builtin.mount:
+        path: "{{ mount_point }}"
+        src: "{{ device_to_mount }}1"
+        fstype: xfs
+        state: mounted
+
+    - name: Ensure /data is owned by minio-user (we will create minio-user soon in the MinIO play)
+      ansible.builtin.file:
+        path: "{{ mount_point }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
