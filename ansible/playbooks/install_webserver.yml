@@ -84,4 +84,30 @@
         dest: /etc/httpd/conf.d/data_pipeline.conf
         owner: root
         group: root
-        mode:
+        mode: '0644'
+        content: |
+          <VirtualHost *:80>
+              ServerName {{ ansible_hostname }}
+              ProxyPreserveHost On
+              ProxyPass / http://127.0.0.1:{{ flask_app_port }}/
+              ProxyPassReverse / http://127.0.0.1:{{ flask_app_port }}/
+
+              Alias /results "{{ results_path }}"
+              <Directory "{{ results_path }}">
+                  Options +Indexes +FollowSymLinks
+                  AllowOverride None
+                  Require all granted
+              </Directory>
+          </VirtualHost>
+      notify: restart_httpd
+
+  handlers:
+    - name: restart_flask_upload_app
+      systemd:
+        name: flask_upload_ui
+        state: restarted
+
+    - name: restart_httpd
+      systemd:
+        name: httpd
+        state: restarted
