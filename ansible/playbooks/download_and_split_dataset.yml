@@ -1,4 +1,4 @@
-- name: Download and Split UniRef50 on Worker1, then upload to MinIO (no SeqKit)
+- name: Download and Split UniRef50 on Worker1, then copy chunks to NFS share
   hosts: worker1
   become: yes
 
@@ -6,20 +6,16 @@
     dataset_dir: "/mnt/data"
     chunk_dir: "{{ dataset_dir }}/chunks"
     dataset_url: "https://ftp.uniprot.org/pub/databases/uniprot/uniref/uniref50/uniref50.fasta.gz"
-
-    # How many total chunks we want
     chunk_count: 32
-
-    # MinIO environment
-    minio_bin: "/usr/local/bin/mc"
-    minio_alias: "myminio"
-    minio_bucket: "fasta-bucket/chunks"
+    # nfs_target is the mount point of the NFS share where you want to store the chunks.
+    # For example, if your NFS share is mounted on worker1 at /mnt/datasets/uni_chunks, set it here.
+    nfs_target: "/mnt/datasets/uni_chunks"
 
   tasks:
     ################################################################
-    # 1. Ensure necessary packages
+    # 1. Ensure necessary packages are installed
     ################################################################
-    - name: Install required packages
+    - name: Install required packages (wget and pigz)
       ansible.builtin.package:
         name:
           - wget
@@ -28,7 +24,7 @@
         update_cache: yes
 
     ################################################################
-    # 2. Create directories
+    # 2. Create directories for dataset and chunks
     ################################################################
     - name: Ensure dataset and chunk directories exist
       ansible.builtin.file:
@@ -40,7 +36,7 @@
         - "{{ chunk_dir }}"
 
     ################################################################
-    # 3. Download & decompress
+    # 3. Download and decompress the UniRef50 FASTA
     ################################################################
     - name: Download UniRef50 FASTA (compressed)
       ansible.builtin.command: >
@@ -48,7 +44,7 @@
       args:
         creates: "{{ dataset_dir }}/uniref50.fasta.gz"
 
-    - name: Decompress the FASTA
+    - name: Decompress the FASTA using pigz
       ansible.builtin.command: >
         pigz -d -f {{ dataset_dir }}/uniref50.fasta.gz
       args:
@@ -56,44 +52,31 @@
         creates: "{{ dataset_dir }}/uniref50.fasta"
 
     ################################################################
-    # 4. Count how many sequences & calculate chunk size
+    # 4. Count sequences and calculate chunk size
     ################################################################
-    - name: Count how many sequences in the FASTA
+    - name: Count how many sequences are in the FASTA
       ansible.builtin.shell: "grep '^>' {{ dataset_dir }}/uniref50.fasta | wc -l"
       register: seq_count
 
-    - name: Calculate how many sequences per chunk
+    - name: Calculate number of sequences per chunk
       set_fact:
-        chunk_size: "{{ (seq_count.stdout|int / chunk_count) | round(0,'ceil') }}"
+        chunk_size: "{{ (seq_count.stdout|int / chunk_count) | round(0, 'ceil') }}"
 
     ################################################################
     # 5. Split the FASTA into N chunks using awk
     ################################################################
-    - name: Split the FASTA by sequence
+    - name: Split the FASTA by sequence using awk
       ansible.builtin.shell: >
         awk -v chunk_size={{ chunk_size }} -v out="{{ chunk_dir }}" '
-          BEGIN {
-            file_n = 1;
-            seq_seen = 0;
-          }
-          /^>/ {
-            seq_seen++;
-            # If we exceeded the chunk_size, move to the next chunk
-            if (seq_seen > chunk_size) {
-              seq_seen=1;
-              file_n++;
-            }
-          }
-          {
-            outFile = sprintf("%s/chunk_%03d.fasta", out, file_n);
-            print >> outFile
-          }
+          BEGIN { file_n = 1; seq_seen = 0; }
+          /^>/ { seq_seen++; if (seq_seen > chunk_size) { seq_seen=1; file_n++; } }
+          { outFile = sprintf("%s/chunk_%03d.fasta", out, file_n); print >> outFile; }
         ' {{ dataset_dir }}/uniref50.fasta
       args:
         creates: "{{ chunk_dir }}/chunk_001.fasta"
 
     ################################################################
-    # 6. Compress each chunk
+    # 6. Compress each chunk using pigz
     ################################################################
     - name: Find created chunk files
       ansible.builtin.find:
@@ -101,26 +84,29 @@
         patterns: "chunk_*.fasta"
       register: chunk_files
 
-    - name: Compress each chunk
+    - name: Compress each chunk with pigz
       ansible.builtin.command: pigz -f {{ item.path }}
       loop: "{{ chunk_files.files }}"
       loop_control:
         label: "{{ item.path }}"
 
     ################################################################
-    # 7. Upload chunks to MinIO
+    # 7. Copy compressed chunks to the NFS share
     ################################################################
-    - name: Find compressed .gz chunk files
+    - name: Ensure target NFS directory exists
+      ansible.builtin.file:
+        path: "{{ nfs_target }}"
+        state: directory
+        mode: '0755'
+
+    - name: Find compressed chunk files
       ansible.builtin.find:
         paths: "{{ chunk_dir }}"
         patterns: "chunk_*.fasta.gz"
       register: gz_chunk_files
 
-    - name: Upload compressed chunks to MinIO
-      ansible.builtin.shell: >
-        {{ minio_bin }} cp
-        {{ item.path }}
-        {{ minio_alias }}/{{ minio_bucket }}/{{ item.path | basename }}
+    - name: Copy each compressed chunk to the NFS share
+      ansible.builtin.command: cp {{ item.path }} {{ nfs_target }}/{{ item.path | basename }}
       loop: "{{ gz_chunk_files.files }}"
       loop_control:
         label: "{{ item.path }}"

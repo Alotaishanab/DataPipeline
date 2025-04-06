@@ -2,10 +2,11 @@
 - import_playbook: set_hostnames.yml          # Set mgmtnode, worker1..worker4
 - import_playbook: setup_ssh.yml             
 - import_playbook: firewall.yml
-- import_playbook: partition_and_mount.yml  
-- import_playbook: distributed_minio.yml
-- import_playbook: install_esm.yml            # Setup ESM environment on host
-- import_playbook: install_celery.yml         # Set up Celery workers
+- import_playbook: partition_and_mount.yml      # Partition and mount extra disks on workers
+- import_playbook: nfs_server.yml               # Configure NFS Server on worker nodes
+- import_playbook: nfs_client.yml               # Configure NFS Clients on mgmtnode (host)
+- import_playbook: install_esm.yml              # Setup ESM environment on host
+- import_playbook: install_celery.yml           # Set up Celery workers
 - import_playbook: install_redis.yml
 - import_playbook: install_webserver.yml   
 - import_playbook: download_and_split_dataset.yml  # Upload dataset into the NFS share (if needed)
