@@ -1,84 +1,34 @@
-- name: Configure NFS Server
-  hosts: localhost
+- name: Configure NFS Server on Worker Nodes
+  hosts: worker_inventory
   become: yes
+  gather_facts: yes
+  vars:
+    # Path on each worker where the extra disk is mounted for datasets.
+    dataset_mount_point: "/mnt/datasets"
   tasks:
-    - name: Ensure nfs-utils is installed
+    - name: Install NFS utilities
       yum:
         name: nfs-utils
         state: present
 
-    - name: Ensure rpcbind is installed (usually part of nfs-utils, but just to be sure)
-      yum:
-        name: rpcbind
-        state: present
-
-    - name: Ensure firewalld is installed
-      yum:
-        name: firewalld
-        state: present
-
-    - name: Start and enable firewalld
-      systemd:
-        name: firewalld
-        state: started
-        enabled: yes
-
-
-    - name: Allow NFS related services in firewall
-      firewalld:
-        service: "{{ item }}"
-        state: enabled
-        permanent: yes
-      loop:
-        - nfs
-        - rpc-bind
-        - mountd
-      notify: reload firewalld
-
-    - name: Enable and start RPC services
-      systemd:
-        name: rpcbind
-        state: started
-        enabled: yes
-
-    - name: Start and enable NFS server
-      systemd:
-        name: nfs-server
-        state: started
-        enabled: yes
-
-    - name: Create partition on data disk
-      community.general.parted:
-        device: /dev/vdb
-        number: 1
-        state: present
-        part_type: primary
-        fs_type: ext4
-        part_start: "0%"
-        part_end: "100%"
-
-    - name: Create filesystem on data partition
-      community.general.filesystem:
-        fstype: ext4
-        dev: /dev/vdb1
+    - name: Partition, format, and mount extra disk (if not already done)
+      debug:
+        msg: "Extra disk should already be mounted at {{ dataset_mount_point }} on this worker."
 
     - name: Create mount point for datasets
       file:
-        path: /mnt/datasets
+        path: "{{ dataset_mount_point }}"
         state: directory
+        owner: root
+        group: root
+        mode: '0755'
 
-    - name: Mount the data partition
-      mount:
-        path: /mnt/datasets
-        src: /dev/vdb1
-        fstype: ext4
-        state: mounted
-
-    - name: Enable and start NFS services (redundant check, ensures NFS is running)
-      systemd:
-        name: nfs-server
-        state: started
-        enabled: yes
+    - name: Set permissions on dataset directory for NFS
+      file:
+        path: "{{ dataset_mount_point }}"
+        owner: nobody
+        group: nobody
+        mode: '0777'
 
     - name: Ensure 'nfsnobody' group exists
       group:
@@ -95,14 +45,14 @@
 
     - name: Create mount point for results
       file:
-        path: /mnt/results
+        path: "/mnt/results"
         state: directory
 
     - name: Ensure proper permissions on datasets and results directories
       file:
         path: "{{ item }}"
-        owner: nfsnobody
-        group: nfsnobody
+        owner: nobody
+        group: nobody
         mode: '0777'
       loop:
         - /mnt/datasets
@@ -111,7 +61,7 @@
     - name: Configure NFS exports
       copy:
         content: |
-          /mnt/datasets *(rw,sync,no_root_squash)
+          {{ dataset_mount_point }} *(rw,sync,no_root_squash)
           /mnt/results *(rw,sync,no_root_squash)
         dest: /etc/exports
         owner: root
@@ -121,8 +71,14 @@
     - name: Export NFS shares
       command: exportfs -rav
 
+    - name: Start and enable NFS server
+      systemd:
+        name: nfs-server
+        state: started
+        enabled: yes
+
   handlers:
-    - name: reload firewalld
+    - name: reload_firewalld
       systemd:
         name: firewalld
         state: reloaded
