@@ -21,39 +21,6 @@
         state: started
         enabled: yes
 
-    - name: Install firewalld
-      yum:
-        name: firewalld
-        state: present
-
-    - name: Ensure firewalld is running and enabled
-      systemd:
-        name: firewalld
-        state: started
-        enabled: yes
-
-    - name: Open HTTP (port 80) in the firewall
-      firewalld:
-        port: 80/tcp
-        permanent: yes
-        state: enabled
-        immediate: yes
-      when: ansible_service_mgr == 'systemd'
-
-    - name: Open HTTPS (port 443) in the firewall
-      firewalld:
-        port: 443/tcp
-        permanent: yes
-        state: enabled
-        immediate: yes
-      when: ansible_service_mgr == 'systemd'
-
-    - name: Reload firewalld to apply rules
-      service:
-        name: firewalld
-        state: reloaded
-      when: ansible_service_mgr == 'systemd'
-
     - name: Install Flask for Upload App
       pip:
         name:
