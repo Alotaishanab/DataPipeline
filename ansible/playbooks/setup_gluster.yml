@@ -17,7 +17,7 @@
       yum_repository:
         name: glusterfs
         description: GlusterFS Official Repository for AlmaLinux
-        baseurl: "https://download.gluster.org/pub/gluster/glusterfs/7/LATEST/EPEL.repo/epel-8Server/"
+        baseurl: "https://download.gluster.org/pub/gluster/glusterfs/7/EPEL8/x86_64"
         enabled: yes
         gpgcheck: no
 
