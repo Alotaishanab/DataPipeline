@@ -1,3 +1,4 @@
+---
 - name: Prepare Worker Nodes for GlusterFS
   hosts: worker_inventory
   become: yes
@@ -13,11 +14,11 @@
         name: epel-release
         state: present
 
-    - name: Add GlusterFS official repository
+    - name: Add GlusterFS official repository (version 9)
       yum_repository:
         name: glusterfs
-        description: GlusterFS Official Repository for AlmaLinux
-        baseurl: "https://download.gluster.org/pub/gluster/glusterfs/7/EPEL8/x86_64/"
+        description: GlusterFS Official Repository for AlmaLinux - Version 9
+        mirrorlist: "https://download.gluster.org/pub/gluster/glusterfs/9/EPEL8/x86_64/mirrorlist"
         enabled: yes
         gpgcheck: no
         sslverify: no
@@ -36,7 +37,7 @@
         fs_type: xfs
         part_start: "0%"
         part_end: "100%"
-      # Requires the community.general collection: ansible-galaxy collection install community.general
+      # Requires: ansible-galaxy collection install community.general
 
     - name: Create XFS filesystem on partition (if not already created)
       community.general.filesystem:
@@ -69,7 +70,6 @@
         state: started
         enabled: yes
 
-# Play 2: Create and Start the Distributed GlusterFS Volume
 - name: Configure GlusterFS cluster and create volume
   hosts: worker1
   become: yes
@@ -104,15 +104,13 @@
       register: volume_start
       changed_when: "'started' in volume_start.stdout"
 
-# Play 3: Mount the GlusterFS Volume on All Clients (Host and Workers)
 - name: Mount GlusterFS volume on clients
-  hosts: all , localhost # This assumes that your host (management node) is in the 'all' group along with workers.
+  hosts: all, localhost  # Assumes your management host is in the "all" group.
   become: yes
   gather_facts: yes
   vars:
     mount_dir: "/mnt/data_volume"
     volume_name: "data_volume"
-    # Use worker1 as the reference GlusterFS server
     gluster_server: "{{ hostvars[groups['worker_inventory'][0]].ansible_host }}"
   tasks:
     - name: Install glusterfs-fuse (client package)
