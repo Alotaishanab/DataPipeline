@@ -17,9 +17,10 @@
       yum_repository:
         name: glusterfs
         description: GlusterFS Official Repository for AlmaLinux
-        baseurl: "https://download.gluster.org/pub/gluster/glusterfs/7/EPEL8/x86_64"
+        baseurl: "https://download.gluster.org/pub/gluster/glusterfs/7/EPEL8/x86_64/"
         enabled: yes
         gpgcheck: no
+        sslverify: no
 
     - name: Install glusterfs-server package
       yum:
@@ -105,7 +106,7 @@
 
 # Play 3: Mount the GlusterFS Volume on All Clients (Host and Workers)
 - name: Mount GlusterFS volume on clients
-  hosts: all  # This assumes that your host (management node) is in the 'all' group along with workers.
+  hosts: all , localhost # This assumes that your host (management node) is in the 'all' group along with workers.
   become: yes
   gather_facts: yes
   vars:
