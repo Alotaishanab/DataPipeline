@@ -14,14 +14,10 @@
         name: epel-release
         state: present
 
-    - name: Add GlusterFS official repository (version 9)
-      yum_repository:
-        name: glusterfs
-        description: GlusterFS Official Repository for AlmaLinux - Version 9
-        mirrorlist: "https://download.gluster.org/pub/gluster/glusterfs/9/EPEL8/x86_64/mirrorlist"
-        enabled: yes
-        gpgcheck: no
-        sslverify: no
+    - name: Enable GlusterFS module stream on AlmaLinux
+      command: dnf module enable glusterfs:latest -y
+      args:
+        warn: false
 
     - name: Install glusterfs-server package
       yum:
@@ -89,8 +85,8 @@
 
     - name: Create GlusterFS volume (distributed) across all workers
       shell: >
-        gluster volume create {{ volume_name }} 
-        {{ groups['worker_inventory'] 
+        gluster volume create {{ volume_name }}
+        {{ groups['worker_inventory']
             | map('extract', hostvars, 'ansible_host')
             | map('regex_replace', '(.*)', '\\1:' ~ brick_path)
             | join(' ') }} force
@@ -105,7 +101,7 @@
       changed_when: "'started' in volume_start.stdout"
 
 - name: Mount GlusterFS volume on clients
-  hosts: all, localhost  # Assumes your management host is in the "all" group.
+  hosts: all, localhost  # Assumes your management host is part of "all".
   become: yes
   gather_facts: yes
   vars:
