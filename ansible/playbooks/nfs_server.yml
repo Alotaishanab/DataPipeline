@@ -13,7 +13,6 @@
         name: nfs-utils
         state: present
 
-
     - name: Ensure 'nfsnobody' group exists
       group:
         name: nfsnobody
@@ -38,12 +37,12 @@
         - "{{ export_datasets }}"
         - "{{ export_results }}"
 
-    - name: Add export rules
+    - name: Add export rules with fsid
       copy:
         dest: /etc/exports
         content: |
-          {{ export_datasets }} *(rw,sync,no_root_squash)
-          {{ export_results }} *(rw,sync,no_root_squash)
+          {{ export_datasets }} *(rw,sync,no_root_squash,fsid=1)
+          {{ export_results }} *(rw,sync,no_root_squash,fsid=2)
         owner: root
         group: root
         mode: '0644'
