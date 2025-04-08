@@ -3,7 +3,7 @@
   become: yes
 
   vars:
-    react_app_dir: /opt/data_pipeline/react-ui
+    react_app_dir: /home/almalinux/DataPipeline/frontend/react-ui
     apache_web_root: /var/www/html
 
   tasks:
@@ -14,26 +14,17 @@
           - npm
         state: present
 
-    - name: Create React app if not already there
-      command: npx create-react-app react-ui
-      args:
-        chdir: /opt/data_pipeline
-      creates: "{{ react_app_dir }}/package.json"
-      environment:
-        PATH: "/usr/bin:/usr/local/bin:{{ ansible_env.PATH }}"  # ensure npx is found
-
-    - name: Ensure react-router-dom is listed in package.json
-      shell: npm install react-router-dom
+    - name: Install React dependencies
+      shell: npm install
       args:
         chdir: "{{ react_app_dir }}"
-      when: not lookup('fileglob', '{{ react_app_dir }}/node_modules/react-router-dom', errors='ignore')
 
     - name: Build the React app
       shell: npm run build
       args:
         chdir: "{{ react_app_dir }}"
 
-    - name: Deploy build directory to Apache root
+    - name: Deploy React build to Apache web root
       copy:
         src: "{{ react_app_dir }}/build/"
         dest: "{{ apache_web_root }}/"
