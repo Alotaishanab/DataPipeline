@@ -99,14 +99,9 @@
         - "{{ nfs_datasets }}"
       ignore_errors: true
 
-    - name: Ensure mod_rewrite is enabled (install mod_rewrite)
-      yum:
-        name: mod_httpd
-        state: present
-
-    - name: Ensure mod_rewrite is enabled in Apache
+    - name: Ensure mod_rewrite module is enabled
       lineinfile:
-        path: /etc/httpd/conf/httpd.conf
+        path: /etc/httpd/conf.modules.d/00-base.conf
         regexp: '^#?LoadModule rewrite_module'
         line: 'LoadModule rewrite_module modules/mod_rewrite.so'
         state: present
