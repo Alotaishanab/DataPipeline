@@ -120,6 +120,14 @@
               Options -Indexes +FollowSymLinks
               AllowOverride None
               Require all granted
+
+              # Rewrite all requests to index.html except for real files
+              <IfModule mod_rewrite.c>
+                RewriteEngine On
+                RewriteCond %{REQUEST_FILENAME} !-f
+                RewriteCond %{REQUEST_FILENAME} !-d
+                RewriteRule ^ /index.html [L]
+              </IfModule>
           </Directory>
 
           <Directory "{{ apache_web_root }}/results">
@@ -131,18 +139,11 @@
               Options -Indexes
               Require all granted
           </Directory>
-
-          <IfModule mod_rewrite.c>
-            RewriteEngine On
-            RewriteBase /
-            RewriteCond %{REQUEST_FILENAME} !-f
-            RewriteCond %{REQUEST_FILENAME} !-d
-            RewriteRule ^ /index.html [L]
-          </IfModule>
         owner: root
         group: root
         mode: '0644'
       notify: restart_httpd
+
 
   handlers:
     - name: restart_httpd
