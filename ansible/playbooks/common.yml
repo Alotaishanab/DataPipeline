@@ -1,11 +1,19 @@
+---
 - name: Common Configuration for All Machines
   hosts: all, localhost
   become: yes
   tasks:
+    - name: Remove any glusterfs repository if present
+      yum_repository:
+        name: glusterfs
+        state: absent
+      when: ansible_os_family == "RedHat"
+
     - name: Install EPEL repository on RedHat-based systems
       yum:
         name: epel-release
         state: present
+        # (No glusterfs repo to disable now, since we removed it above)
       when: ansible_os_family == "RedHat"
 
     - name: Install essential packages on RedHat-based systems (excluding virtualenv)
@@ -41,11 +49,9 @@
         state: present
       when: ansible_os_family == "RedHat"
       register: install_redhat
-      # Retry up to 3 times, waiting 5 seconds between tries, until the task succeeds.
       retries: 3
       delay: 5
       until: install_redhat is succeeded
-
 
     - name: Upgrade pip to the latest version on all machines
       pip:
@@ -60,7 +66,7 @@
         state: latest
 
     - name: Ensure firewalld is installed on RedHat-based systems
-      package:
+      yum:
         name: firewalld
         state: present
       when: ansible_os_family == "RedHat"
@@ -89,22 +95,24 @@
       yum:
         name: httpd
         state: present
+      when: ansible_os_family == "RedHat"
 
     - name: Start and enable Apache httpd
       systemd:
         name: httpd
         state: started
         enabled: yes
+      when: ansible_os_family == "RedHat"
 
     - name: Set en-GB localization
       shell: "localectl set-locale en_GB.UTF-8"
 
     - name: Create /etc/hosts from template
-      ansible.builtin.template:
+      template:
         src: "../templates/hostfile.j2"
         dest: "/etc/hosts"
-        owner: "root"
-        group: "root"
+        owner: root
+        group: root
         mode: "0644"
 
   handlers:
