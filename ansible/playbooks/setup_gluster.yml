@@ -1,0 +1,130 @@
+- name: Prepare Worker Nodes for GlusterFS
+  hosts: worker_inventory
+  become: yes
+  gather_facts: yes
+  vars:
+    device: "/dev/vdb"
+    partition: "/dev/vdb1"
+    mount_point: "/data"
+    brick_dir: "/data/gluster/brick1"
+  tasks:
+    - name: Install glusterfs-server package
+      yum:
+        name: glusterfs-server
+        state: present
+
+    - name: Ensure extra disk partition exists
+      community.general.parted:
+        device: "{{ device }}"
+        number: 1
+        state: present
+        part_type: primary
+        fs_type: xfs
+        part_start: "0%"
+        part_end: "100%"
+      # Requires the community.general collection: ansible-galaxy collection install community.general
+
+    - name: Create XFS filesystem on partition (if not already created)
+      community.general.filesystem:
+        dev: "{{ partition }}"
+        fstype: xfs
+        force: yes
+
+    - name: Create mount point for extra disk (/data)
+      file:
+        path: "{{ mount_point }}"
+        state: directory
+        mode: "0755"
+
+    - name: Mount extra disk on /data
+      mount:
+        path: "{{ mount_point }}"
+        src: "{{ partition }}"
+        fstype: xfs
+        state: mounted
+
+    - name: Create brick directory for GlusterFS volume
+      file:
+        path: "{{ brick_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Ensure glusterd (GlusterFS daemon) is started and enabled
+      systemd:
+        name: glusterd
+        state: started
+        enabled: yes
+
+    # (Optional) Adjust firewall rules if needed
+    #- name: Open necessary GlusterFS ports in firewall
+    #  firewalld:
+    #    service: glusterfs
+    #    permanent: yes
+    #    state: enabled
+    #  notify:
+    #    - Reload firewalld
+
+# Play 2: Create and Start the Distributed GlusterFS Volume
+- name: Configure GlusterFS cluster and create volume
+  hosts: worker1
+  become: yes
+  gather_facts: yes
+  vars:
+    volume_name: "data_volume"
+    brick_path: "/data/gluster/brick1"
+  tasks:
+    - name: Probe peers (other workers)
+      shell: "gluster peer probe {{ item }}"
+      loop: "{{ groups['worker_inventory'] | difference(['worker1']) }}"
+      ignore_errors: yes
+
+    - name: Wait for peer probing to settle
+      pause:
+        seconds: 10
+
+    - name: Create GlusterFS volume (distributed) across all workers
+      shell: >
+        gluster volume create {{ volume_name }} 
+        {{ groups['worker_inventory'] 
+            | map('extract', hostvars, 'ansible_host')
+            | map('regex_replace', '(.*)', '\\1:' ~ brick_path)
+            | join(' ') }} force
+      args:
+        warn: false
+      register: volume_create
+      changed_when: "'Volume create:" in volume_create.stdout"
+
+    - name: Start the GlusterFS volume
+      shell: gluster volume start {{ volume_name }}
+      register: volume_start
+      changed_when: "'started' in volume_start.stdout"
+
+# Play 3: Mount the GlusterFS Volume on All Clients (Host and Workers)
+- name: Mount GlusterFS volume on clients
+  hosts: all  # This assumes that your host (management node) is in the 'all' group along with workers.
+  become: yes
+  gather_facts: yes
+  vars:
+    mount_dir: "/mnt/data_volume"
+    volume_name: "data_volume"
+    # Use worker1 as the reference GlusterFS server
+    gluster_server: "{{ hostvars[groups['worker_inventory'][0]].ansible_host }}"
+  tasks:
+    - name: Install glusterfs-fuse (client package)
+      yum:
+        name: glusterfs-fuse
+        state: present
+
+    - name: Create mount point for GlusterFS volume
+      file:
+        path: "{{ mount_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Mount the GlusterFS volume
+      mount:
+        path: "{{ mount_dir }}"
+        src: "{{ gluster_server }}:{{ volume_name }}"
+        fstype: glusterfs
+        opts: defaults
+        state: mounted
