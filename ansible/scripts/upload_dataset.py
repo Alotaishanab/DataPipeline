@@ -6,12 +6,11 @@ import subprocess
 app = Flask(__name__)
 
 UPLOAD_FOLDER = '/mnt/uploads'
-DATASETS_FOLDER = '/mnt/datasets'
+DATASETS_FOLDER = '/mnt/datasets/uni_chunks' 
 RESULTS_FOLDER = '/mnt/results'
 SPLIT_SCRIPT = './scripts/split_uploaded_fasta.py'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
 
 @app.route('/upload', methods=['POST'])
 def upload():

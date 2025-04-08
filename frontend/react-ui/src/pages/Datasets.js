@@ -1,6 +1,5 @@
-// src/pages/Datasets.js
 import React, { useEffect, useState } from 'react';
-import './Results.css'; // Reuse the same dark theme
+import './Results.css'; // Use the same styling
 
 export default function Datasets() {
   const [files, setFiles] = useState([]);
@@ -8,14 +7,16 @@ export default function Datasets() {
   useEffect(() => {
     const fetchDatasets = async () => {
       try {
-        const res = await fetch('/datasets/');
-        const text = await res.text();
-        const matches = [...text.matchAll(/href="(.*?)"/g)]
-          .map(m => m[1])
-          .filter(file => !file.startsWith('?')); // ignore Apache ? icons
-        setFiles(matches);
+        const res = await fetch('/api/datasets');
+        const data = await res.json();
+        if (data.files) {
+          setFiles(data.files);
+        } else {
+          setFiles([]);
+        }
       } catch (err) {
         console.error(err);
+        setFiles([]);
       }
     };
 
