@@ -48,12 +48,22 @@
       file:
         path: "{{ item }}"
         state: directory
-        owner: root
-        group: root
         mode: '0755'
       loop:
         - "{{ nfs_results }}"
         - "{{ nfs_datasets }}"
+
+    - name: Set NFS directory permissions
+      file:
+        path: "{{ item }}"
+        recurse: yes
+        mode: '0755'
+        owner: nfsnobody
+        group: nfsnobody
+      loop:
+        - "{{ nfs_results }}"
+        - "{{ nfs_datasets }}"
+      ignore_errors: true
 
     - name: Link /mnt/results to Apache web root
       file:
@@ -73,7 +83,7 @@
       command: chcon -Rt httpd_sys_content_t {{ apache_web_root }}
       when: ansible_selinux.status == "enabled"
 
-    - name: Set SELinux context for /mnt/results and /mnt/datasets
+    - name: Set SELinux context for NFS mounts (if enabled)
       command: chcon -Rt httpd_sys_content_t {{ item }}
       loop:
         - "{{ nfs_results }}"
@@ -87,32 +97,14 @@
         persistent: yes
       when: ansible_selinux.status == "enabled"
 
-    - name: Set NFS directory permissions
-      file:
-        path: "{{ item }}"
-        recurse: yes
-        owner: apache
-        group: apache
-        mode: '0755'
-      loop:
-        - "{{ nfs_results }}"
-        - "{{ nfs_datasets }}"
-      ignore_errors: true
-
-    - name: Ensure mod_rewrite module is enabled
+    - name: Ensure mod_rewrite is enabled in Apache
       lineinfile:
         path: /etc/httpd/conf.modules.d/00-base.conf
         regexp: '^#?LoadModule rewrite_module'
         line: 'LoadModule rewrite_module modules/mod_rewrite.so'
         state: present
-        backup: yes
 
-    - name: Restart Apache to apply rewrite module
-      systemd:
-        name: httpd
-        state: restarted
-
-    - name: Create Apache config to serve all routes through React
+    - name: Create Apache config to serve React and NFS results
       copy:
         dest: /etc/httpd/conf.d/react_ui.conf
         content: |
@@ -121,7 +113,6 @@
               AllowOverride None
               Require all granted
 
-              # Rewrite all requests to index.html except for real files
               <IfModule mod_rewrite.c>
                 RewriteEngine On
                 RewriteCond %{REQUEST_FILENAME} !-f
@@ -131,19 +122,20 @@
           </Directory>
 
           <Directory "{{ apache_web_root }}/results">
-              Options -Indexes
+              Options Indexes FollowSymLinks
+              AllowOverride None
               Require all granted
           </Directory>
 
           <Directory "{{ apache_web_root }}/datasets">
-              Options -Indexes
+              Options Indexes FollowSymLinks
+              AllowOverride None
               Require all granted
           </Directory>
         owner: root
         group: root
         mode: '0644'
       notify: restart_httpd
-
 
   handlers:
     - name: restart_httpd
