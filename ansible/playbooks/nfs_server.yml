@@ -1,81 +1,44 @@
-- name: Configure NFS Server on Worker Nodes
-  hosts: worker_inventory
+- name: Configure NFS Server on worker1
+  hosts: worker1
   become: yes
   gather_facts: yes
+
   vars:
-    dataset_mount_point: "/mnt/datasets"
-    result_mount_point: "/mnt/results"
+    export_datasets: "/mnt/datasets"
+    export_results: "/mnt/results"
+
   tasks:
     - name: Install NFS utilities
       yum:
         name: nfs-utils
         state: present
 
-    - name: Ensure bind mount target directories exist
+    - name: Create export directories
       file:
         path: "{{ item }}"
         state: directory
-        owner: root
-        group: root
-        mode: '0755'
-      loop:
-        - "{{ dataset_mount_point }}"
-        - "{{ result_mount_point }}"
-
-    - name: Bind mount /data/datasets to /mnt/datasets
-      mount:
-        src: /data/datasets
-        path: "{{ dataset_mount_point }}"
-        fstype: none
-        opts: bind
-        state: mounted
-
-    - name: Bind mount /data/results to /mnt/results
-      mount:
-        src: /data/results
-        path: "{{ result_mount_point }}"
-        fstype: none
-        opts: bind
-        state: mounted
-
-    - name: Ensure 'nfsnobody' group exists
-      group:
-        name: nfsnobody
-        state: present
-
-    - name: Ensure 'nfsnobody' user exists
-      user:
-        name: nfsnobody
+        owner: nfsnobody
         group: nfsnobody
-        shell: /sbin/nologin
-        comment: 'Anon NFS User'
-        state: present
-
-    - name: Set permissions on export directories
-      file:
-        path: "{{ item }}"
-        owner: nobody
-        group: nobody
         mode: '0777'
       loop:
-        - "{{ dataset_mount_point }}"
-        - "{{ result_mount_point }}"
+        - "{{ export_datasets }}"
+        - "{{ export_results }}"
 
-    - name: Configure NFS exports
+    - name: Add export rules
       copy:
-        content: |
-          {{ dataset_mount_point }} *(rw,sync,no_root_squash)
-          {{ result_mount_point }} *(rw,sync,no_root_squash)
         dest: /etc/exports
+        content: |
+          {{ export_datasets }} *(rw,sync,no_root_squash)
+          {{ export_results }} *(rw,sync,no_root_squash)
         owner: root
         group: root
         mode: '0644'
 
-    - name: Export NFS shares
-      command: exportfs -rav
-
-    - name: Start and enable NFS server
+    - name: Start and enable NFS
       systemd:
         name: nfs-server
         state: started
         enabled: yes
+
+    - name: Export shares
+      command: exportfs -rav

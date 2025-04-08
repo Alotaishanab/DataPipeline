@@ -1,72 +1,39 @@
-- name: Configure NFS Server on Worker Nodes
-  hosts: worker_inventory
+- name: Mount NFS shares on all clients (host and other workers)
+  hosts: all, localhost
   become: yes
   gather_facts: yes
   vars:
-    # Adjust these if needed
-    dataset_mount_point: "/mnt/datasets"
+    nfs_server_ip: "{{ hostvars['worker1'].ansible_default_ipv4.address }}"
+    mount_datasets: "/mnt/datasets"
+    mount_results: "/mnt/results"
+
   tasks:
     - name: Install NFS utilities
       yum:
         name: nfs-utils
         state: present
 
-    - name: Partition, format, and mount extra disk (if not already done)
-      # (Assuming you've already partitioned and mounted your extra disk on each worker)
-      debug:
-        msg: "Extra disk should already be mounted at {{ dataset_mount_point }} on this worker."
-
-    - name: Create mount point for datasets
+    - name: Create mount points
       file:
-        path: "{{ dataset_mount_point }}"
+        path: "{{ item }}"
         state: directory
-        owner: root
-        group: root
         mode: '0755'
+      loop:
+        - "{{ mount_datasets }}"
+        - "{{ mount_results }}"
 
-    - name: Set permissions on dataset directory for NFS
-      file:
-        path: "{{ dataset_mount_point }}"
-        owner: nfsnobody
-        group: nfsnobody
-        mode: '0777'
+    - name: Mount NFS datasets
+      mount:
+        src: "{{ nfs_server_ip }}:/mnt/datasets"
+        path: "{{ mount_datasets }}"
+        fstype: nfs
+        opts: defaults
+        state: mounted
 
-    - name: Ensure 'nfsnobody' group exists
-      group:
-        name: nfsnobody
-        state: present
-
-    - name: Ensure 'nfsnobody' user exists
-      user:
-        name: nfsnobody
-        group: nfsnobody
-        shell: /sbin/nologin
-        comment: 'Anon NFS User'
-        state: present
-
-    - name: Create mount point for results
-      file:
-        path: "/mnt/results"
-        state: directory
-        owner: nfsnobody
-        group: nfsnobody
-        mode: '0777'
-
-    - name: Configure NFS exports on this worker
-      copy:
-        content: |
-          {{ dataset_mount_point }} *(rw,sync,no_root_squash)
-          /mnt/results *(rw,sync,no_root_squash)
-        dest: /etc/exports
-        owner: root
-        group: root
-        mode: '0644'
-
-    - name: Export NFS shares
-      command: exportfs -rav
-
-    - name: Start and enable NFS server
-      systemd:
-        name: nfs-server
-        state: started
-        enabled: yes
+    - name: Mount NFS results
+      mount:
+        src: "{{ nfs_server_ip }}:/mnt/results"
+        path: "{{ mount_results }}"
+        fstype: nfs
+        opts: defaults
+        state: mounted
