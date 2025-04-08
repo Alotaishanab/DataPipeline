@@ -50,20 +50,6 @@
         state: directory
         mode: '0755'
 
-    - name: Link /mnt/datasets/uni_chunks to Apache web root as /datasets
-      file:
-        src: "{{ nfs_datasets_chunks }}"
-        dest: "{{ apache_web_root }}/datasets"
-        state: link
-        force: true
-
-    - name: Link /mnt/results to Apache web root
-      file:
-        src: "{{ nfs_results }}"
-        dest: "{{ apache_web_root }}/results"
-        state: link
-        force: true
-
     - name: Set SELinux context for Apache web root (if enabled)
       command: chcon -Rt httpd_sys_content_t {{ apache_web_root }}
       when: ansible_selinux.status == "enabled"

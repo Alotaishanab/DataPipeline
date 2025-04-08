@@ -1,5 +1,6 @@
 // src/pages/Home.js
 import React, { useState, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import './Home.css';
 
 export default function Home() {
@@ -53,9 +54,8 @@ export default function Home() {
           Upload your FASTA file for vector embedding and processing with our ESM2-powered pipeline.
           We'll email you when your results are ready!
         </p>
-        <a href="/datasets" className="home-button">📂 Browse Datasets</a>
-        <a href="/results" className="home-button">📁 View Processed Results</a>
-
+        <Link to="/datasets" className="home-button">📂 Browse Datasets</Link>
+        <Link to="/results" className="home-button">📁 View Processed Results</Link>    
 
         <hr className="home-divider" />
 
