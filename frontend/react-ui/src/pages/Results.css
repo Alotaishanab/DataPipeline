@@ -1,0 +1,80 @@
+/* Results.css */
+body {
+    background-color: #111320;
+    margin: 0;
+    font-family: 'Segoe UI', sans-serif;
+  }
+  
+  .results-container {
+    min-height: 100vh;
+    padding: 60px 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: linear-gradient(135deg, #0a0f1c, #1c1f3f);
+    color: #e6e6e6;
+  }
+  
+  .results-card {
+    background-color: #1d1f2e;
+    padding: 40px;
+    border-radius: 30px;
+    max-width: 700px;
+    width: 100%;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4);
+    animation: slideIn 0.6s ease-out;
+  }
+  
+  .results-title {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 25px;
+    color: #ffffff;
+    text-align: center;
+  }
+  
+  .results-list {
+    list-style: none;
+    padding-left: 0;
+  }
+  
+  .results-list li {
+    margin: 12px 0;
+    padding: 12px;
+    background: #2a2e3f;
+    border-radius: 18px;
+    transition: background 0.2s ease;
+  }
+  
+  .results-list li:hover {
+    background: #3b4059;
+  }
+  
+  .results-list a {
+    color: #88f0ff;
+    text-decoration: none;
+    font-weight: 600;
+  }
+  
+  .results-list a:hover {
+    text-decoration: underline;
+  }
+  
+  .no-results {
+    text-align: center;
+    margin-top: 20px;
+    color: #999;
+    font-size: 1.1rem;
+  }
+  
+  @keyframes slideIn {
+    from {
+      transform: translateY(30px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0px);
+      opacity: 1;
+    }
+  }
+  

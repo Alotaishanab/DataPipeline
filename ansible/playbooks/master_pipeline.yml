@@ -9,6 +9,7 @@
 - import_playbook: install_celery.yml           # Set up Celery workers
 - import_playbook: install_redis.yml
 - import_playbook: install_webserver.yml   
+- import_playbook: install_react_ui.yml
 - import_playbook: download_and_split_dataset.yml  # Upload dataset into the NFS share (if needed)
 - import_playbook: monitoring_and_logging.yml     # Configure monitoring/logging
 #- import_playbook: run_esm_pipeline.yml

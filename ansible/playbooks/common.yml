@@ -72,16 +72,6 @@
         enabled: yes
       when: ansible_os_family == "RedHat"
 
-    - name: Allow HTTP and HTTPS in firewall
-      firewalld:
-        service: "{{ item }}"
-        state: enabled
-        permanent: yes
-      loop:
-        - http
-        - https
-      notify: reload firewalld
-
     - name: Ensure Nginx is installed on all machines
       package:
         name: nginx
@@ -116,20 +106,6 @@
         owner: "root"
         group: "root"
         mode: "0644"
-
-    - name: Add hadoop temporary directory
-      ansible.builtin.file:
-        path: /opt/hadoop_tmp
-        owner: almalinux
-        group: almalinux
-        state: directory
-
-    - name: Add HDFS directory
-      ansible.builtin.file:
-        path: /opt/hadoop_tmp/hdfs
-        owner: almalinux
-        group: almalinux
-        state: directory
 
   handlers:
     - name: reload firewalld

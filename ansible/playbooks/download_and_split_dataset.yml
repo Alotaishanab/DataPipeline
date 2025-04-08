@@ -3,7 +3,7 @@
   become: yes
 
   vars:
-    dataset_dir: "/mnt/data"
+    dataset_dir: "/data"
     chunk_dir: "{{ dataset_dir }}/chunks"
     dataset_url: "https://ftp.uniprot.org/pub/databases/uniprot/uniref/uniref50/uniref50.fasta.gz"
     chunk_count: 32

@@ -9,18 +9,6 @@
     results_path: /mnt/results
 
   tasks:
-
-    - name: Install Apache httpd
-      yum:
-        name: httpd
-        state: present
-
-    - name: Start and enable Apache httpd
-      systemd:
-        name: httpd
-        state: started
-        enabled: yes
-
     - name: Install Flask for Upload App
       pip:
         name:
@@ -73,6 +61,31 @@
           [Install]
           WantedBy=multi-user.target
       notify: restart_flask_upload_app
+
+
+    - name: Configure Apache reverse proxy for Flask
+      copy:
+        dest: /etc/httpd/conf.d/react_flask_proxy.conf
+        owner: root
+        group: root
+        mode: '0644'
+        content: |
+          <VirtualHost *:80>
+              ServerName your.hostname.com
+
+              ProxyPreserveHost On
+              ProxyPass /upload http://127.0.0.1:8080/upload
+              ProxyPassReverse /upload http://127.0.0.1:8080/upload
+
+              DocumentRoot /var/www/html
+              <Directory /var/www/html>
+                  Options Indexes FollowSymLinks
+                  AllowOverride All
+                  Require all granted
+              </Directory>
+          </VirtualHost>
+      notify: restart_httpd
+
 
     - name: Start and enable Flask Upload UI
       systemd:
