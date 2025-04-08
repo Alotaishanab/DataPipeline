@@ -1,7 +1,8 @@
-- name: Mount NFS shares on all clients (host and other workers)
+- name: Mount NFS shares on all clients (host and workers)
   hosts: all, localhost
   become: yes
   gather_facts: yes
+
   vars:
     nfs_server_ip: "{{ hostvars['worker1'].ansible_default_ipv4.address }}"
     mount_datasets: "/mnt/datasets"

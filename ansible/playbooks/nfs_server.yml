@@ -26,31 +26,38 @@
         comment: 'Anon NFS User'
         state: present
 
-    - name: Create export directories
-      file:
-        path: "{{ item }}"
-        state: directory
-        owner: nfsnobody
-        group: nfsnobody
-        mode: '0777'
+    - name: Bind mount /data subdirs to NFS export points
+      mount:
+        src: "/data/{{ item }}"
+        path: "/mnt/{{ item }}"
+        fstype: none
+        opts: bind
+        state: mounted
       loop:
-        - "{{ export_datasets }}"
-        - "{{ export_results }}"
+        - datasets
+        - results
 
-    - name: Add export rules with fsid
+    - name: Disable reverse DNS lookups to prevent exportfs hanging
+      lineinfile:
+        path: /etc/nfs.conf
+        regexp: '^#?reverse_lookup'
+        line: 'reverse_lookup = no'
+        create: yes
+
+    - name: Add export rules with fsid and subnet
       copy:
         dest: /etc/exports
         content: |
-          {{ export_datasets }} *(rw,sync,no_root_squash,fsid=1)
-          {{ export_results }} *(rw,sync,no_root_squash,fsid=2)
+          /mnt/datasets 10.0.0.0/24(rw,sync,no_root_squash,fsid=1,no_subtree_check,insecure)
+          /mnt/results 10.0.0.0/24(rw,sync,no_root_squash,fsid=2,no_subtree_check,insecure)
         owner: root
         group: root
         mode: '0644'
 
-    - name: Start and enable NFS
+    - name: Restart and enable NFS server
       systemd:
         name: nfs-server
-        state: started
+        state: restarted
         enabled: yes
 
     - name: Export shares

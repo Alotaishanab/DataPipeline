@@ -1,12 +1,9 @@
----
-# playbook 1: partition and mount disk on /data, and create dataset/results folders
 - name: Partition /dev/vdb and mount at /data on workers
   hosts: worker_inventory
-  become: yes
+  become: yes 
   gather_facts: yes
 
   vars:
-    clean_minio_data: false
     device_to_mount: "/dev/vdb"
     mount_point: "/data"
 
@@ -17,26 +14,6 @@
       changed_when: false
       failed_when: false
 
-    - name: Debug mount status
-      debug:
-        msg: "Mount {{ mount_point }} is_mounted={{ (mountpoint_result.rc == 0) }} ; forcibly wiping={{ clean_minio_data }}"
-
-    - name: Kill processes & forcibly unmount if we are wiping
-      block:
-        - name: Kill processes using /data
-          shell: fuser -km {{ mount_point }} || true
-          ignore_errors: true
-
-        - name: Lazy unmount /data
-          shell: "umount -l {{ mount_point }} || true"
-          ignore_errors: true
-      when: mountpoint_result.rc == 0 and clean_minio_data
-
-    - name: Wipe existing filesystem signatures from /dev/vdb if forcibly
-      command: "wipefs -a {{ device_to_mount }}"
-      when: clean_minio_data
-      ignore_errors: true
-
     - name: Partition /dev/vdb
       community.general.parted:
         device: "{{ device_to_mount }}"
@@ -46,14 +23,13 @@
         fs_type: xfs
         part_start: "0%"
         part_end: "100%"
-      register: partition_result
 
     - name: Create XFS filesystem
       community.general.filesystem:
         dev: "{{ device_to_mount }}1"
         fstype: xfs
         force: yes
-      when: (partition_result.changed or clean_minio_data) and (mountpoint_result.rc != 0 or clean_minio_data)
+      when: mountpoint_result.rc != 0
 
     - name: Create /data directory
       file:
