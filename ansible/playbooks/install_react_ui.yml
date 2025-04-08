@@ -32,3 +32,36 @@
         owner: apache
         group: apache
         mode: '0755'
+
+    - name: Ensure all files in web root are readable by Apache
+      file:
+        path: "{{ apache_web_root }}"
+        state: directory
+        recurse: yes
+        owner: apache
+        group: apache
+        mode: '0755'
+
+    - name: Set SELinux context for Apache (if enabled)
+      command: chcon -Rt httpd_sys_content_t {{ apache_web_root }}
+      when: ansible_selinux.status == "enabled"
+
+    - name: Create Apache config to serve from root
+      copy:
+        dest: /etc/httpd/conf.d/react_ui.conf
+        content: |
+          <Directory "{{ apache_web_root }}">
+              Options Indexes FollowSymLinks
+              AllowOverride None
+              Require all granted
+          </Directory>
+        owner: root
+        group: root
+        mode: '0644'
+      notify: restart_httpd
+
+  handlers:
+    - name: restart_httpd
+      systemd:
+        name: httpd
+        state: restarted
