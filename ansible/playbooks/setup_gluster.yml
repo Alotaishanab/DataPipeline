@@ -92,7 +92,8 @@
       args:
         warn: false
       register: volume_create
-      changed_when: "'Volume create:" in volume_create.stdout"
+      changed_when: "'Volume create:' in volume_create.stdout"
+
 
     - name: Start the GlusterFS volume
       shell: gluster volume start {{ volume_name }}
