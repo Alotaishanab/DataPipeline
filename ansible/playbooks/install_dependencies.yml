@@ -39,13 +39,4 @@
         state: started
         enabled: yes
 
-    - name: Ensure python3-firewall is installed (required for firewalld module)
-      dnf:
-        name: python3-firewall
-        state: present
 
-    - name: Reload firewalld to apply changes for httpd
-      service:
-        name: firewalld
-        state: reloaded
-      when: ansible_service_mgr == 'systemd'
