@@ -6,9 +6,12 @@ import subprocess
 app = Flask(__name__)
 
 UPLOAD_FOLDER = '/mnt/uploads'
+DATASETS_FOLDER = '/mnt/datasets'
+RESULTS_FOLDER = '/mnt/results'
 SPLIT_SCRIPT = './scripts/split_uploaded_fasta.py'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
 
 @app.route('/upload', methods=['POST'])
 def upload():
@@ -23,7 +26,6 @@ def upload():
         local_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         file.save(local_path)
 
-        # Optionally store the email for notification
         with open(f"{local_path}.email", "w") as f:
             f.write(email)
 
@@ -36,6 +38,30 @@ def upload():
             return jsonify({'status': 'success', 'message': f'File processed. We\'ll email you at {email}'}), 200
     else:
         return jsonify({'status': 'error', 'message': 'Only .fasta files are allowed'}), 400
+
+
+@app.route('/api/results', methods=['GET'])
+def list_results():
+    try:
+        files = sorted([
+            f for f in os.listdir(RESULTS_FOLDER)
+            if f.endswith('.json') and os.path.isfile(os.path.join(RESULTS_FOLDER, f))
+        ])
+        return jsonify({'files': files})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/datasets', methods=['GET'])
+def list_datasets():
+    try:
+        files = sorted([
+            f for f in os.listdir(DATASETS_FOLDER)
+            if os.path.isfile(os.path.join(DATASETS_FOLDER, f))
+        ])
+        return jsonify({'files': files})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 if __name__ == '__main__':
