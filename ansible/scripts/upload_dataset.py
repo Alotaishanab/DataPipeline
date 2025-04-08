@@ -11,7 +11,6 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 @app.route('/upload', methods=['POST'])
-@app.route('/upload', methods=['POST'])
 def upload():
     file = request.files.get('file')
     email = request.form.get('email')

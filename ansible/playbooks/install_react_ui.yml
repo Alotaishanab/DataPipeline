@@ -46,12 +46,42 @@
       command: chcon -Rt httpd_sys_content_t {{ apache_web_root }}
       when: ansible_selinux.status == "enabled"
 
-    - name: Create Apache config to serve from root
+    # 🔗 Link /mnt/results and /mnt/datasets to Apache web root
+    - name: Link /mnt/results to Apache web root
+      file:
+        src: /mnt/results
+        dest: "{{ apache_web_root }}/results"
+        state: link
+        force: yes
+
+    - name: Link /mnt/datasets to Apache web root
+      file:
+        src: /mnt/datasets
+        dest: "{{ apache_web_root }}/datasets"
+        state: link
+        force: yes
+
+    # 🌐 Apache config to allow directory listing for /results and /datasets
+    - name: Create Apache config for React UI + results + datasets
       copy:
         dest: /etc/httpd/conf.d/react_ui.conf
         content: |
           <Directory "{{ apache_web_root }}">
               Options Indexes FollowSymLinks
+              AllowOverride None
+              Require all granted
+          </Directory>
+
+          Alias /results /var/www/html/results
+          <Directory "/var/www/html/results">
+              Options +Indexes
+              AllowOverride None
+              Require all granted
+          </Directory>
+
+          Alias /datasets /var/www/html/datasets
+          <Directory "/var/www/html/datasets">
+              Options +Indexes
               AllowOverride None
               Require all granted
           </Directory>
