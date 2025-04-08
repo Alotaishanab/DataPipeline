@@ -5,6 +5,8 @@
   vars:
     react_app_dir: /home/almalinux/DataPipeline/frontend/react-ui
     apache_web_root: /var/www/html
+    nfs_results: /mnt/results
+    nfs_datasets: /mnt/datasets
 
   tasks:
     - name: Ensure Node.js and npm are installed
@@ -42,29 +44,40 @@
         group: apache
         mode: '0755'
 
-    - name: Set SELinux context for Apache web root (if enabled)
-      command: chcon -Rt httpd_sys_content_t {{ apache_web_root }}
-      when: ansible_selinux.status == "enabled"
+    - name: Ensure NFS mount points exist
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+      loop:
+        - "{{ nfs_results }}"
+        - "{{ nfs_datasets }}"
 
     - name: Link /mnt/results to Apache web root
       file:
-        src: /mnt/results
+        src: "{{ nfs_results }}"
         dest: "{{ apache_web_root }}/results"
         state: link
         force: true
 
     - name: Link /mnt/datasets to Apache web root
       file:
-        src: /mnt/datasets
+        src: "{{ nfs_datasets }}"
         dest: "{{ apache_web_root }}/datasets"
         state: link
         force: true
 
+    - name: Set SELinux context for Apache web root (if enabled)
+      command: chcon -Rt httpd_sys_content_t {{ apache_web_root }}
+      when: ansible_selinux.status == "enabled"
+
     - name: Set SELinux context for /mnt/results and /mnt/datasets
       command: chcon -Rt httpd_sys_content_t {{ item }}
       loop:
-        - /mnt/results
-        - /mnt/datasets
+        - "{{ nfs_results }}"
+        - "{{ nfs_datasets }}"
       when: ansible_selinux.status == "enabled"
 
     - name: Ensure Apache can read NFS (if enabled)
@@ -82,8 +95,8 @@
         group: apache
         mode: '0755'
       loop:
-        - /mnt/results
-        - /mnt/datasets
+        - "{{ nfs_results }}"
+        - "{{ nfs_datasets }}"
       ignore_errors: true
 
     - name: Create Apache config to serve all routes
@@ -91,6 +104,16 @@
         dest: /etc/httpd/conf.d/react_ui.conf
         content: |
           <Directory "{{ apache_web_root }}">
+              Options Indexes FollowSymLinks
+              AllowOverride None
+              Require all granted
+          </Directory>
+          <Directory "{{ apache_web_root }}/results">
+              Options Indexes FollowSymLinks
+              AllowOverride None
+              Require all granted
+          </Directory>
+          <Directory "{{ apache_web_root }}/datasets">
               Options Indexes FollowSymLinks
               AllowOverride None
               Require all granted
