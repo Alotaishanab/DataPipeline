@@ -28,7 +28,6 @@
         state: present
         update_cache: yes
 
-    # ------------------ Moved httpd tasks here ------------------ #
     - name: Install httpd
       yum:
         name: httpd
@@ -40,12 +39,10 @@
         state: started
         enabled: yes
 
-    - name: Open port 80 in firewalld for httpd
-      firewalld:
-        port: 80/tcp
-        permanent: yes
-        state: enabled
-      when: ansible_service_mgr == 'systemd'
+    - name: Ensure python3-firewall is installed (required for firewalld module)
+      dnf:
+        name: python3-firewall
+        state: present
 
     - name: Reload firewalld to apply changes for httpd
       service:
