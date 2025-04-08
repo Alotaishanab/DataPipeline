@@ -22,6 +22,7 @@
       loop:
         - "{{ mount_datasets }}"
         - "{{ mount_results }}"
+      when: inventory_hostname != 'worker1'  # skip making these mount points on worker1 if you like
 
     - name: Mount NFS datasets
       mount:
@@ -30,6 +31,7 @@
         fstype: nfs
         opts: defaults
         state: mounted
+      when: inventory_hostname != 'worker1'  # skip mounting on the server itself
 
     - name: Mount NFS results
       mount:
@@ -38,3 +40,4 @@
         fstype: nfs
         opts: defaults
         state: mounted
+      when: inventory_hostname != 'worker1'  # skip mounting on the server itself
