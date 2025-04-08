@@ -99,25 +99,51 @@
         - "{{ nfs_datasets }}"
       ignore_errors: true
 
-    - name: Create Apache config to serve all routes
+    - name: Ensure mod_rewrite is enabled (install mod_rewrite)
+      yum:
+        name: mod_httpd
+        state: present
+
+    - name: Ensure mod_rewrite is enabled in Apache
+      lineinfile:
+        path: /etc/httpd/conf/httpd.conf
+        regexp: '^#?LoadModule rewrite_module'
+        line: 'LoadModule rewrite_module modules/mod_rewrite.so'
+        state: present
+        backup: yes
+
+    - name: Restart Apache to apply rewrite module
+      systemd:
+        name: httpd
+        state: restarted
+
+    - name: Create Apache config to serve all routes through React
       copy:
         dest: /etc/httpd/conf.d/react_ui.conf
         content: |
           <Directory "{{ apache_web_root }}">
-              Options Indexes FollowSymLinks
+              Options -Indexes +FollowSymLinks
               AllowOverride None
               Require all granted
           </Directory>
+
           <Directory "{{ apache_web_root }}/results">
-              Options Indexes FollowSymLinks
-              AllowOverride None
+              Options -Indexes
               Require all granted
           </Directory>
+
           <Directory "{{ apache_web_root }}/datasets">
-              Options Indexes FollowSymLinks
-              AllowOverride None
+              Options -Indexes
               Require all granted
           </Directory>
+
+          <IfModule mod_rewrite.c>
+            RewriteEngine On
+            RewriteBase /
+            RewriteCond %{REQUEST_FILENAME} !-f
+            RewriteCond %{REQUEST_FILENAME} !-d
+            RewriteRule ^ /index.html [L]
+          </IfModule>
         owner: root
         group: root
         mode: '0644'
