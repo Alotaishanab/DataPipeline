@@ -13,6 +13,20 @@
         name: nfs-utils
         state: present
 
+
+    - name: Ensure 'nfsnobody' group exists
+      group:
+        name: nfsnobody
+        state: present
+
+    - name: Ensure 'nfsnobody' user exists
+      user:
+        name: nfsnobody
+        group: nfsnobody
+        shell: /sbin/nologin
+        comment: 'Anon NFS User'
+        state: present
+
     - name: Create export directories
       file:
         path: "{{ item }}"
