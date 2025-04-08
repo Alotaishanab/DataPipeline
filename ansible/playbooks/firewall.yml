@@ -31,6 +31,19 @@
         - 9001   # MinIO console
         - 9090   # Prometheus
         - 9100   # Node Exporter
+    
+
+    - name: Open NFS ports on worker1
+      firewalld:
+        port: "{{ item }}"
+        permanent: yes
+        state: enabled
+      loop:
+        - 2049/tcp
+        - 111/tcp
+        - 111/udp
+      when: ansible_hostname == 'worker1'
+
 
     - name: Allow HTTP and HTTPS in firewalld
       ansible.posix.firewalld:
