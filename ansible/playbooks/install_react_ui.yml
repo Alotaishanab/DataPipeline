@@ -6,7 +6,7 @@
     react_app_dir: /home/almalinux/DataPipeline/frontend/react-ui
     apache_web_root: /var/www/html
     nfs_results: /mnt/results
-    nfs_datasets: /mnt/datasets
+    nfs_datasets_chunks: /mnt/datasets/uni_chunks
 
   tasks:
     - name: Ensure Node.js and npm are installed
@@ -44,38 +44,23 @@
         group: apache
         mode: '0755'
 
-    - name: Ensure NFS mount points exist
+    - name: Ensure chunked dataset directory exists
       file:
-        path: "{{ item }}"
+        path: "{{ nfs_datasets_chunks }}"
         state: directory
         mode: '0755'
-      loop:
-        - "{{ nfs_results }}"
-        - "{{ nfs_datasets }}"
 
-    - name: Set NFS directory permissions
+    - name: Link /mnt/datasets/uni_chunks to Apache web root as /datasets
       file:
-        path: "{{ item }}"
-        recurse: yes
-        mode: '0755'
-        owner: nfsnobody
-        group: nfsnobody
-      loop:
-        - "{{ nfs_results }}"
-        - "{{ nfs_datasets }}"
-      ignore_errors: true
+        src: "{{ nfs_datasets_chunks }}"
+        dest: "{{ apache_web_root }}/datasets"
+        state: link
+        force: true
 
     - name: Link /mnt/results to Apache web root
       file:
         src: "{{ nfs_results }}"
         dest: "{{ apache_web_root }}/results"
-        state: link
-        force: true
-
-    - name: Link /mnt/datasets to Apache web root
-      file:
-        src: "{{ nfs_datasets }}"
-        dest: "{{ apache_web_root }}/datasets"
         state: link
         force: true
 
@@ -87,7 +72,7 @@
       command: chcon -Rt httpd_sys_content_t {{ item }}
       loop:
         - "{{ nfs_results }}"
-        - "{{ nfs_datasets }}"
+        - "{{ nfs_datasets_chunks }}"
       when: ansible_selinux.status == "enabled"
 
     - name: Ensure Apache can read NFS (if enabled)
@@ -104,7 +89,7 @@
         line: 'LoadModule rewrite_module modules/mod_rewrite.so'
         state: present
 
-    - name: Create Apache config to serve React and NFS results
+    - name: Create Apache config to serve React and NFS directories
       copy:
         dest: /etc/httpd/conf.d/react_ui.conf
         content: |
