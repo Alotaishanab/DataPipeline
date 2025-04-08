@@ -61,9 +61,10 @@
         state: latest
 
     - name: Ensure firewalld is installed on RedHat-based systems
-      package:
+      yum:
         name: firewalld
         state: present
+        disablerepo: glusterfs
       when: ansible_os_family == "RedHat"
 
     - name: Ensure firewalld is running and enabled on RedHat-based systems
