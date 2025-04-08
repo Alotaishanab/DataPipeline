@@ -53,8 +53,9 @@ export default function Home() {
           Upload your FASTA file for vector embedding and processing with our ESM2-powered pipeline.
           We'll email you when your results are ready!
         </p>
-
+        <a href="/datasets" className="home-button">📂 Browse Datasets</a>
         <a href="/results" className="home-button">📁 View Processed Results</a>
+
 
         <hr className="home-divider" />
 
