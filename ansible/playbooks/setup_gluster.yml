@@ -8,6 +8,19 @@
     mount_point: "/data"
     brick_dir: "/data/gluster/brick1"
   tasks:
+    - name: Install epel-release for additional packages
+      yum:
+        name: epel-release
+        state: present
+
+    - name: Add GlusterFS official repository
+      yum_repository:
+        name: glusterfs
+        description: GlusterFS Official Repository for AlmaLinux
+        baseurl: "https://download.gluster.org/pub/gluster/glusterfs/7/LATEST/EPEL.repo/epel-8Server/"
+        enabled: yes
+        gpgcheck: no
+
     - name: Install glusterfs-server package
       yum:
         name: glusterfs-server
@@ -55,15 +68,6 @@
         state: started
         enabled: yes
 
-    # (Optional) Adjust firewall rules if needed
-    #- name: Open necessary GlusterFS ports in firewall
-    #  firewalld:
-    #    service: glusterfs
-    #    permanent: yes
-    #    state: enabled
-    #  notify:
-    #    - Reload firewalld
-
 # Play 2: Create and Start the Distributed GlusterFS Volume
 - name: Configure GlusterFS cluster and create volume
   hosts: worker1
@@ -93,7 +97,6 @@
         warn: false
       register: volume_create
       changed_when: "'Volume create:' in volume_create.stdout"
-
 
     - name: Start the GlusterFS volume
       shell: gluster volume start {{ volume_name }}
