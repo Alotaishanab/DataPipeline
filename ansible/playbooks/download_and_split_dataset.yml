@@ -1,14 +1,13 @@
-- name: Download and Split UniRef50 on Worker1, then copy chunks to NFS share
+- name: Download and Split UniRef50 on Worker1, then copy chunks to Storage Pool
   hosts: worker1
   become: yes
-
   vars:
     dataset_dir: "/data"
     chunk_dir: "{{ dataset_dir }}/chunks"
     dataset_url: "https://ftp.uniprot.org/pub/databases/uniprot/uniref/uniref50/uniref50.fasta.gz"
     chunk_count: 32
-    nfs_target: "/mnt/datasets/uni_chunks"
-
+    # Change the target upload location to point to the storage pool mount.
+    storage_pool_target: "/mnt/data_volume/uni_chunks"
   tasks:
     - name: Install required packages (wget and pigz)
       ansible.builtin.package:
@@ -27,7 +26,6 @@
         - "{{ dataset_dir }}"
         - "{{ chunk_dir }}"
 
-
     - name: Download UniRef50 FASTA (compressed)
       ansible.builtin.command: >
         wget -O {{ dataset_dir }}/uniref50.fasta.gz {{ dataset_url }}
@@ -41,15 +39,13 @@
         removes: "{{ dataset_dir }}/uniref50.fasta.gz"
         creates: "{{ dataset_dir }}/uniref50.fasta"
 
-
     - name: Count how many sequences are in the FASTA
       ansible.builtin.shell: "grep '^>' {{ dataset_dir }}/uniref50.fasta | wc -l"
       register: seq_count
 
     - name: Calculate number of sequences per chunk
-      set_fact:
+      ansible.builtin.set_fact:
         chunk_size: "{{ (seq_count.stdout|int / chunk_count) | round(0, 'ceil') }}"
-
 
     - name: Split the FASTA by sequence using awk
       ansible.builtin.shell: >
@@ -73,10 +69,9 @@
       loop_control:
         label: "{{ item.path }}"
 
-
-    - name: Ensure target NFS directory exists
+    - name: Ensure target Storage Pool directory exists
       ansible.builtin.file:
-        path: "{{ nfs_target }}"
+        path: "{{ storage_pool_target }}"
         state: directory
         mode: '0755'
 
@@ -86,8 +81,8 @@
         patterns: "chunk_*.fasta.gz"
       register: gz_chunk_files
 
-    - name: Copy each compressed chunk to the NFS share
-      ansible.builtin.command: cp {{ item.path }} {{ nfs_target }}/{{ item.path | basename }}
+    - name: Copy each compressed chunk to the Storage Pool
+      ansible.builtin.command: cp {{ item.path }} {{ storage_pool_target }}/{{ item.path | basename }}
       loop: "{{ gz_chunk_files.files }}"
       loop_control:
         label: "{{ item.path }}"

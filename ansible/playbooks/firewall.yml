@@ -31,26 +31,25 @@
         - 9001   # MinIO console
         - 9090   # Prometheus
         - 9100   # Node Exporter
-    
 
     - name: Open NFS ports on worker1
-      firewalld:
+      ansible.posix.firewalld:
         port: "{{ item }}"
         permanent: yes
         state: enabled
+        immediate: true
       loop:
         - 2049/tcp
         - 111/tcp
         - 111/udp
       when: ansible_hostname == 'worker1'
 
-
     - name: Allow HTTP and HTTPS in firewalld
       ansible.posix.firewalld:
         service: "{{ item }}"
         permanent: yes
         state: enabled
-        immediate: yes
+        immediate: true
       loop:
         - http
         - https
@@ -58,9 +57,9 @@
     - name: Remove ephemeral port range from firewalld
       ansible.posix.firewalld:
         port: "32768-61000/tcp"
-        permanent: yes
+        permanent: true
         state: disabled
-        immediate: yes
+        immediate: true
 
     - name: Reload firewalld to apply changes
       ansible.builtin.service:
@@ -108,5 +107,41 @@
 
     - name: Reload UFW
       ansible.builtin.command: ufw reload
+      when: ufw_installed.rc == 0
+      ignore_errors: true
+
+    - name: Open GlusterFS management port 24007/tcp using firewalld
+      ansible.posix.firewalld:
+        port: "24007/tcp"
+        permanent: yes
+        state: enabled
+        immediate: yes
+
+    - name: Open GlusterFS management port 24008/tcp using firewalld
+      ansible.posix.firewalld:
+        port: "24008/tcp"
+        permanent: yes
+        state: enabled
+        immediate: yes
+
+    - name: Open GlusterFS brick port range 49152-49251/tcp using firewalld
+      ansible.posix.firewalld:
+        port: "49152-49251/tcp"
+        permanent: yes
+        state: enabled
+        immediate: yes
+
+    - name: Allow GlusterFS management port 24007/tcp in UFW
+      ansible.builtin.command: ufw allow 24007/tcp
+      when: ufw_installed.rc == 0
+      ignore_errors: true
+
+    - name: Allow GlusterFS management port 24008/tcp in UFW
+      ansible.builtin.command: ufw allow 24008/tcp
+      when: ufw_installed.rc == 0
+      ignore_errors: true
+
+    - name: Allow GlusterFS brick port range in UFW (49152:49251/tcp)
+      ansible.builtin.command: ufw allow 49152:49251/tcp
       when: ufw_installed.rc == 0
       ignore_errors: true
