@@ -14,9 +14,9 @@
         name: epel-release
         state: present
 
-    - name: Enable GlusterFS module stream on AlmaLinux
-      command: dnf module enable glusterfs:latest -y
-
+    - name: Enable GlusterFS module stream on AlmaLinux (glusterfs:7)
+      command: dnf module enable glusterfs:7 -y
+      # Removing warn since the command module does not support it
 
     - name: Install glusterfs-server package
       yum:
