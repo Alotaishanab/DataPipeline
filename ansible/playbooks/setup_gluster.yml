@@ -168,3 +168,29 @@
         fstype: glusterfs
         opts: defaults
         state: mounted
+
+
+# Play 4: Mount GlusterFS volume on all workers
+- name: Mount GlusterFS volume on worker nodes
+  hosts: worker_inventory
+  become: yes
+  gather_facts: no
+  vars:
+    mount_dir: "/mnt/data_volume"
+    volume_name: "data_volume"
+    gluster_server: "{{ hostvars[groups['worker_inventory'][0]].ansible_host }}"
+
+  tasks:
+    - name: Ensure mount point exists
+      file:
+        path: "{{ mount_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Mount GlusterFS volume
+      mount:
+        path: "{{ mount_dir }}"
+        src: "{{ gluster_server }}:{{ volume_name }}"
+        fstype: glusterfs
+        opts: defaults
+        state: mounted
