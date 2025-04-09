@@ -18,15 +18,23 @@
         name: "workernode{{ groups['worker_inventory'].index(inventory_hostname) + 1 }}"
         use: systemd
 
-- name: Configure /etc/hosts across all nodes
-  hosts: all
+- name: Set mgmt IP and configure /etc/hosts across all nodes
+  hosts: all, localhost
   become: true
   tasks:
-    - name: Generate dynamic /etc/hosts entries
-      template:
-        src: hosts.j2
+    - name: Get external IP of mgmt node (localhost)
+      ansible.builtin.set_fact:
+        mgmt_ip: "{{ lookup('pipe', \"hostname -I | awk '{print $1}'\") }}"
+      run_once: true
+      delegate_to: localhost
+
+    - name: Deploy /etc/hosts template
+      ansible.builtin.template:
+        src: templates/hosts.j2
         dest: /etc/hosts
         owner: root
         group: root
         mode: '0644'
+
+
 

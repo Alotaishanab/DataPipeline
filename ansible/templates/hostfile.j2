@@ -4,7 +4,7 @@
 {% endfor %}
 
 # Management node
-{{ hostvars['localhost'].ansible_default_ipv4.address }} mgmtnode
+{{ mgmt_ip }} mgmtnode
 
 # Standard localhost
 127.0.0.1 localhost
