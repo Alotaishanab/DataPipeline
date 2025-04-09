@@ -2,13 +2,12 @@
   hosts: worker_inventory
   become: yes
   become_user: almalinux
-
   vars:
     venv_path: "/opt/esm/venv"
     controller_dir: "/home/almalinux/esm_pipeline"
     controller_remote_path: "{{ controller_dir }}/controller.py"
     celery_worker_remote_path: "{{ controller_dir }}/celery_worker.py"
-
+    chunks_dir: "/mnt/data_volume/datasets/uni_chunks"
   tasks:
     - name: Ensure pipeline directory exists
       file:
@@ -33,6 +32,13 @@
         owner: almalinux
         group: almalinux
         mode: '0755'
+
+    - name: Ensure GlusterFS chunk directory is writable
+      file:
+        path: "{{ chunks_dir }}"
+        owner: almalinux
+        group: almalinux
+        mode: '0775'
 
     - name: Run controller.py in ESM virtualenv (auto-discovers Gluster chunk)
       shell: |

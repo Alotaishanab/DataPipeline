@@ -26,11 +26,17 @@
         - "{{ dataset_dir }}"
         - "{{ chunk_dir }}"
 
+    - name: Check if UniRef50 FASTA dataset is already present (decompressed)
+      ansible.builtin.stat:
+        path: "{{ dataset_dir }}/uniref50.fasta"
+      register: uniref_dataset
+
     - name: Download UniRef50 FASTA (compressed)
       ansible.builtin.command: >
         wget -O {{ dataset_dir }}/uniref50.fasta.gz {{ dataset_url }}
       args:
         creates: "{{ dataset_dir }}/uniref50.fasta.gz"
+      when: not uniref_dataset.stat.exists
 
     - name: Decompress the FASTA using pigz
       ansible.builtin.command: >
@@ -38,6 +44,7 @@
       args:
         removes: "{{ dataset_dir }}/uniref50.fasta.gz"
         creates: "{{ dataset_dir }}/uniref50.fasta"
+      when: not uniref_dataset.stat.exists
 
     - name: Count how many sequences are in the FASTA
       ansible.builtin.shell: "grep '^>' {{ dataset_dir }}/uniref50.fasta | wc -l"
@@ -46,6 +53,11 @@
     - name: Calculate number of sequences per chunk
       ansible.builtin.set_fact:
         chunk_size: "{{ (seq_count.stdout|int / chunk_count) | round(0, 'ceil') }}"
+
+    - name: Check if splitting has already been done
+      ansible.builtin.stat:
+        path: "{{ chunk_dir }}/chunk_001.fasta"
+      register: chunk_check
 
     - name: Split the FASTA by sequence using awk
       ansible.builtin.shell: >
@@ -56,6 +68,7 @@
         ' {{ dataset_dir }}/uniref50.fasta
       args:
         creates: "{{ chunk_dir }}/chunk_001.fasta"
+      when: not chunk_check.stat.exists
 
     - name: Find created chunk files
       ansible.builtin.find:
