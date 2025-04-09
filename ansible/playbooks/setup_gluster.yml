@@ -14,10 +14,15 @@
         name: epel-release
         state: present
 
-    - name: Enable GlusterFS module stream on AlmaLinux (only if version < 9)
-      command: dnf module enable glusterfs:7 -y
-      when: (ansible_distribution_major_version | int) < 9
-      # Note: On AlmaLinux 9, this module is not available and this task is skipped.
+    - name: Add GlusterFS upstream repo for AlmaLinux 9
+      yum_repository:
+        name: glusterfs-rhel9
+        description: GlusterFS RHEL 9 Repo
+        baseurl: https://download.gluster.org/pub/gluster/glusterfs/11/rhel/9/x86_64/
+        enabled: yes
+        gpgcheck: no
+      when: ansible_distribution_major_version | int == 9
+
 
     - name: Install glusterfs-server package
       yum:
