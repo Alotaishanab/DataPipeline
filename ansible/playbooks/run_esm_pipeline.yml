@@ -18,9 +18,9 @@
         group: almalinux
         mode: '0755'
 
-    - name: Copy controller.py to worker
+    - name: Copy updated controller.py (Gluster version) to worker
       copy:
-        src: "../scripts/controller.py"
+        src: "../scripts/controller_gluster.py"
         dest: "{{ controller_remote_path }}"
         owner: almalinux
         group: almalinux
@@ -34,7 +34,7 @@
         group: almalinux
         mode: '0755'
 
-    - name: Run controller.py in ESM virtualenv (auto-discovers chunk)
+    - name: Run controller.py in ESM virtualenv (auto-discovers Gluster chunk)
       shell: |
         source {{ venv_path }}/bin/activate
         python {{ controller_remote_path }}
