@@ -21,7 +21,6 @@ def get_terraform_outputs():
 def get_local_ip():
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        # This doesn't need to connect, just to get routing IP
         s.connect(("8.8.8.8", 80))
         ip = s.getsockname()[0]
         s.close()
@@ -33,7 +32,7 @@ def generate_static_inventory(outputs, mgmt_ip):
     worker_inventory = outputs.get("worker_inventory", {}).get("value", {})
     if not worker_inventory:
         sys.exit("Error: No worker_inventory found in Terraform outputs.")
-    
+
     inventory = {
         "all": {
             "children": {
@@ -43,18 +42,19 @@ def generate_static_inventory(outputs, mgmt_ip):
                 "mgmt": {
                     "hosts": {
                         "localhost": {
-                            "ansible_host": mgmt_ip
+                            "ansible_connection": "local"
                         }
                     }
                 }
             }
         }
     }
+
     return inventory
 
 if __name__ == "__main__":
     outputs = get_terraform_outputs()
-    mgmt_ip = get_local_ip()
+    mgmt_ip = get_local_ip()  # Still fetched, in case you want to log or use elsewhere
     inv = generate_static_inventory(outputs, mgmt_ip)
     inventory_file = "/home/almalinux/DataPipeline/ansible/inventory/inventory.json"
     os.makedirs(os.path.dirname(inventory_file), exist_ok=True)
