@@ -1,4 +1,5 @@
-# Play 1: Install GlusterFS server and prepare Gluster brick directories
+---
+# Play 1: Prepare Worker Nodes for GlusterFS
 - name: Prepare Worker Nodes for GlusterFS
   hosts: worker_inventory
   become: yes
@@ -11,7 +12,7 @@
       yum:
         name:
           - epel-release
-          - policycoreutils-python-utils
+          - firewalld
         state: present
 
     - name: Add CentOS Gluster 11 repository
@@ -20,7 +21,7 @@
         state: present
       when: ansible_distribution_major_version | int == 9
 
-    - name: Disable centos-gluster11 globally after install
+    - name: Disable centos-gluster11 repo (post-install)
       command: dnf config-manager --set-disabled centos-gluster11
       changed_when: false
       when: ansible_distribution_major_version | int == 9
@@ -38,9 +39,10 @@
         enabled: yes
 
     - name: Set SELinux boolean for GlusterFS
-      command: setsebool -P virt_use_fusefs on
-      when: ansible_selinux.status == "enabled"
-      ignore_errors: true
+      seboolean:
+        name: use_nfs_home_dirs
+        state: yes
+        persistent: yes
 
     - name: Open GlusterFS ports in firewall
       firewalld:
@@ -65,8 +67,7 @@
         state: directory
         mode: '0755'
 
-
-# Play 2: Configure GlusterFS volume from primary node
+# Play 2: Configure GlusterFS volume from worker1
 - name: Configure GlusterFS volume
   hosts: worker1
   become: yes
@@ -88,8 +89,8 @@
         seconds: 10
 
     - name: Re-check volume existence with full status
-      shell: "gluster volume status {{ volume_name }}"
-      register: volume_status
+      shell: "gluster volume info {{ volume_name }}"
+      register: volume_check
       changed_when: false
       failed_when: false
 
@@ -100,17 +101,15 @@
             | map('extract', hostvars, 'ansible_host')
             | map('regex_replace', '$', ':' ~ brick_path)
             | join(' ') }} force
-      when: volume_status.rc != 0
+      when: volume_check.rc != 0
       register: volume_create
-      changed_when: "'Volume' in volume_create.stdout"
-      ignore_errors: false
+      changed_when: "'Volume create' in volume_create.stdout"
 
     - name: Start GlusterFS volume
       shell: gluster volume start {{ volume_name }}
-      when: volume_status.rc != 0 or (volume_create is defined and volume_create.changed)
+      when: volume_check.rc != 0 or (volume_create is defined and volume_create.changed)
 
-
-# Play 3: Mount GlusterFS volume on localhost
+# Play 3: Mount GlusterFS volume on mgmt node
 - name: Mount GlusterFS volume on mgmt node
   hosts: localhost
   become: yes
@@ -121,6 +120,12 @@
     gluster_server: "{{ hostvars[groups['worker_inventory'][0]].ansible_host }}"
 
   tasks:
+    - name: Add CentOS Gluster 11 repository (if needed)
+      yum:
+        name: centos-release-gluster11
+        state: present
+      when: ansible_distribution_major_version | int == 9
+
     - name: Install GlusterFS client
       yum:
         name: glusterfs-fuse
@@ -145,16 +150,25 @@
         state: directory
         mode: '0755'
 
-    - name: Mount GlusterFS volume
-      shell: mount -t glusterfs {{ gluster_server }}:{{ volume_name }} {{ mount_dir }}
-      register: mount_output
+    - name: Attempt to mount GlusterFS volume (debug)
+      shell: |
+        set -x
+        timeout 15 mount -v -t glusterfs {{ gluster_server }}:{{ volume_name }} {{ mount_dir }}
+      register: mount_debug
       ignore_errors: true
 
-    - name: Debug mount result
+    - name: Print mount debug output
       debug:
-        var: mount_output
+        msg: |
+          STDOUT:
+          {{ mount_debug.stdout }}
 
-    - name: Fail if mount did not work
+          STDERR:
+          {{ mount_debug.stderr }}
+
+    - name: Ensure mount succeeded
       fail:
-        msg: "Mount failed! Please check GlusterFS health, firewalls, and SELinux settings."
-      when: mount_output.rc != 0
+        msg: >
+          Mount failed with RC={{ mount_debug.rc }}.
+          Check GlusterFS peer status, firewall, SELinux, and volume health.
+      when: mount_debug.rc != 0
