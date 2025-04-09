@@ -42,7 +42,8 @@ def generate_static_inventory(outputs, mgmt_ip):
                 "mgmt": {
                     "hosts": {
                         "localhost": {
-                            "ansible_connection": "local"
+                            "ansible_connection": "local",
+                            "ansible_host": mgmt_ip  # ✅ Needed for templates
                         }
                     }
                 }
@@ -54,7 +55,7 @@ def generate_static_inventory(outputs, mgmt_ip):
 
 if __name__ == "__main__":
     outputs = get_terraform_outputs()
-    mgmt_ip = get_local_ip()  # Still fetched, in case you want to log or use elsewhere
+    mgmt_ip = get_local_ip()
     inv = generate_static_inventory(outputs, mgmt_ip)
     inventory_file = "/home/almalinux/DataPipeline/ansible/inventory/inventory.json"
     os.makedirs(os.path.dirname(inventory_file), exist_ok=True)
