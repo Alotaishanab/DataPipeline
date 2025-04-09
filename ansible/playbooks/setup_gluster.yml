@@ -121,12 +121,22 @@
         state: present
         enablerepo: centos-gluster11
 
-    - name: Ensure mount point is a directory
-      ansible.builtin.file:
+    - name: Check if mount point is valid directory
+      stat:
+        path: "{{ mount_dir }}"
+      register: mount_stat
+
+    - name: Remove invalid file at mount point path
+      file:
+        path: "{{ mount_dir }}"
+        state: absent
+      when: mount_stat.stat.exists and not mount_stat.stat.isdir
+
+    - name: Create mount point directory
+      file:
         path: "{{ mount_dir }}"
         state: directory
         mode: '0755'
-
 
     - name: Mount GlusterFS volume
       mount:
