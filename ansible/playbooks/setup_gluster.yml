@@ -58,6 +58,7 @@
         state: directory
         mode: '0755'
 
+
 # Play 2: Configure GlusterFS volume from primary node
 - name: Configure GlusterFS volume
   hosts: worker1
@@ -75,11 +76,12 @@
         enabled: yes
 
     - name: Wait until glusterd is responsive
-      shell: gluster peer status
-      register: glusterd_ready
+      shell: "gluster peer status"
+      register: peer_status
       retries: 5
-      delay: 4
-      until: glusterd_ready.rc == 0
+      delay: 5
+      until: peer_status.rc == 0
+      ignore_errors: true
 
     - name: Probe GlusterFS peers using IPs (avoid hostname issues)
       shell: "gluster peer probe {{ hostvars[item].ansible_host }}"
@@ -112,6 +114,7 @@
     - name: Ensure GlusterFS volume is started
       shell: gluster volume start {{ volume_name }}
       when: volume_check.rc != 0 or (volume_create is defined and volume_create.changed)
+
 
 # Play 3: Mount GlusterFS volume on localhost (mgmt node)
 - name: Mount GlusterFS volume on localhost
@@ -154,10 +157,18 @@
         state: directory
         mode: '0755'
 
-    - name: Mount GlusterFS volume
-      mount:
-        path: "{{ mount_dir }}"
-        src: "{{ gluster_server }}:{{ volume_name }}"
-        fstype: glusterfs
-        opts: defaults
-        state: mounted
+    - name: Attempt to mount GlusterFS volume manually for debug
+      shell: |
+        set -x
+        mount -t glusterfs {{ gluster_server }}:{{ volume_name }} {{ mount_dir }}
+      register: mount_debug
+      ignore_errors: true
+
+    - name: Print mount debug output
+      debug:
+        var: mount_debug
+
+    - name: Ensure mount succeeded
+      fail:
+        msg: "Mount failed — check GlusterFS volume and network settings."
+      when: mount_debug.rc != 0
