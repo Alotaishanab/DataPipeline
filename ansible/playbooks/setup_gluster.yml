@@ -1,4 +1,3 @@
----
 # Play 1: Prepare Worker Nodes for GlusterFS
 - name: Prepare Worker Nodes for GlusterFS
   hosts: worker_inventory
@@ -67,6 +66,7 @@
         state: directory
         mode: '0755'
 
+
 # Play 2: Configure GlusterFS volume from worker1
 - name: Configure GlusterFS volume
   hosts: worker1
@@ -88,13 +88,13 @@
       pause:
         seconds: 10
 
-    - name: Re-check volume existence with full status
+    - name: Check if GlusterFS volume exists
       shell: "gluster volume info {{ volume_name }}"
       register: volume_check
       changed_when: false
       failed_when: false
 
-    - name: Create GlusterFS volume if needed
+    - name: Create GlusterFS distributed volume (if not exists)
       shell: >
         gluster volume create {{ volume_name }}
         {{ groups['worker_inventory']
@@ -105,9 +105,10 @@
       register: volume_create
       changed_when: "'Volume create' in volume_create.stdout"
 
-    - name: Start GlusterFS volume
+    - name: Ensure GlusterFS volume is started
       shell: gluster volume start {{ volume_name }}
       when: volume_check.rc != 0 or (volume_create is defined and volume_create.changed)
+
 
 # Play 3: Mount GlusterFS volume on mgmt node
 - name: Mount GlusterFS volume on mgmt node
@@ -150,23 +151,10 @@
         state: directory
         mode: '0755'
 
-    - name: Attempt to mount GlusterFS volume (debug)
-      shell: |
-        set -x
-        timeout 15 mount -t glusterfs {{ gluster_server }}:{{ volume_name }} {{ mount_dir }}
-      register: mount_debug
-      ignore_errors: true
-
-    - name: Print mount debug output
-      debug:
-        msg: |
-          STDOUT:
-          {{ mount_debug.stdout }}
-          STDERR:
-          {{ mount_debug.stderr }}
-
-    - name: Ensure mount succeeded
-      fail:
-        msg: "Mount failed — check GlusterFS volume and network settings."
-      when: mount_debug.rc != 0
-
+    - name: Mount GlusterFS volume
+      mount:
+        path: "{{ mount_dir }}"
+        src: "{{ gluster_server }}:{{ volume_name }}"
+        fstype: glusterfs
+        opts: defaults
+        state: mounted
