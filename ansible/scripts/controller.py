@@ -1,26 +1,25 @@
-# Updated controller.py to work with NFS
-
+#!/usr/bin/env python3
 import os
 import glob
 import json
 import time
+import subprocess
 from celery.result import AsyncResult
 from celery_worker import infer_fasta_content
 
-# Updated paths to use NFS
-CHUNK_DIR = "/mnt/datasets/uni_chunks"
-OUTPUT_DIR = "/mnt/results/esm2_celery_outputs"
+# Updated GlusterFS paths
+CHUNK_DIR = "/mnt/data_volume/datasets/uni_chunks"
+OUTPUT_DIR = "/mnt/data_volume/results/esm2_celery_outputs"
 
-# Discover .fasta.gz file in CHUNK_DIR
-fasta_files = glob.glob(os.path.join(CHUNK_DIR, "*.fasta.gz"))
-if len(fasta_files) != 1:
-    raise RuntimeError(f"❌ Expected 1 FASTA file in {CHUNK_DIR}, found: {len(fasta_files)}")
+# Optional: Automatically find the latest .fasta.gz chunk
+fasta_files = sorted(glob.glob(os.path.join(CHUNK_DIR, "*.fasta.gz")), key=os.path.getmtime, reverse=True)
+if not fasta_files:
+    raise RuntimeError(f"❌ No FASTA files found in {CHUNK_DIR}")
 
 chunk_path = fasta_files[0]
 print(f"📦 Found chunk: {chunk_path}")
 
-# Decompress (in-place)
-import subprocess
+# Decompress .fasta.gz in-place
 subprocess.run(["pigz", "-d", "-f", chunk_path])
 decompressed_path = chunk_path[:-3]  # remove .gz
 
@@ -36,7 +35,7 @@ print(f"🚀 Submitted {os.path.basename(decompressed_path)} (task_id={task.id})
 result = AsyncResult(task.id)
 result.wait()
 
-# Save result to NFS result directory
+# Save result to GlusterFS results dir
 if result.successful():
     data = result.get()
     output_filename = os.path.basename(decompressed_path).replace(".fasta", ".json")

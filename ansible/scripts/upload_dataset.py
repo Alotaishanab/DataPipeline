@@ -5,10 +5,12 @@ import subprocess
 
 app = Flask(__name__)
 
-UPLOAD_FOLDER = '/mnt/uploads'
-DATASETS_FOLDER = '/mnt/datasets/uni_chunks' 
-RESULTS_FOLDER = '/mnt/results'
+# Updated paths to reflect GlusterFS mount
+UPLOAD_FOLDER = '/mnt/data_volume/uploads'
+DATASETS_FOLDER = '/mnt/data_volume/datasets/uni_chunks'
+RESULTS_FOLDER = '/mnt/data_volume/results'
 SPLIT_SCRIPT = './scripts/split_uploaded_fasta.py'
+
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
@@ -38,7 +40,6 @@ def upload():
     else:
         return jsonify({'status': 'error', 'message': 'Only .fasta files are allowed'}), 400
 
-
 @app.route('/api/results', methods=['GET'])
 def list_results():
     try:
@@ -50,7 +51,6 @@ def list_results():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-
 @app.route('/api/datasets', methods=['GET'])
 def list_datasets():
     try:
@@ -61,7 +61,6 @@ def list_datasets():
         return jsonify({'files': files})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080)
