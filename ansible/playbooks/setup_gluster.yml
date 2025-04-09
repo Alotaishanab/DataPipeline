@@ -64,10 +64,12 @@
         gluster volume create {{ volume_name }}
         {{ groups['worker_inventory']
             | map('extract', hostvars, 'ansible_host')
-            | map('regex_replace', '(.*)', '\\1:' ~ brick_path)
+            | map('regex_replace', '^', '') 
+            | map('regex_replace', '$', ':' ~ brick_path) 
             | join(' ') }} force
       register: volume_create
       changed_when: "'Volume create' in volume_create.stdout"
+
 
     - name: Start the GlusterFS volume
       shell: gluster volume start {{ volume_name }}
