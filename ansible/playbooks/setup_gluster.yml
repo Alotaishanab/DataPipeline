@@ -17,11 +17,13 @@
     - name: Add GlusterFS upstream repo for AlmaLinux 9
       yum_repository:
         name: glusterfs-rhel9
-        description: GlusterFS RHEL 9 Repo
-        baseurl: https://download.gluster.org/pub/gluster/glusterfs/11/rhel/9/x86_64/
+        description: GlusterFS v11 for RHEL 9
+        baseurl: https://download.gluster.org/pub/gluster/glusterfs/11/LATEST/EPEL-9/x86_64/
         enabled: yes
-        gpgcheck: no
+        gpgcheck: yes
+        gpgkey: https://download.gluster.org/pub/gluster/glusterfs/11/rsa.pub
       when: ansible_distribution_major_version | int == 9
+
 
 
     - name: Install glusterfs-server package

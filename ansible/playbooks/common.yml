@@ -3,11 +3,14 @@
   hosts: all, localhost
   become: yes
   tasks:
-    - name: Remove any glusterfs repository if present
-      yum_repository:
-        name: glusterfs
+    - name: Remove any old glusterfs repo (if present)
+      ansible.builtin.file:
+        path: /etc/yum.repos.d/glusterfs.repo
         state: absent
-      when: ansible_os_family == "RedHat"
+      when:
+        - ansible_os_family == "RedHat"
+        - ansible_distribution_major_version | int < 9  # Only old GlusterFS used this
+
 
     - name: Install EPEL repository on RedHat-based systems
       yum:
