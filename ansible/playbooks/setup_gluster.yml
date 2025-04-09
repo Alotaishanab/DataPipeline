@@ -42,6 +42,7 @@
         mode: '0755'
 
 # Play 2: Configure GlusterFS volume from master node
+# Play 2: Configure GlusterFS volume from master node
 - name: Configure GlusterFS volume
   hosts: worker1
   become: yes
@@ -50,9 +51,11 @@
     volume_name: "data_volume"
     brick_path: "/data/gluster/brick1"
   tasks:
-    - name: Probe GlusterFS peers
-      shell: "gluster peer probe {{ item }}"
+    - name: Probe GlusterFS peers using IPs (avoids hostname issues)
+      shell: "gluster peer probe {{ hostvars[item].ansible_host }}"
       loop: "{{ groups['worker_inventory'] | difference(['worker1']) }}"
+      loop_control:
+        label: "{{ hostvars[item].ansible_host }}"
       ignore_errors: true
 
     - name: Wait for peer connections
@@ -70,10 +73,10 @@
       register: volume_create
       changed_when: "'Volume create' in volume_create.stdout"
 
-
     - name: Start the GlusterFS volume
       shell: gluster volume start {{ volume_name }}
       when: "'Volume create' in volume_create.stdout"
+
 
 # Play 3: Mount GlusterFS volume on localhost (host only, not workers)
 - name: Mount GlusterFS volume on localhost
