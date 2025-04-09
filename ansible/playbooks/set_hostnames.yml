@@ -17,3 +17,16 @@
       ansible.builtin.hostname:
         name: "workernode{{ groups['worker_inventory'].index(inventory_hostname) + 1 }}"
         use: systemd
+
+- name: Configure /etc/hosts across all nodes
+  hosts: all
+  become: true
+  tasks:
+    - name: Generate dynamic /etc/hosts entries
+      template:
+        src: hosts.j2
+        dest: /etc/hosts
+        owner: root
+        group: root
+        mode: '0644'
+

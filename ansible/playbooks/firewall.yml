@@ -61,11 +61,6 @@
         state: disabled
         immediate: true
 
-    - name: Reload firewalld to apply changes
-      ansible.builtin.service:
-        name: firewalld
-        state: reloaded
-
     # --- UFW Section ---
     - name: Check if UFW is installed
       ansible.builtin.command: which ufw
@@ -145,3 +140,8 @@
       ansible.builtin.command: ufw allow 49152:49251/tcp
       when: ufw_installed.rc == 0
       ignore_errors: true
+
+    - name: Reload firewalld to apply changes
+      ansible.builtin.service:
+        name: firewalld
+        state: reloaded
