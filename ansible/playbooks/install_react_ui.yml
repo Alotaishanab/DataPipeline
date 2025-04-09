@@ -57,8 +57,16 @@
       command: chcon -Rt httpd_sys_content_t {{ apache_web_root }}
       when: ansible_selinux.status == "enabled"
 
-    - name: Set SELinux context for Gluster directories (if enabled)
-      command: chcon -Rt httpd_sys_content_t {{ item }}
+    - name: Set SELinux context rule for Gluster directories (if enabled)
+      command: semanage fcontext -a -t httpd_sys_content_t "{{ item }}(/.*)?"
+      loop:
+        - "{{ gluster_results }}"
+        - "{{ gluster_datasets_chunks }}"
+      when: ansible_selinux.status == "enabled"
+      ignore_errors: true  # Optional: avoids failure on repeated runs
+
+    - name: Apply SELinux context changes (if enabled)
+      command: restorecon -Rv "{{ item }}"
       loop:
         - "{{ gluster_results }}"
         - "{{ gluster_datasets_chunks }}"
