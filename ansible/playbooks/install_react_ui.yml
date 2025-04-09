@@ -5,8 +5,8 @@
   vars:
     react_app_dir: /home/almalinux/DataPipeline/frontend/react-ui
     apache_web_root: /var/www/html
-    nfs_results: /mnt/results
-    nfs_datasets_chunks: /mnt/datasets/uni_chunks
+    gluster_results: /mnt/data_volume/results
+    gluster_datasets_chunks: /mnt/data_volume/datasets/uni_chunks
 
   tasks:
     - name: Ensure Node.js and npm are installed
@@ -44,28 +44,24 @@
         group: apache
         mode: '0755'
 
-    - name: Ensure chunked dataset directory exists
+    - name: Ensure Gluster dataset directories exist
       file:
-        path: "{{ nfs_datasets_chunks }}"
+        path: "{{ item }}"
         state: directory
         mode: '0755'
+      loop:
+        - "{{ gluster_results }}"
+        - "{{ gluster_datasets_chunks }}"
 
     - name: Set SELinux context for Apache web root (if enabled)
       command: chcon -Rt httpd_sys_content_t {{ apache_web_root }}
       when: ansible_selinux.status == "enabled"
 
-    - name: Set SELinux context for NFS mounts (if enabled)
+    - name: Set SELinux context for Gluster directories (if enabled)
       command: chcon -Rt httpd_sys_content_t {{ item }}
       loop:
-        - "{{ nfs_results }}"
-        - "{{ nfs_datasets_chunks }}"
-      when: ansible_selinux.status == "enabled"
-
-    - name: Ensure Apache can read NFS (if enabled)
-      seboolean:
-        name: httpd_use_nfs
-        state: true
-        persistent: yes
+        - "{{ gluster_results }}"
+        - "{{ gluster_datasets_chunks }}"
       when: ansible_selinux.status == "enabled"
 
     - name: Ensure mod_rewrite is enabled in Apache
@@ -75,7 +71,7 @@
         line: 'LoadModule rewrite_module modules/mod_rewrite.so'
         state: present
 
-    - name: Create Apache config to serve React and NFS directories
+    - name: Create Apache config to serve React and GlusterFS-backed directories
       copy:
         dest: /etc/httpd/conf.d/react_ui.conf
         content: |
@@ -92,13 +88,13 @@
               </IfModule>
           </Directory>
 
-          <Directory "{{ apache_web_root }}/results">
+          <Directory "{{ gluster_results }}">
               Options Indexes FollowSymLinks
               AllowOverride None
               Require all granted
           </Directory>
 
-          <Directory "{{ apache_web_root }}/datasets">
+          <Directory "{{ gluster_datasets_chunks }}">
               Options Indexes FollowSymLinks
               AllowOverride None
               Require all granted
