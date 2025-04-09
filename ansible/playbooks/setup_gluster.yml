@@ -19,17 +19,19 @@
         name: glusterfs-rhel9
         description: GlusterFS v11 for RHEL 9
         baseurl: https://download.gluster.org/pub/gluster/glusterfs/11/LATEST/EPEL-9/x86_64/
-        enabled: yes
+        enabled: no       # <--- prevent global enablement
         gpgcheck: yes
         gpgkey: https://download.gluster.org/pub/gluster/glusterfs/11/rsa.pub
       when: ansible_distribution_major_version | int == 9
 
 
 
-    - name: Install glusterfs-server package
+
+    - name: Install glusterfs-server with glusterfs repo enabled
       yum:
         name: glusterfs-server
         state: present
+        enablerepo: glusterfs-rhel9
 
     - name: Ensure extra disk partition exists
       community.general.parted:
@@ -120,6 +122,8 @@
       yum:
         name: glusterfs-fuse
         state: present
+        enablerepo: glusterfs-rhel9
+
 
     - name: Create mount point for GlusterFS volume
       file:
