@@ -6,8 +6,8 @@
     chunk_dir: "{{ dataset_dir }}/chunks"
     dataset_url: "https://ftp.uniprot.org/pub/databases/uniprot/uniref/uniref50/uniref50.fasta.gz"
     chunk_count: 32
-    # Change the target upload location to point to the storage pool mount.
-    storage_pool_target: "/mnt/data_volume/uni_chunks"
+    # Change the target upload location to point to the GlusterFS mount where you want the chunks.
+    storage_pool_target: "/mnt/data_volume/datasets/uni_chunks"
   tasks:
     - name: Install required packages (wget and pigz)
       ansible.builtin.package:
