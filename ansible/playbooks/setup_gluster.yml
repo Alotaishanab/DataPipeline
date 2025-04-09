@@ -35,13 +35,35 @@
         state: started
         enabled: yes
 
+    - name: Open GlusterFS ports in firewall
+      firewalld:
+        port: "{{ item }}/tcp"
+        permanent: yes
+        state: enabled
+      loop:
+        - 24007
+        - 24008
+        - 49152-49251
+      notify: Reload firewalld
+
+    - name: Enable and start firewalld
+      systemd:
+        name: firewalld
+        state: started
+        enabled: yes
+
     - name: Create GlusterFS brick directory under /data
       file:
         path: "{{ brick_dir }}"
         state: directory
         mode: '0755'
 
-# Play 2: Configure GlusterFS volume from master node
+  handlers:
+    - name: Reload firewalld
+      systemd:
+        name: firewalld
+        state: reloaded
+
 # Play 2: Configure GlusterFS volume from master node
 - name: Configure GlusterFS volume
   hosts: worker1
@@ -67,16 +89,17 @@
         gluster volume create {{ volume_name }}
         {{ groups['worker_inventory']
             | map('extract', hostvars, 'ansible_host')
-            | map('regex_replace', '^', '') 
-            | map('regex_replace', '$', ':' ~ brick_path) 
+            | map('regex_replace', '$', ':' ~ brick_path)
             | join(' ') }} force
       register: volume_create
       changed_when: "'Volume create' in volume_create.stdout"
+      ignore_errors: true
 
-    - name: Start the GlusterFS volume
+    - name: Ensure GlusterFS volume is started
       shell: gluster volume start {{ volume_name }}
-      when: "'Volume create' in volume_create.stdout"
-
+      register: volume_start
+      changed_when: "'started' in volume_start.stdout"
+      ignore_errors: true
 
 # Play 3: Mount GlusterFS volume on localhost (host only, not workers)
 - name: Mount GlusterFS volume on localhost
@@ -113,3 +136,5 @@
         fstype: glusterfs
         opts: defaults
         state: mounted
+      register: mount_result
+      ignore_errors: true
