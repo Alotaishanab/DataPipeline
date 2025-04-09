@@ -131,13 +131,15 @@
       when: ufw_installed.rc == 0
       ignore_errors: true
 
-    - name: Allow GlusterFS management port 24008/tcp in UFW
-      ansible.builtin.command: ufw allow 24008/tcp
-      when: ufw_installed.rc == 0
-      ignore_errors: true
+    - name: Open extended GlusterFS brick port range (49152-65535/tcp) using firewalld
+      ansible.posix.firewalld:
+        port: "49152-65535/tcp"
+        permanent: yes
+        state: enabled
+        immediate: yes
 
-    - name: Allow GlusterFS brick port range in UFW (49152:49251/tcp)
-      ansible.builtin.command: ufw allow 49152:49251/tcp
+    - name: Allow extended GlusterFS brick port range in UFW (49152:65535/tcp)
+      ansible.builtin.command: ufw allow 49152:65535/tcp
       when: ufw_installed.rc == 0
       ignore_errors: true
 
