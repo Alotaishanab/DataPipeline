@@ -12,6 +12,17 @@
         name: epel-release
         state: present
 
+    - name: Add CentOS Gluster 11 repository
+      yum:
+        name: centos-release-gluster11
+        state: present
+      when: ansible_distribution_major_version | int == 9
+
+    - name: Disable centos-gluster11 globally after install
+      command: dnf config-manager --set-disabled centos-gluster11
+      changed_when: false
+      when: ansible_distribution_major_version | int == 9
+
     - name: Install glusterfs-server from CentOS Gluster 11 repo
       yum:
         name: glusterfs-server
@@ -72,6 +83,12 @@
     volume_name: "data_volume"
     gluster_server: "{{ hostvars[groups['worker_inventory'][0]].ansible_host }}"
   tasks:
+    - name: Add CentOS Gluster 11 repository (if needed)
+      yum:
+        name: centos-release-gluster11
+        state: present
+      when: ansible_distribution_major_version | int == 9
+
     - name: Install GlusterFS client (glusterfs-fuse)
       yum:
         name: glusterfs-fuse
