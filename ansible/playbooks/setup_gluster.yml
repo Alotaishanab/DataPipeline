@@ -16,8 +16,7 @@
 
     - name: Enable GlusterFS module stream on AlmaLinux
       command: dnf module enable glusterfs:latest -y
-      args:
-        warn: false
+
 
     - name: Install glusterfs-server package
       yum:
