@@ -121,11 +121,12 @@
         state: present
         enablerepo: centos-gluster11
 
-    - name: Create mount point
-      file:
+    - name: Ensure mount point is a directory
+      ansible.builtin.file:
         path: "{{ mount_dir }}"
         state: directory
         mode: '0755'
+
 
     - name: Mount GlusterFS volume
       mount:
