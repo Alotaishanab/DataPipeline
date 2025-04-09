@@ -3,6 +3,7 @@ import os
 import json
 import subprocess
 import sys
+import socket
 
 def get_terraform_outputs():
     try:
@@ -17,18 +18,34 @@ def get_terraform_outputs():
     except Exception as e:
         sys.exit(f"Error obtaining Terraform outputs: {e}")
 
-def generate_static_inventory(outputs):
-    # Expect Terraform to output "worker_inventory" as a mapping of host names to host variables.
+def get_local_ip():
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        # This doesn't need to connect, just to get routing IP
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception as e:
+        sys.exit(f"Error obtaining local mgmt IP: {e}")
+
+def generate_static_inventory(outputs, mgmt_ip):
     worker_inventory = outputs.get("worker_inventory", {}).get("value", {})
     if not worker_inventory:
         sys.exit("Error: No worker_inventory found in Terraform outputs.")
     
-    # Build an inventory that contains only the worker hosts.
     inventory = {
         "all": {
             "children": {
                 "worker_inventory": {
                     "hosts": worker_inventory
+                },
+                "mgmt": {
+                    "hosts": {
+                        "localhost": {
+                            "ansible_host": mgmt_ip
+                        }
+                    }
                 }
             }
         }
@@ -37,7 +54,8 @@ def generate_static_inventory(outputs):
 
 if __name__ == "__main__":
     outputs = get_terraform_outputs()
-    inv = generate_static_inventory(outputs)
+    mgmt_ip = get_local_ip()
+    inv = generate_static_inventory(outputs, mgmt_ip)
     inventory_file = "/home/almalinux/DataPipeline/ansible/inventory/inventory.json"
     os.makedirs(os.path.dirname(inventory_file), exist_ok=True)
     with open(inventory_file, "w") as f:

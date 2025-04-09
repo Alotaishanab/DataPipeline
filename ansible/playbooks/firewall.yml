@@ -1,5 +1,5 @@
 - name: Configure firewall for cluster and monitoring
-  hosts: all, localhost
+  hosts: all
   become: true
   become_user: root
 

@@ -1,6 +1,6 @@
 ---
 - name: Common Configuration for All Machines
-  hosts: all, localhost
+  hosts: all
   become: yes
   tasks:
     - name: Ensure GlusterFS repo is disabled if present

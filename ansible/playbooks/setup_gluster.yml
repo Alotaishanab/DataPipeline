@@ -6,6 +6,7 @@
   gather_facts: yes
   vars:
     brick_dir: "/data/gluster/brick1"
+
   tasks:
     - name: Install EPEL repository
       yum:
@@ -58,7 +59,8 @@
         state: directory
         mode: '0755'
 
-# Play 2: Configure GlusterFS volume from master node
+
+# Play 2: Configure GlusterFS volume from primary node
 - name: Configure GlusterFS volume
   hosts: worker1
   become: yes
@@ -66,8 +68,9 @@
   vars:
     volume_name: "data_volume"
     brick_path: "/data/gluster/brick1"
+
   tasks:
-    - name: Probe GlusterFS peers using IPs (avoids hostname issues)
+    - name: Probe GlusterFS peers using IPs (avoid hostname issues)
       shell: "gluster peer probe {{ hostvars[item].ansible_host }}"
       loop: "{{ groups['worker_inventory'] | difference(['worker1']) }}"
       loop_control:
@@ -99,7 +102,8 @@
       shell: gluster volume start {{ volume_name }}
       when: volume_check.rc != 0 or (volume_create is defined and volume_create.changed)
 
-# Play 3: Mount GlusterFS volume on localhost
+
+# Play 3: Mount GlusterFS volume on localhost (mgmt node)
 - name: Mount GlusterFS volume on localhost
   hosts: localhost
   become: yes
@@ -108,6 +112,7 @@
     mount_dir: "/mnt/data_volume"
     volume_name: "data_volume"
     gluster_server: "{{ hostvars[groups['worker_inventory'][0]].ansible_host }}"
+
   tasks:
     - name: Add CentOS Gluster 11 repository (if needed)
       yum:
@@ -121,18 +126,19 @@
         state: present
         enablerepo: centos-gluster11
 
-    - name: Check if mount point is valid directory
-      stat:
-        path: "{{ mount_dir }}"
-      register: mount_stat
+    - name: Check if GlusterFS mount point is broken
+      shell: |
+        mount | grep -q "{{ mount_dir }}" && mountpoint -q {{ mount_dir }} || echo "broken"
+      register: mount_status
+      changed_when: false
+      failed_when: false
 
-    - name: Remove invalid file at mount point path
-      file:
-        path: "{{ mount_dir }}"
-        state: absent
-      when: mount_stat.stat.exists and not mount_stat.stat.isdir
+    - name: Force unmount GlusterFS volume if broken
+      shell: "umount -lf {{ mount_dir }}"
+      when: "'broken' in mount_status.stdout or 'Transport endpoint is not connected' in mount_status.stderr"
+      ignore_errors: true
 
-    - name: Create mount point directory
+    - name: Ensure mount point directory exists
       file:
         path: "{{ mount_dir }}"
         state: directory
