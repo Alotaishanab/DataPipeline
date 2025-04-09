@@ -153,7 +153,7 @@
     - name: Attempt to mount GlusterFS volume (debug)
       shell: |
         set -x
-        timeout 15 mount -v -t glusterfs {{ gluster_server }}:{{ volume_name }} {{ mount_dir }}
+        timeout 15 mount -t glusterfs {{ gluster_server }}:{{ volume_name }} {{ mount_dir }}
       register: mount_debug
       ignore_errors: true
 
@@ -162,13 +162,11 @@
         msg: |
           STDOUT:
           {{ mount_debug.stdout }}
-
           STDERR:
           {{ mount_debug.stderr }}
 
     - name: Ensure mount succeeded
       fail:
-        msg: >
-          Mount failed with RC={{ mount_debug.rc }}.
-          Check GlusterFS peer status, firewall, SELinux, and volume health.
+        msg: "Mount failed — check GlusterFS volume and network settings."
       when: mount_debug.rc != 0
+
