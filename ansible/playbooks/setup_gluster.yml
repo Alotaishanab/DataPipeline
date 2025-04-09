@@ -37,6 +37,11 @@
         state: started
         enabled: yes
 
+    - name: Temporarily set SELinux to permissive (should be audited for production)
+      command: setenforce 0
+      when: ansible_selinux.status == "enabled"
+      ignore_errors: true
+
     - name: Set SELinux boolean for GlusterFS
       seboolean:
         name: use_nfs_home_dirs
@@ -132,6 +137,11 @@
         name: glusterfs-fuse
         state: present
         enablerepo: centos-gluster11
+
+    - name: Temporarily set SELinux to permissive (mgmt node)
+      command: setenforce 0
+      when: ansible_selinux.status == "enabled"
+      ignore_errors: true
 
     - name: Check if GlusterFS mount point is broken
       shell: |
