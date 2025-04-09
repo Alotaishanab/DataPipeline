@@ -1,4 +1,3 @@
----
 # Play 1: Install GlusterFS server and prepare Gluster brick directories
 - name: Prepare Worker Nodes for GlusterFS
   hosts: worker_inventory
@@ -59,7 +58,6 @@
         state: directory
         mode: '0755'
 
-
 # Play 2: Configure GlusterFS volume from primary node
 - name: Configure GlusterFS volume
   hosts: worker1
@@ -70,6 +68,19 @@
     brick_path: "/data/gluster/brick1"
 
   tasks:
+    - name: Ensure glusterd is running
+      systemd:
+        name: glusterd
+        state: started
+        enabled: yes
+
+    - name: Wait until glusterd is responsive
+      shell: gluster peer status
+      register: glusterd_ready
+      retries: 5
+      delay: 4
+      until: glusterd_ready.rc == 0
+
     - name: Probe GlusterFS peers using IPs (avoid hostname issues)
       shell: "gluster peer probe {{ hostvars[item].ansible_host }}"
       loop: "{{ groups['worker_inventory'] | difference(['worker1']) }}"
@@ -101,7 +112,6 @@
     - name: Ensure GlusterFS volume is started
       shell: gluster volume start {{ volume_name }}
       when: volume_check.rc != 0 or (volume_create is defined and volume_create.changed)
-
 
 # Play 3: Mount GlusterFS volume on localhost (mgmt node)
 - name: Mount GlusterFS volume on localhost
