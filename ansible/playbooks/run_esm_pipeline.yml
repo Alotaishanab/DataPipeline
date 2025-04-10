@@ -40,9 +40,10 @@
         group: almalinux
         mode: '0775'
 
-    - name: Run controller.py in ESM virtualenv (auto-discovers Gluster chunk)
+    - name: Run controller.py in ESM virtualenv (background job)
       shell: |
         source {{ venv_path }}/bin/activate
-        python {{ controller_remote_path }}
+        nohup python {{ controller_remote_path }} > controller.log 2>&1 &
       args:
         chdir: "{{ controller_dir }}"
+
