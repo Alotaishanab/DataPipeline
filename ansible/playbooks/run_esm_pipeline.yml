@@ -57,7 +57,16 @@
         group: almalinux
         mode: '0755'
 
-    - name: Run controller.py in ESM virtualenv (background job)
+    - name: Kill existing controller.py if running
+      shell: |
+        pids=$(pgrep -f "{{ controller_remote_path }}")
+        if [ -n "$pids" ]; then
+          echo "Killing old controller.py: $pids"
+          kill $pids
+        fi
+      ignore_errors: yes
+
+    - name: Start new controller.py in background
       shell: |
         source {{ venv_path }}/bin/activate
         nohup python {{ controller_remote_path }} > controller.log 2>&1 &
