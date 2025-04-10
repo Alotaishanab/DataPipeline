@@ -20,7 +20,7 @@
         state: enabled
         immediate: yes
 
-        - name: Allow Redis to listen on all interfaces
+    - name: Allow Redis to listen on all interfaces
       ansible.builtin.lineinfile:
         path: /etc/redis.conf
         regexp: '^bind '
