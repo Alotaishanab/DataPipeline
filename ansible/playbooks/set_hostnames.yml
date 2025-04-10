@@ -18,4 +18,21 @@
         name: "workernode{{ groups['worker_inventory'].index(inventory_hostname) + 1 }}"
         use: systemd
 
+- name: Add mgmtnode entry to /etc/hosts on workers
+  hosts: worker_inventory
+  become: true
+  vars:
+    mgmt_ip: "{{ hostvars['localhost']['ansible_host'] }}"
+  tasks:
+    - name: Ensure mgmtnode is resolvable in /etc/hosts
+      ansible.builtin.lineinfile:
+        path: /etc/hosts
+        state: present
+        regexp: '^\s*.*\s+mgmtnode$'
+        line: "{{ mgmt_ip }} mgmtnode"
+        create: yes
+        backup: yes
+
+
+
 
