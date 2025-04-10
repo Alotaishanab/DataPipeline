@@ -10,11 +10,18 @@ import os
 app = Celery(
     'worker',
     broker='redis://mgmtnode:6379/0',
-    backend='redis://mgmtnode:6379/1'  # lightweight result backend
+    backend='redis://mgmtnode:6379/1'
 )
 
 MAX_SEQ_LEN = 3000
 OUTPUT_DIR = "/mnt/data_volume/results/esm2_celery_outputs"
+
+# 🔁 Load model globally once (per worker process)
+print("🧠 Loading ESM2 model into memory...")
+model, alphabet = esm.pretrained.esm2_t30_150M_UR50D()
+model.eval()
+batch_converter = alphabet.get_batch_converter()
+print("✅ Model loaded and ready.")
 
 @app.task(name='celery_worker.infer_fasta_file')
 def infer_fasta_file(path):
@@ -30,10 +37,6 @@ def infer_fasta_file(path):
         fasta_path = path
 
     print(f"📖 Reading {fasta_path}")
-    model, alphabet = esm.pretrained.esm2_t30_150M_UR50D()
-    model.eval()
-    batch_converter = alphabet.get_batch_converter()
-
     buffer = []
     for record in SeqIO.parse(fasta_path, "fasta"):
         seq = str(record.seq)
