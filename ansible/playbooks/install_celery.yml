@@ -4,8 +4,6 @@
   vars:
     venv_path: "/opt/esm/venv"
     celery_app_path: "/home/almalinux/celery_app"
-    redis_host: "mgmtnode"
-    redis_port: 6379
     esm_user: "almalinux"
 
   tasks:
@@ -47,7 +45,7 @@
           Group={{ esm_user }}
           WorkingDirectory={{ celery_app_path }}
           Environment="PYTHONUNBUFFERED=1"
-          ExecStart={{ venv_path }}/bin/celery -A worker worker --loglevel=info --concurrency=4 --queues=esm
+          ExecStart={{ venv_path }}/bin/celery -A worker worker --loglevel=info --concurrency=4
           Restart=always
           RestartSec=10
 
@@ -55,21 +53,18 @@
           WantedBy=multi-user.target
       notify:
         - Reload systemd
-        - Enable and start Celery Worker
+        - Restart Celery Worker
 
   handlers:
     - name: Reload systemd
       systemd:
         daemon_reload: yes
 
-    - name: Enable and start Celery Worker
+    - name: Restart Celery Worker
       systemd:
         name: celery-worker.service
-        enabled: yes
         state: restarted
-
-
-
+        enabled: yes
 
 
 - name: Install Celery and Redis modules on Management Node (localhost)
