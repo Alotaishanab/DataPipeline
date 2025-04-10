@@ -19,24 +19,24 @@ while datetime.now() < end_time:
     iteration += 1
     print(f"\n⏱️ Iteration #{iteration} — {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
-    fasta_files = sorted(glob.glob(os.path.join(CHUNK_DIR, "*.fasta.gz")))
+    fasta_files = sorted(glob.glob(os.path.join(CHUNK_DIR, "*.fasta")))  # 🔥 Fixed line here
     if not fasta_files:
-        raise RuntimeError("❌ No FASTA .gz files found!")
+        raise RuntimeError("❌ No FASTA files found!")
 
     tasks = []
-    for gz_path in fasta_files:
-        print(f"🚀 Submitting {gz_path}...")
-        task = infer_fasta_file.delay(gz_path)
-        tasks.append((gz_path, task))
+    for fasta_path in fasta_files:
+        print(f"🚀 Submitting {fasta_path}...")
+        task = infer_fasta_file.delay(fasta_path)
+        tasks.append((fasta_path, task))
 
-    for gz_path, task in tasks:
-        print(f"📡 Waiting for task {task.id} ({os.path.basename(gz_path)})...")
+    for fasta_path, task in tasks:
+        print(f"📡 Waiting for task {task.id} ({os.path.basename(fasta_path)})...")
         result = AsyncResult(task.id)
         try:
             output = result.get(timeout=3600)
             if result.successful():
                 os.makedirs(OUTPUT_DIR, exist_ok=True)
-                out_file = os.path.basename(gz_path).replace(".fasta.gz", f".{iteration}.json")
+                out_file = os.path.basename(fasta_path).replace(".fasta", f".{iteration}.json")
                 with open(os.path.join(OUTPUT_DIR, out_file), 'w') as f:
                     f.write(output)
                 print(f"✅ Done: {out_file}")
@@ -44,8 +44,7 @@ while datetime.now() < end_time:
                 print(f"❌ Failed: {task.id}")
         except Exception as e:
             print(f"⚠️ Timeout or error: {e}")
-    
-    # Optional sleep between rounds
+
     time.sleep(5)
 
 print("\n🎉 Completed 24-hour run.")
