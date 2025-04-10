@@ -45,7 +45,7 @@
           Group={{ esm_user }}
           WorkingDirectory={{ celery_app_path }}
           Environment="PYTHONUNBUFFERED=1"
-          ExecStart={{ venv_path }}/bin/celery -A worker worker --loglevel=info --concurrency=4
+          ExecStart={{ venv_path }}/bin/celery -A worker worker --loglevel=info --concurrency=3
           Restart=always
           RestartSec=10
 
