@@ -7,7 +7,9 @@ import subprocess
 import os
 
 app = Celery('worker', broker='redis://mgmtnode:6379/0')
+
 MAX_SEQ_LEN = 3000
+OUTPUT_DIR = "/mnt/data_volume/results/esm2_celery_outputs"
 
 @app.task(name='celery_worker.infer_fasta_file')
 def infer_fasta_file(path):
@@ -20,7 +22,7 @@ def infer_fasta_file(path):
         else:
             print(f"🟢 Already decompressed: {fasta_path}")
     else:
-        fasta_path = path  # it's already a .fasta file
+        fasta_path = path
 
     print(f"📖 Reading {fasta_path}")
     model, alphabet = esm.pretrained.esm2_t30_150M_UR50D()
@@ -44,4 +46,12 @@ def infer_fasta_file(path):
         embedding = reps[i, 1:len(seq)+1].mean(0).tolist()
         results.append({"id": label, "sequence": seq, "embedding": embedding})
 
-    return json.dumps(results)
+    # Save result to GlusterFS
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    base = os.path.basename(fasta_path).replace(".fasta", ".json").replace(".gz", "")
+    output_path = os.path.join(OUTPUT_DIR, base)
+    with open(output_path, 'w') as f:
+        json.dump(results, f)
+
+    print(f"✅ Output written to: {output_path}")
+    return "done"
