@@ -3,21 +3,21 @@ import torch
 import esm
 import json
 from Bio import SeqIO
-from io import StringIO
 
 app = Celery('esm_worker', broker='redis://mgmtnode:6379/0')
-
 MAX_SEQ_LEN = 3000
 
 @app.task
-def infer_fasta_content(content):
+def infer_fasta_file(fasta_path):
+    with open(fasta_path, 'r') as f:
+        content = f.read()
+
     model, alphabet = esm.pretrained.esm2_t30_150M_UR50D()
     model.eval()
     batch_converter = alphabet.get_batch_converter()
 
     buffer = []
-    fasta_io = StringIO(content)
-    for record in SeqIO.parse(fasta_io, "fasta"):
+    for record in SeqIO.parse(fasta_path, "fasta"):
         seq = str(record.seq)
         if len(seq) > MAX_SEQ_LEN:
             seq = seq[:MAX_SEQ_LEN]
