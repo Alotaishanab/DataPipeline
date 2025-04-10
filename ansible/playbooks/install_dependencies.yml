@@ -39,12 +39,12 @@
         state: started
         enabled: yes
 
-- name: Install Flower (Celery monitoring UI)
+- name: Install Flower (Celery monitoring UI) on Management Node
   hosts: localhost
   become: yes
   vars:
-    venv_path: "/opt/esm/venv"  # Define the virtualenv path here
-    celery_app_path: "/home/almalinux/celery_app"  # Path to your Celery application
+    venv_path: "/opt/esm/venv"  # Virtualenv path
+    celery_broker_url: "redis://mgmtnode:6379/0"  # Celery broker URL
 
   tasks:
     - name: Ensure pip is installed in the virtual environment
@@ -64,15 +64,15 @@
         dest: "/etc/systemd/system/flower.service"
         content: |
           [Unit]
-          Description=Flower - Celery Monitoring
+          Description=Flower - Celery Monitoring UI
           After=network.target
 
           [Service]
           User=almalinux
           Group=almalinux
-          WorkingDirectory={{ celery_app_path }}
+          WorkingDirectory={{ venv_path }}
           Environment="PATH={{ venv_path }}/bin:$PATH"
-          ExecStart={{ venv_path }}/bin/celery -A worker flower --port=5555
+          ExecStart={{ venv_path }}/bin/celery -A worker flower --port={{ flower_port }} --broker={{ celery_broker_url }}
           Restart=always
           RestartSec=10
 
@@ -88,6 +88,9 @@
         name: flower.service
         enabled: yes
         state: started
+
+
+
 
 
 
