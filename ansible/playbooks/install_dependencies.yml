@@ -45,6 +45,7 @@
   vars:
     venv_path: "/opt/esm/venv"  # Virtualenv path
     celery_broker_url: "redis://mgmtnode:6379/0"  # Celery broker URL
+    flower_port: 5555  # Define the port for Flower UI
 
   tasks:
     - name: Ensure pip is installed in the virtual environment
@@ -88,6 +89,7 @@
         name: flower.service
         enabled: yes
         state: started
+
 
 
 
