@@ -85,8 +85,10 @@
         - 9001   # MinIO console
         - 9090   # Prometheus
         - 9100   # Node Exporter
+        - 6379   # Redis for Celery broker
       when: ufw_installed.rc == 0
       ignore_errors: true
+
 
     - name: Allow HTTP and HTTPS in UFW
       ansible.builtin.command: ufw allow {{ item }}
