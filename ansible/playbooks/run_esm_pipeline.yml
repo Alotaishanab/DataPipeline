@@ -19,7 +19,7 @@
 
     - name: Copy updated controller.py (Gluster version) to worker
       copy:
-        src: "../scripts/controller_gluster.py"
+        src: "../scripts/controller.py"
         dest: "{{ controller_remote_path }}"
         owner: almalinux
         group: almalinux
