@@ -1,5 +1,4 @@
 # Play 1: Prepare Worker Nodes for GlusterFS
-# Play 1: Prepare Worker Nodes for GlusterFS
 - name: Prepare Worker Nodes for GlusterFS
   hosts: worker_inventory
   become: yes
@@ -71,16 +70,8 @@
         state: directory
         mode: '0755'
 
-    - name: Set brick directory ownership to almalinux
-      file:
-        path: "{{ brick_dir }}"
-        owner: almalinux
-        group: almalinux
-        recurse: yes
 
-
-
-# Play 2: Configure GlusterFS volume from worker1
+# Play 2: Configure GlusterFS volume
 - name: Configure GlusterFS volume
   hosts: worker1
   become: yes
@@ -122,7 +113,7 @@
       when: volume_check.rc != 0 or (volume_create is defined and volume_create.changed)
 
 
-# Play 3: Mount GlusterFS volume on mgmt node
+# Play 3: Mount and Fix Permissions on mgmt node
 - name: Mount GlusterFS volume on mgmt node
   hosts: localhost
   become: yes
@@ -149,18 +140,6 @@
       when: ansible_selinux.status == "enabled"
       ignore_errors: true
 
-    - name: Check if GlusterFS mount point is broken
-      shell: |
-        mount | grep -q "{{ mount_dir }}" && mountpoint -q {{ mount_dir }} || echo "broken"
-      register: mount_status
-      changed_when: false
-      failed_when: false
-
-    - name: Force unmount GlusterFS volume if broken
-      shell: "umount -lf {{ mount_dir }}"
-      when: "'broken' in mount_status.stdout or 'Transport endpoint is not connected' in mount_status.stderr"
-      ignore_errors: true
-
     - name: Ensure mount point exists
       file:
         path: "{{ mount_dir }}"
@@ -175,16 +154,22 @@
         opts: "defaults"
         state: mounted
 
-    - name: Verify GlusterFS mount on mgmt node
-      command: mount | grep "{{ mount_dir }}"
-      register: mount_verify
-      changed_when: false
+    - name: Set correct ownership of GlusterFS mount to almalinux
+      file:
+        path: "{{ mount_dir }}"
+        owner: almalinux
+        group: almalinux
+        recurse: yes
+
+    - name: Verify GlusterFS mount and ownership
+      command: ls -ld {{ mount_dir }}
+      register: verify_output
 
     - debug:
-        var: mount_verify.stdout
+        var: verify_output.stdout
 
 
-# Play 4: Mount GlusterFS volume on worker nodes
+# Play 4: Mount GlusterFS volume on workers
 - name: Mount GlusterFS volume on worker nodes
   hosts: worker_inventory
   become: yes
