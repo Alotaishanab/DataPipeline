@@ -6,7 +6,7 @@
     venv_path: "/opt/esm/venv"
     controller_dir: "/home/almalinux/esm_pipeline"
     controller_remote_path: "{{ controller_dir }}/controller.py"
-    celery_worker_remote_path: "{{ controller_dir }}/celery_worker.py"
+    celery_worker_remote_path: "{{ controller_dir }}/worker.py"
     chunks_dir: "/mnt/data_volume/datasets/uni_chunks"
   tasks:
     - name: Ensure pipeline directory exists
@@ -25,9 +25,9 @@
         group: almalinux
         mode: '0755'
 
-    - name: Copy celery_worker.py to worker
+    - name: Copy worker.py (celery tasks) to worker
       copy:
-        src: "../scripts/celery_worker.py"
+        src: "../scripts/worker.py"
         dest: "{{ celery_worker_remote_path }}"
         owner: almalinux
         group: almalinux
@@ -46,4 +46,3 @@
         nohup python {{ controller_remote_path }} > controller.log 2>&1 &
       args:
         chdir: "{{ controller_dir }}"
-
