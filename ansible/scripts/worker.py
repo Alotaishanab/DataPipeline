@@ -6,14 +6,19 @@ from Bio import SeqIO
 import subprocess
 import os
 
-app = Celery('worker', broker='redis://mgmtnode:6379/0')
+# Celery configuration
+app = Celery(
+    'worker',
+    broker='redis://mgmtnode:6379/0',
+    backend='redis://mgmtnode:6379/1'  # lightweight result backend
+)
 
 MAX_SEQ_LEN = 3000
 OUTPUT_DIR = "/mnt/data_volume/results/esm2_celery_outputs"
 
 @app.task(name='celery_worker.infer_fasta_file')
 def infer_fasta_file(path):
-    # Determine if .gz and decompress if needed
+    # Handle decompression
     if path.endswith(".gz"):
         fasta_path = path[:-3]
         if not os.path.exists(fasta_path):
@@ -46,7 +51,6 @@ def infer_fasta_file(path):
         embedding = reps[i, 1:len(seq)+1].mean(0).tolist()
         results.append({"id": label, "sequence": seq, "embedding": embedding})
 
-    # Save result to GlusterFS
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     base = os.path.basename(fasta_path).replace(".fasta", ".json").replace(".gz", "")
     output_path = os.path.join(OUTPUT_DIR, base)
