@@ -33,6 +33,9 @@ def pick_available_worker(worker_load):
     available = [w for w, l in worker_load.items() if l["active"] < MAX_PENDING]
     return available[0] if available else None
 
+# ✅ Ensure log directory exists
+os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
+
 end_time = datetime.now() + timedelta(hours=24)
 iteration = 0
 
