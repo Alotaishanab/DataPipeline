@@ -6,10 +6,11 @@ from Bio import SeqIO
 import subprocess
 import os
 
-app = Celery('esm_worker', broker='redis://mgmtnode:6379/0')
+app = Celery('worker', broker='redis://mgmtnode:6379/0')  # Name matches CLI command
+
 MAX_SEQ_LEN = 3000
 
-@app.task
+@app.task(name='celery_worker.infer_fasta_file')  
 def infer_fasta_file(gz_path):
     # Decompress if needed
     fasta_path = gz_path[:-3]
