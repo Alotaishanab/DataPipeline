@@ -1,3 +1,4 @@
+---
 - name: Ensure Ansible Galaxy Dependencies and Essential Packages on Control Node
   hosts: localhost
   gather_facts: yes
@@ -39,6 +40,7 @@
         state: started
         enabled: yes
 
+
 - name: Install Flower (Celery monitoring UI) on Management Node
   hosts: localhost
   become: yes
@@ -46,6 +48,7 @@
     venv_path: "/opt/esm/venv"  # Virtualenv path
     celery_broker_url: "redis://mgmtnode:6379/0"  # Celery broker URL
     flower_port: 5555  # Define the port for Flower UI
+    celery_app_path: "/home/almalinux/celery_app"  # Path to the Celery app (where worker.py is located)
 
   tasks:
     - name: Ensure pip is installed in the virtual environment
@@ -60,6 +63,14 @@
         name: flower
         state: latest
 
+    - name: Copy worker.py (Celery task) to management node
+      copy:
+        src: "../scripts/worker.py"
+        dest: "{{ celery_app_path }}/worker.py"
+        owner: almalinux
+        group: almalinux
+        mode: '0755'
+
     - name: Create systemd unit file for Flower service
       copy:
         dest: "/etc/systemd/system/flower.service"
@@ -71,7 +82,7 @@
           [Service]
           User=almalinux
           Group=almalinux
-          WorkingDirectory={{ venv_path }}
+          WorkingDirectory={{ celery_app_path }}
           Environment="PATH={{ venv_path }}/bin:$PATH"
           ExecStart={{ venv_path }}/bin/celery -A worker flower --port={{ flower_port }} --broker={{ celery_broker_url }}
           Restart=always
@@ -89,12 +100,3 @@
         name: flower.service
         enabled: yes
         state: started
-
-
-
-
-
-
-
-
-
