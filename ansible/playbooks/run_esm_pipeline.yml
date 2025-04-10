@@ -1,3 +1,27 @@
+- name: Prepare Environment and Sync Code
+  hosts: all
+  become: yes
+  vars:
+    celery_app_path: "/home/almalinux/celery_app"
+    esm_user: "almalinux"
+  tasks:
+    - name: Pull latest pipeline code from GitHub
+      shell: |
+        cd /home/almalinux/DataPipeline
+        sudo git pull origin main
+      args:
+        chdir: "/home/almalinux/DataPipeline"
+      become_user: "{{ esm_user }}"
+
+    - name: Kill any old Celery workers (cleanup)
+      shell: |
+        pids=$(pgrep -f "celery.*worker")
+        if [ -n "$pids" ]; then
+          echo "Killing existing celery workers: $pids"
+          kill -9 $pids
+        fi
+      ignore_errors: yes
+
 - name: Deploy ESM pipeline to workers
   hosts: worker_inventory
   become: yes
