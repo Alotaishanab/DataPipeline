@@ -3,15 +3,21 @@ import torch
 import esm
 import json
 from Bio import SeqIO
+import subprocess
+import os
 
 app = Celery('esm_worker', broker='redis://mgmtnode:6379/0')
 MAX_SEQ_LEN = 3000
 
 @app.task
-def infer_fasta_file(fasta_path):
-    with open(fasta_path, 'r') as f:
-        content = f.read()
+def infer_fasta_file(gz_path):
+    # Decompress if needed
+    fasta_path = gz_path[:-3]
+    if not os.path.exists(fasta_path):
+        print(f"🔓 Decompressing {gz_path} on worker...")
+        subprocess.run(["pigz", "-d", "-f", gz_path], check=True)
 
+    print(f"📖 Reading {fasta_path}")
     model, alphabet = esm.pretrained.esm2_t30_150M_UR50D()
     model.eval()
     batch_converter = alphabet.get_batch_converter()
