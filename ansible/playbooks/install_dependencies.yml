@@ -44,6 +44,7 @@
   become: yes
   vars:
     venv_path: "/opt/esm/venv"  # Define the virtualenv path here
+    celery_app_path: "/home/almalinux/celery_app"  # Path to your Celery application
 
   tasks:
     - name: Ensure pip is installed in the virtual environment
@@ -57,6 +58,37 @@
         virtualenv: "{{ venv_path }}"
         name: flower
         state: latest
+
+    - name: Create systemd unit file for Flower service
+      copy:
+        dest: "/etc/systemd/system/flower.service"
+        content: |
+          [Unit]
+          Description=Flower - Celery Monitoring
+          After=network.target
+
+          [Service]
+          User=almalinux
+          Group=almalinux
+          WorkingDirectory={{ celery_app_path }}
+          Environment="PATH={{ venv_path }}/bin:$PATH"
+          ExecStart={{ venv_path }}/bin/celery -A worker flower --port=5555
+          Restart=always
+          RestartSec=10
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Reload systemd to register Flower service
+      systemd:
+        daemon_reload: yes
+
+    - name: Enable and start Flower service
+      systemd:
+        name: flower.service
+        enabled: yes
+        state: started
+
 
 
 
