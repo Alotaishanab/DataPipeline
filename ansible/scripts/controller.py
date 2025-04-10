@@ -4,7 +4,6 @@ import os
 import glob
 import time
 from datetime import datetime, timedelta
-from worker import infer_fasta_file
 from celery import Celery
 
 CHUNK_DIR = "/mnt/data_volume/datasets/uni_chunks"
@@ -62,13 +61,15 @@ with open(LOG_PATH, "a") as log_file:
         for path in files:
             chosen = pick_available_worker(worker_load)
             if not chosen:
-                print("⏳ All workers busy, waiting...")
-                log_file.write("⏳ All workers busy, waiting...\n")
+                print("⏳ All workers busy, waiting 30s...")
+                log_file.write("⏳ All workers busy, waiting 30s...\n")
+                log_file.flush()
+                time.sleep(30)
                 break
 
             print(f"🚀 Submitting {path} to {chosen}")
             log_file.write(f"🚀 Submitting {path} to {chosen}\n")
-            infer_fasta_file.apply_async(args=[path], queue="celery")  # Use default queue
+            app.send_task("celery_worker.infer_fasta_file", args=[path])
 
         log_file.flush()
         time.sleep(10)
