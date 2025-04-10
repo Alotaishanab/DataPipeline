@@ -36,7 +36,7 @@
         state: started
         enabled: yes
 
-    - name: Temporarily set SELinux to permissive (should be audited for production)
+    - name: Temporarily set SELinux to permissive (for testing; review for production)
       command: setenforce 0
       when: ansible_selinux.status == "enabled"
       ignore_errors: true
@@ -175,8 +175,7 @@
         var: mount_verify.stdout
 
 
-
-# Play 4: (Optional) Mount GlusterFS volume on worker nodes if needed
+# Play 4: Mount GlusterFS volume on worker nodes
 - name: Mount GlusterFS volume on worker nodes
   hosts: worker_inventory
   become: yes
