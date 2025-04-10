@@ -1,4 +1,5 @@
 # Play 1: Prepare Worker Nodes for GlusterFS
+# Play 1: Prepare Worker Nodes for GlusterFS
 - name: Prepare Worker Nodes for GlusterFS
   hosts: worker_inventory
   become: yes
@@ -69,6 +70,14 @@
         path: "{{ brick_dir }}"
         state: directory
         mode: '0755'
+
+    - name: Set brick directory ownership to almalinux
+      file:
+        path: "{{ brick_dir }}"
+        owner: almalinux
+        group: almalinux
+        recurse: yes
+
 
 
 # Play 2: Configure GlusterFS volume from worker1
