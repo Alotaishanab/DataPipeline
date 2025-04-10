@@ -1,11 +1,10 @@
-- name: Trigger ESM Pipeline on workers
+- name: Deploy ESM pipeline to workers
   hosts: worker_inventory
   become: yes
   become_user: almalinux
   vars:
     venv_path: "/opt/esm/venv"
     controller_dir: "/home/almalinux/esm_pipeline"
-    controller_remote_path: "{{ controller_dir }}/controller.py"
     celery_worker_remote_path: "{{ controller_dir }}/worker.py"
     chunks_dir: "/mnt/data_volume/datasets/uni_chunks"
   tasks:
@@ -13,14 +12,6 @@
       file:
         path: "{{ controller_dir }}"
         state: directory
-        owner: almalinux
-        group: almalinux
-        mode: '0755'
-
-    - name: Copy updated controller.py (Gluster version) to worker
-      copy:
-        src: "../scripts/controller.py"
-        dest: "{{ controller_remote_path }}"
         owner: almalinux
         group: almalinux
         mode: '0755'
@@ -39,6 +30,32 @@
         owner: almalinux
         group: almalinux
         mode: '0775'
+
+
+- name: Trigger ESM controller on mgmt node
+  hosts: localhost
+  become: yes
+  become_user: almalinux
+  vars:
+    venv_path: "/opt/esm/venv"
+    controller_dir: "/home/almalinux/esm_pipeline"
+    controller_remote_path: "{{ controller_dir }}/controller.py"
+  tasks:
+    - name: Ensure pipeline directory exists
+      file:
+        path: "{{ controller_dir }}"
+        state: directory
+        owner: almalinux
+        group: almalinux
+        mode: '0755'
+
+    - name: Copy updated controller.py to mgmt node
+      copy:
+        src: "../scripts/controller.py"
+        dest: "{{ controller_remote_path }}"
+        owner: almalinux
+        group: almalinux
+        mode: '0755'
 
     - name: Run controller.py in ESM virtualenv (background job)
       shell: |

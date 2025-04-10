@@ -5,9 +5,34 @@ import glob
 import time
 from datetime import datetime, timedelta
 from worker import infer_fasta_file
+from celery import Celery
 
 CHUNK_DIR = "/mnt/data_volume/datasets/uni_chunks"
 LOG_PATH = "/mnt/data_volume/results/esm2_celery_outputs/submit_log.txt"
+MAX_PENDING = 4  # Max allowed tasks per worker before skipping it
+
+app = Celery(broker="redis://mgmtnode:6379/0")
+
+def get_worker_load():
+    try:
+        i = app.control.inspect()
+        active = i.active() or {}
+        stats = i.stats() or {}
+        load = {}
+        for worker, tasks in active.items():
+            concurrency = stats.get(worker, {}).get("pool", {}).get("max-concurrency", 4)
+            load[worker] = {
+                "active": len(tasks),
+                "free_slots": concurrency - len(tasks)
+            }
+        return load
+    except Exception as e:
+        print(f"⚠️ Failed to fetch worker stats: {e}")
+        return {}
+
+def pick_available_worker(worker_load):
+    available = [w for w, l in worker_load.items() if l["active"] < MAX_PENDING]
+    return available[0] if available else None
 
 end_time = datetime.now() + timedelta(hours=24)
 iteration = 0
@@ -21,7 +46,6 @@ with open(LOG_PATH, "a") as log_file:
         print(f"\n⏱️ Iteration #{iteration} — {timestamp}")
         log_file.write(f"\n--- Iteration #{iteration} at {timestamp} ---\n")
 
-        # Match both .fasta and .fasta.gz
         files = sorted(
             glob.glob(os.path.join(CHUNK_DIR, "*.fasta")) +
             glob.glob(os.path.join(CHUNK_DIR, "*.fasta.gz"))
@@ -33,12 +57,20 @@ with open(LOG_PATH, "a") as log_file:
             time.sleep(60)
             continue
 
+        worker_load = get_worker_load()
+
         for path in files:
-            print(f"🚀 Submitting {path}...")
-            log_file.write(f"🚀 Submitting {path}\n")
-            infer_fasta_file.delay(path)
+            chosen = pick_available_worker(worker_load)
+            if not chosen:
+                print("⏳ All workers busy, waiting...")
+                log_file.write("⏳ All workers busy, waiting...\n")
+                break
+
+            print(f"🚀 Submitting {path} to {chosen}")
+            log_file.write(f"🚀 Submitting {path} to {chosen}\n")
+            infer_fasta_file.apply_async(args=[path], queue="celery")  # Use default queue
 
         log_file.flush()
-        time.sleep(10)  # short pause between loops
+        time.sleep(10)
 
 print("\n🎉 Completed 24-hour run.")
