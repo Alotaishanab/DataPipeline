@@ -158,21 +158,22 @@
         state: directory
         mode: '0755'
 
-    - name: Mount GlusterFS volume with proper ownership options
+    - name: Mount GlusterFS volume with defaults
       mount:
         path: "{{ mount_dir }}"
         src: "{{ gluster_server }}:{{ volume_name }}"
         fstype: glusterfs
-        opts: "defaults,uid=almalinux,gid=almalinux"
+        opts: "defaults"
         state: mounted
 
-    - name: Verify GlusterFS mount
+    - name: Verify GlusterFS mount on mgmt node
       command: mount | grep "{{ mount_dir }}"
       register: mount_verify
       changed_when: false
 
     - debug:
         var: mount_verify.stdout
+
 
 
 # Play 4: (Optional) Mount GlusterFS volume on worker nodes if needed
