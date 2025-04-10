@@ -4,7 +4,7 @@ import os
 import glob
 import time
 from datetime import datetime, timedelta
-from celery_worker import infer_fasta_file
+from worker import infer_fasta_file
 from celery.result import AsyncResult
 
 CHUNK_DIR = "/mnt/data_volume/datasets/uni_chunks"
