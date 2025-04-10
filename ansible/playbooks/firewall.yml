@@ -31,6 +31,7 @@
         - 9001   # MinIO console
         - 9090   # Prometheus
         - 9100   # Node Exporter
+        - 6379
 
     - name: Open NFS ports on worker1
       ansible.posix.firewalld:
