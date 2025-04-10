@@ -24,9 +24,9 @@
         mode: '0755'
       delegate_to: localhost
 
-    - name: Copy worker.py from mgmt node to workers
+    - name: Copy worker.py from scripts directory on mgmt node to workers
       copy:
-        src: "{{ controller_dir }}/worker.py"
+        src: "/home/almalinux/DataPipeline/ansible/scripts/worker.py"
         dest: "{{ controller_dir }}/worker.py"
         owner: almalinux
         group: almalinux
@@ -39,6 +39,7 @@
         owner: almalinux
         group: almalinux
         mode: '0775'
+
 
 
 - name: Restart Celery workers if any were previously running
