@@ -6,7 +6,6 @@
     chunk_dir: "{{ dataset_dir }}/chunks"
     dataset_url: "https://ftp.uniprot.org/pub/databases/uniprot/uniref/uniref50/uniref50.fasta.gz"
     chunk_count: 32
-    # Change the target upload location to point to the GlusterFS mount where you want the chunks.
     storage_pool_target: "/mnt/data_volume/datasets/uni_chunks"
   tasks:
     - name: Install required packages (wget and pigz)
@@ -86,7 +85,14 @@
       ansible.builtin.file:
         path: "{{ storage_pool_target }}"
         state: directory
-        mode: '0755'
+        mode: '0775'
+
+    - name: Set ownership to almalinux on Storage Pool target
+      ansible.builtin.file:
+        path: "{{ storage_pool_target }}"
+        owner: almalinux
+        group: almalinux
+        recurse: yes
 
     - name: Find compressed chunk files
       ansible.builtin.find:
@@ -94,7 +100,8 @@
         patterns: "chunk_*.fasta.gz"
       register: gz_chunk_files
 
-    - name: Copy each compressed chunk to the Storage Pool
+    - name: Copy each compressed chunk to the Storage Pool as almalinux
+      become_user: almalinux
       ansible.builtin.command: cp {{ item.path }} {{ storage_pool_target }}/{{ item.path | basename }}
       loop: "{{ gz_chunk_files.files }}"
       loop_control:
