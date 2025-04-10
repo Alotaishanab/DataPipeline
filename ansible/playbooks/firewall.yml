@@ -32,6 +32,7 @@
         - 9090   # Prometheus
         - 9100   # Node Exporter
         - 6379
+        - 5555   # Celery Flower UI
 
     - name: Open NFS ports on worker1
       ansible.posix.firewalld:
@@ -86,6 +87,7 @@
         - 9090   # Prometheus
         - 9100   # Node Exporter
         - 6379   # Redis for Celery broker
+        - 5555   # Celery Flower UI
       when: ufw_installed.rc == 0
       ignore_errors: true
 

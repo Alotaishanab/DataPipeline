@@ -39,4 +39,16 @@
         state: started
         enabled: yes
 
+    - name: Install pip if not already installed
+      package:
+        name: python3-pip
+        state: present
+
+    - name: Install Flower (Celery monitoring UI)
+      pip:
+        name: flower
+        virtualenv: "{{ venv_path }}"
+        state: latest
+
+
 
