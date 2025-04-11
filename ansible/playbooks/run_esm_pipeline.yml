@@ -1,38 +1,30 @@
+# This part sets up only what's needed on the worker nodes
 - name: Deploy ESM pipeline to workers
   hosts: worker_inventory
   become: yes
   become_user: almalinux
   vars:
     venv_path: "/opt/esm/venv"
-    controller_dir: "/home/almalinux/esm_pipeline"
+    celery_app_path: "/home/almalinux/celery_app"
     chunks_dir: "/mnt/data_volume/datasets/uni_chunks"
+
   tasks:
-    - name: Ensure pipeline directory exists
+    - name: Ensure celery app directory exists
       file:
-        path: "{{ controller_dir }}"
+        path: "{{ celery_app_path }}"
         state: directory
         owner: almalinux
         group: almalinux
         mode: '0755'
 
-    - name: Copy controller.py from scripts to workers
-      copy:
-        src: "../scripts/controller.py"
-        dest: "{{ controller_dir }}/controller.py"
-        owner: almalinux
-        group: almalinux
-        mode: '0755'
-        force: yes 
-
-    - name: Copy worker.py from scripts to workers
+    - name: Copy worker.py to celery app
       copy:
         src: "../scripts/worker.py"
-        dest: "{{ controller_dir }}/worker.py"
+        dest: "{{ celery_app_path }}/worker.py"
         owner: almalinux
         group: almalinux
         mode: '0755'
-        force: yes 
-
+        force: yes
 
     - name: Ensure GlusterFS chunk directory is writable
       file:
@@ -41,10 +33,17 @@
         group: almalinux
         mode: '0775'
 
+    - name: Remove old esm_pipeline/worker.py (deprecated)
+      file:
+        path: /home/almalinux/esm_pipeline/worker.py
+        state: absent
+        ignore_errors: yes  # in case it's already gone
+
 
 - name: Restart Celery workers if any were previously running
   hosts: worker_inventory
   become: yes
+
   tasks:
     - name: Kill old celery workers (ignore if none)
       shell: |
@@ -62,6 +61,7 @@
         enabled: yes
 
 
+# This section handles ONLY the controller on the mgmt node
 - name: Trigger ESM controller on mgmt node
   hosts: localhost
   become: yes
@@ -70,8 +70,9 @@
     venv_path: "/opt/esm/venv"
     controller_dir: "/home/almalinux/esm_pipeline"
     controller_remote_path: "{{ controller_dir }}/controller.py"
+
   tasks:
-    - name: Ensure pipeline directory exists
+    - name: Ensure controller directory exists
       file:
         path: "{{ controller_dir }}"
         state: directory
