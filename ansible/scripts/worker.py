@@ -6,7 +6,7 @@ import torch
 import esm
 from Bio import SeqIO
 from celery import Celery
-import traceback  # <-- Added
+import traceback
 
 # Celery configuration
 app = Celery(
@@ -82,6 +82,14 @@ def infer_fasta_file(path):
 
     except Exception as e:
         print(f"❌ Error processing {fasta_path}: {e}")
-        traceback.print_exc()  # <-- Added this to dump full stack trace
+        traceback.print_exc()
 
     return "done"
+
+# 👇 CLI Support for manual testing
+if __name__ == "__main__":
+    import sys
+    if len(sys.argv) != 2:
+        print("Usage: python worker.py <path_to_fasta_file>")
+    else:
+        infer_fasta_file(sys.argv[1])
