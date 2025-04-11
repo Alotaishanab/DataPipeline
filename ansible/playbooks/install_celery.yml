@@ -23,10 +23,10 @@
           - redis
         state: latest
 
-    - name: Upload worker.py (Celery task)
+    - name: Upload celery_worker.py (Celery task)
       copy:
-        src: "../scripts/worker.py"
-        dest: "{{ celery_app_path }}/worker.py"
+        src: "../scripts/celery_worker.py"
+        dest: "{{ celery_app_path }}/celery_worker.py"
         owner: "{{ esm_user }}"
         group: "{{ esm_user }}"
         mode: '0755'
