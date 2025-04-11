@@ -31,6 +31,8 @@
         owner: almalinux
         group: almalinux
         mode: '0755'
+        force: yes 
+
 
     - name: Ensure GlusterFS chunk directory is writable
       file:
