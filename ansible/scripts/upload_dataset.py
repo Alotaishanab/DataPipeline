@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from werkzeug.utils import secure_filename
 import os
 import subprocess
@@ -22,7 +22,7 @@ def upload():
     if not email:
         return jsonify({'status': 'error', 'message': 'Email is required'}), 400
 
-    if file and file.filename.endswith('.fasta'):
+    if file and (file.filename.endswith('.fasta') or file.filename.endswith('.fasta.gz')):
         filename = secure_filename(file.filename)
         local_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         file.save(local_path)
@@ -38,7 +38,7 @@ def upload():
         else:
             return jsonify({'status': 'success', 'message': f'File processed. We\'ll email you at {email}'}), 200
     else:
-        return jsonify({'status': 'error', 'message': 'Only .fasta files are allowed'}), 400
+        return jsonify({'status': 'error', 'message': 'Only .fasta or .fasta.gz files are allowed'}), 400
 
 @app.route('/api/results', methods=['GET'])
 def list_results():
@@ -61,6 +61,15 @@ def list_datasets():
         return jsonify({'files': files})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+# ✅ Add these two routes to serve files
+@app.route('/datasets/<path:filename>')
+def serve_dataset(filename):
+    return send_from_directory(DATASETS_FOLDER, filename)
+
+@app.route('/results/<path:filename>')
+def serve_result(filename):
+    return send_from_directory(RESULTS_FOLDER, filename)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080)
