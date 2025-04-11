@@ -78,10 +78,10 @@
         group: almalinux
         mode: '0775'
       loop:
-        - datasets
-        - datasets/uni_chunks
-        - results
-
+        - datasets/internal_chunks
+        - datasets/user_chunks
+        - results/internal_outputs
+        - results/user_outputs
 
 
 # Play 2: Configure GlusterFS volume

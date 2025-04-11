@@ -41,7 +41,6 @@
         group: almalinux
         mode: '0775'
 
-# This section handles ONLY the controller on the mgmt node
 - name: Trigger ESM controller on mgmt node
   hosts: localhost
   become: yes
@@ -67,15 +66,6 @@
         owner: almalinux
         group: almalinux
         mode: '0755'
-
-    - name: Kill existing controller.py if running
-      shell: |
-        pids=$(pgrep -f "{{ controller_remote_path }}")
-        if [ -n "$pids" ]; then
-          echo "Killing old controller.py: $pids"
-          kill $pids
-        fi
-      ignore_errors: yes
 
     - name: Start new controller.py in background
       shell: |

@@ -24,7 +24,7 @@ app = Celery(
 )
 
 MAX_SEQ_LEN = 3000
-OUTPUT_DIR = "/mnt/data_volume/results/esm2_celery_outputs"
+RESULT_ROOT = "/mnt/data_volume/results"
 BATCH_SIZE = 8
 
 log.info("🧠 Loading ESM2 model into memory...")
@@ -78,6 +78,12 @@ def infer_fasta_file(path):
             for i, (label, seq) in enumerate(batch):
                 embedding = reps[i, 1:len(seq)+1].mean(0).tolist()
                 results.append({"id": label, "sequence": seq, "embedding": embedding})
+
+        # 🧠 Decide output dir
+        if "/user_chunks/" in fasta_path:
+            OUTPUT_DIR = os.path.join(RESULT_ROOT, "user_outputs")
+        else:
+            OUTPUT_DIR = os.path.join(RESULT_ROOT, "internal_outputs")
 
         os.makedirs(OUTPUT_DIR, exist_ok=True)
         base = os.path.basename(fasta_path).replace(".fasta", ".json").replace(".gz", "")

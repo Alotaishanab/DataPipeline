@@ -3,7 +3,7 @@
   become: yes
 
   vars:
-    flask_app_path: /opt/data_pipeline/upload_dataset.py
+    flask_app_path: /opt/data_pipeline/app.py
     flask_app_port: 8080
     flask_work_dir: /opt/data_pipeline
     results_path: /mnt/results
@@ -32,9 +32,9 @@
         group: almalinux
         mode: '0775'
 
-    - name: Copy upload_dataset.py Flask app
+    - name: Copy app.py Flask app
       copy:
-        src: ../scripts/upload_dataset.py
+        src: ../scripts/app.py
         dest: "{{ flask_app_path }}"
         mode: '0755'
         owner: almalinux
@@ -71,18 +71,29 @@
         mode: '0644'
         content: |
           <VirtualHost *:80>
-              ServerName your.hostname.com
+            ServerName your.hostname.com
 
-              ProxyPreserveHost On
-              ProxyPass /upload http://127.0.0.1:8080/upload
-              ProxyPassReverse /upload http://127.0.0.1:8080/upload
+            ProxyPreserveHost On
 
-              DocumentRoot /var/www/html
-              <Directory /var/www/html>
-                  Options Indexes FollowSymLinks
-                  AllowOverride All
-                  Require all granted
-              </Directory>
+            # Proxy endpoints served by Flask
+            ProxyPass /upload http://127.0.0.1:8080/upload
+            ProxyPassReverse /upload http://127.0.0.1:8080/upload
+
+            ProxyPass /api/ http://127.0.0.1:8080/api/
+            ProxyPassReverse /api/ http://127.0.0.1:8080/api/
+
+            ProxyPass /datasets/ http://127.0.0.1:8080/datasets/
+            ProxyPassReverse /datasets/ http://127.0.0.1:8080/datasets/
+
+            ProxyPass /results/ http://127.0.0.1:8080/results/
+            ProxyPassReverse /results/ http://127.0.0.1:8080/results/
+
+            DocumentRoot /var/www/html
+            <Directory /var/www/html>
+                Options Indexes FollowSymLinks
+                AllowOverride All
+                Require all granted
+            </Directory>
           </VirtualHost>
       notify: restart_httpd
 
