@@ -49,20 +49,24 @@ with open(LOG_PATH, "a") as log_file:
         print(f"\n⏱️ Iteration #{iteration} — {timestamp}")
         log_file.write(f"\n--- Iteration #{iteration} at {timestamp} ---\n")
 
-        files = sorted(
+        # ✨ Step 1: Find all files to process
+        files_to_process = []
+        all_files = sorted(
             glob.glob(os.path.join(CHUNK_DIR, "*.fasta")) +
             glob.glob(os.path.join(CHUNK_DIR, "*.fasta.gz"))
         )
 
-        for path in files:
-            # 👇 Skip if output already exists
+        for path in all_files:
             base = os.path.basename(path).replace(".fasta", ".json").replace(".gz", "")
             output_path = os.path.join(OUTPUT_DIR, base)
-            if os.path.exists(output_path):
+            if not os.path.exists(output_path):
+                files_to_process.append(path)
+            else:
                 print(f"✅ Already processed: {output_path}")
                 log_file.write(f"✅ Already processed: {output_path}\n")
-                continue
 
+        # ✨ Step 2: Submit each file
+        for path in files_to_process:
             while True:
                 worker_load = get_worker_load()
                 chosen = next((w for w, l in worker_load.items() if l["active"] < MAX_PENDING), None)
@@ -78,7 +82,7 @@ with open(LOG_PATH, "a") as log_file:
                     app.send_task("celery_worker.infer_fasta_file", args=[path])
                     break
 
-        # Wait for workers to finish
+        # ✨ Step 3: Wait until ALL tasks are finished before continuing
         print("⌛ Waiting for all workers to finish current batch...")
         log_file.write("⌛ Waiting for all workers to finish current batch...\n")
         log_file.flush()
