@@ -5,6 +5,7 @@ import glob
 import time
 from datetime import datetime, timedelta
 from celery import Celery
+from kombu.exceptions import OperationalError
 
 CHUNK_DIR = "/mnt/data_volume/datasets/uni_chunks"
 OUTPUT_DIR = "/mnt/data_volume/results/esm2_celery_outputs"
@@ -36,6 +37,14 @@ def all_workers_idle(worker_load):
 
 # Ensure result/log dir exists
 os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+# 🔄 Purge existing Celery tasks before starting
+try:
+    print("🧹 Purging any leftover Celery tasks from Redis...")
+    purged = app.control.purge()
+    print(f"✅ Purged {purged} task(s) from the queue.")
+except OperationalError as e:
+    print(f"❌ Failed to purge tasks: {e}")
 
 end_time = datetime.now() + timedelta(hours=24)
 iteration = 0
