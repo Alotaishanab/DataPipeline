@@ -1,4 +1,3 @@
-# This part sets up only what's needed on the worker nodes
 - name: Deploy ESM pipeline to workers
   hosts: worker_inventory
   become: yes
@@ -17,18 +16,19 @@
         group: almalinux
         mode: '0755'
 
-    - name: Ensure __init__.py exists to make celery_app a Python module
-      file:
-        path: "{{ celery_app_path }}/__init__.py"
-        state: touch
+    - name: Create __init__.py to expose Celery app
+      copy:
+        dest: "{{ celery_app_path }}/__init__.py"
+        content: |
+          from .celery_worker import app as celery
         owner: almalinux
         group: almalinux
         mode: '0644'
 
-    - name: Copy worker.py to celery app
+    - name: Copy celery_worker.py to celery app
       copy:
-        src: "../scripts/worker.py"
-        dest: "{{ celery_app_path }}/worker.py"
+        src: "../scripts/celery_worker.py"
+        dest: "{{ celery_app_path }}/celery_worker.py"
         owner: almalinux
         group: almalinux
         mode: '0755'
@@ -40,12 +40,6 @@
         owner: almalinux
         group: almalinux
         mode: '0775'
-
-    - name: Remove old esm_pipeline/worker.py (deprecated)
-      file:
-        path: /home/almalinux/esm_pipeline/worker.py
-        state: absent
-      ignore_errors: yes
 
 # This section handles ONLY the controller on the mgmt node
 - name: Trigger ESM controller on mgmt node

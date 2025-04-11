@@ -6,6 +6,7 @@ import time
 from datetime import datetime, timedelta
 from celery import Celery
 from kombu.exceptions import OperationalError
+from celery_app import celery as app
 
 CHUNK_DIR = "/mnt/data_volume/datasets/uni_chunks"
 OUTPUT_DIR = "/mnt/data_volume/results/esm2_celery_outputs"
@@ -13,7 +14,6 @@ LOG_PATH = os.path.join(OUTPUT_DIR, "submit_log.txt")
 MAX_PENDING = 4
 WAIT_FOR_IDLE_DELAY = 30  # seconds
 
-app = Celery(broker="redis://mgmtnode:6379/0")
 
 def get_worker_load():
     try:
