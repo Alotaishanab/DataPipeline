@@ -43,7 +43,7 @@
           Type=simple
           User={{ esm_user }}
           Group={{ esm_user }}
-          WorkingDirectory=/home/almalinux
+          WorkingDirectory={{ celery_app_path }}
           Environment="PYTHONUNBUFFERED=1"
           ExecStart={{ venv_path }}/bin/celery -A celery_app.worker worker --loglevel=info --concurrency=3 --logfile={{ celery_app_path }}/celery.log
           Restart=always
@@ -51,6 +51,10 @@
 
           [Install]
           WantedBy=multi-user.target
+      notify:
+        - Reload systemd
+        - Restart Celery Worker
+
 
 
   handlers:
