@@ -6,6 +6,7 @@ import torch
 import esm
 from Bio import SeqIO
 from celery import Celery
+import traceback  # <-- Added
 
 # Celery configuration
 app = Celery(
@@ -81,4 +82,6 @@ def infer_fasta_file(path):
 
     except Exception as e:
         print(f"❌ Error processing {fasta_path}: {e}")
+        traceback.print_exc()  # <-- Added this to dump full stack trace
+
     return "done"
