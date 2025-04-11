@@ -22,6 +22,7 @@
         owner: almalinux
         group: almalinux
         mode: '0755'
+        force: yes 
 
     - name: Copy worker.py from scripts to workers
       copy:
