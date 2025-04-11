@@ -37,7 +37,7 @@
       file:
         path: /home/almalinux/esm_pipeline/worker.py
         state: absent
-        ignore_errors: yes  # in case it's already gone
+      ignore_errors: yes  
 
 
 - name: Restart Celery workers if any were previously running
