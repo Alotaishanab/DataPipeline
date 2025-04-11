@@ -15,23 +15,21 @@
         group: almalinux
         mode: '0755'
 
-    - name: Copy controller.py from mgmt node to workers
+    - name: Copy controller.py from scripts to workers
       copy:
-        src: "{{ controller_dir }}/controller.py"
+        src: "../scripts/controller.py"
         dest: "{{ controller_dir }}/controller.py"
         owner: almalinux
         group: almalinux
         mode: '0755'
-      delegate_to: localhost
 
-    - name: Copy worker.py from scripts directory on mgmt node to workers
+    - name: Copy worker.py from scripts to workers
       copy:
-        src: "/home/almalinux/DataPipeline/ansible/scripts/worker.py"
+        src: "../scripts/worker.py"
         dest: "{{ controller_dir }}/worker.py"
         owner: almalinux
         group: almalinux
         mode: '0755'
-      delegate_to: localhost
 
     - name: Ensure GlusterFS chunk directory is writable
       file:
@@ -39,7 +37,6 @@
         owner: almalinux
         group: almalinux
         mode: '0775'
-
 
 
 - name: Restart Celery workers if any were previously running
