@@ -17,6 +17,14 @@
         group: almalinux
         mode: '0755'
 
+    - name: Ensure __init__.py exists to make celery_app a Python module
+      file:
+        path: "{{ celery_app_path }}/__init__.py"
+        state: touch
+        owner: almalinux
+        group: almalinux
+        mode: '0644'
+
     - name: Copy worker.py to celery app
       copy:
         src: "../scripts/worker.py"
@@ -37,27 +45,30 @@
       file:
         path: /home/almalinux/esm_pipeline/worker.py
         state: absent
-      ignore_errors: yes  
+      ignore_errors: yes
 
 
 - name: Restart Celery workers if any were previously running
   hosts: worker_inventory
   become: yes
+  become_user: root
 
   tasks:
-    - name: Kill old celery workers (ignore if none)
-      shell: |
-        pids=$(pgrep -f "celery.*worker")
-        if [ -n "$pids" ]; then
-          echo "Killing existing celery workers: $pids"
-          kill -9 $pids
-        fi
-      ignore_errors: yes
-
-    - name: Restart celery worker systemd service
+    - name: Stop celery systemd service cleanly (if running)
       systemd:
         name: celery-worker.service
-        state: restarted
+        state: stopped
+      ignore_errors: yes
+
+    - name: Kill leftover Celery worker processes (if any)
+      shell: |
+        pkill -9 -f "celery.*worker" || true
+      ignore_errors: yes
+
+    - name: Start celery worker systemd service
+      systemd:
+        name: celery-worker.service
+        state: started
         enabled: yes
 
 
