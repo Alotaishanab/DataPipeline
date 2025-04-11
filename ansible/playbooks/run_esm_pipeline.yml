@@ -47,31 +47,6 @@
         state: absent
       ignore_errors: yes
 
-
-- name: Restart Celery workers if any were previously running
-  hosts: worker_inventory
-  become: yes
-  become_user: root
-
-  tasks:
-    - name: Stop celery systemd service cleanly (if running)
-      systemd:
-        name: celery-worker.service
-        state: stopped
-      ignore_errors: yes
-
-    - name: Kill leftover Celery worker processes (if any)
-      shell: |
-        pkill -9 -f "celery.*worker" || true
-      ignore_errors: yes
-
-    - name: Start celery worker systemd service
-      systemd:
-        name: celery-worker.service
-        state: started
-        enabled: yes
-
-
 # This section handles ONLY the controller on the mgmt node
 - name: Trigger ESM controller on mgmt node
   hosts: localhost
