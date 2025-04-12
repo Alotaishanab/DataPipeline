@@ -42,7 +42,7 @@
         mode: '0775'
 
     # 🔄 One-time restart of Celery worker processes
-    - name: 🔄 One-time: Kill stuck Celery workers (if any)
+    - name: Kill stuck Celery workers (if any)
       shell: "pkill -f 'celery worker' || true"
 
     - name: 🕐 Wait briefly for processes to terminate
