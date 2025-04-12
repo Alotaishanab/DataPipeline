@@ -1,5 +1,5 @@
 ---
-- name: Flush Celery tasks from Redis on Management Node
+- name: Flush pending Celery tasks from Redis (DB 0) on Management Node
   hosts: localhost
   become: yes
   tasks:
@@ -23,7 +23,7 @@
   hosts: localhost
   become: yes
   tasks:
-    - name: Kill any running controller.py processes
+    - name: Kill any running controller.py processes (ignore errors)
       shell: pkill -f controller.py || true
       ignore_errors: yes
 
@@ -33,16 +33,17 @@
         cd /home/almalinux/esm_pipeline
         nohup python controller.py > /mnt/data_volume/results/controller_submit_log.txt 2>&1 &
       args:
-        chdir: "/home/almalinux/esm_pipeline"
+        chdir: /home/almalinux/esm_pipeline
 
-- name: (Optional) Verify Celery Workers Status
+- name: (Optional) Verify Celery Workers Status using correct module name
   hosts: localhost
   become: yes
   tasks:
-    - name: Check active tasks on all workers using the correct app module
+    - name: Check active tasks on all workers
       shell: |
         source /opt/esm/venv/bin/activate
         celery -A celery_app.celery_worker inspect active
       register: celery_active
+      failed_when: false
     - debug:
         var: celery_active.stdout
