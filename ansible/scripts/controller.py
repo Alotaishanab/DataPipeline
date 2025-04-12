@@ -24,11 +24,9 @@ def get_worker_load():
         i = app.control.inspect()
         active = i.active()
         stats = i.stats()
-
         if not active or not stats:
             print("⚠️ Celery returned no active task info or no stats.")
             return None
-
         load = {}
         for worker, tasks in active.items():
             concurrency = stats.get(worker, {}).get("pool", {}).get("max-concurrency", 4)
@@ -70,20 +68,20 @@ with open(LOG_PATH, "a") as log_file:
             output_dir = OUTPUT_DIRS[kind]
             os.makedirs(output_dir, exist_ok=True)
 
-            all_files = sorted(
-                glob.glob(os.path.join(chunk_dir, "*.fasta")) +
-                glob.glob(os.path.join(chunk_dir, "*.fasta.gz"))
-            )
+            # Only look for .fasta files (decompressed)
+            fasta_files = sorted(glob.glob(os.path.join(chunk_dir, "*.fasta")))
             files_to_process = []
 
-            for path in all_files:
-                base = os.path.basename(path).replace(".fasta", ".json").replace(".gz", "")
+            for path in fasta_files:
+                base = os.path.basename(path).replace(".fasta", ".json")
                 output_path = os.path.join(output_dir, base)
-                if not os.path.exists(output_path):
-                    files_to_process.append(path)
-                else:
+
+                # Skip if output exists
+                if os.path.exists(output_path):
                     print(f"✅ Already processed: {output_path}")
                     log_file.write(f"✅ Already processed: {output_path}\n")
+                else:
+                    files_to_process.append(path)
 
             for path in files_to_process:
                 while True:
@@ -104,7 +102,6 @@ with open(LOG_PATH, "a") as log_file:
                         app.send_task("celery_worker.infer_fasta_file", args=[path])
                         break
 
-            # Wait for tasks to finish
             print("⌛ Waiting for all workers to finish current batch...")
             log_file.write("⌛ Waiting for all workers to finish current batch...\n")
             log_file.flush()
