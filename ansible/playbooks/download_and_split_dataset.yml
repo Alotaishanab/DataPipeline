@@ -100,9 +100,15 @@
         patterns: "chunk_*.fasta.gz"
       register: gz_chunk_files
 
-    - name: Copy each compressed chunk to the Storage Pool as almalinux
-      become_user: almalinux
-      command: cp {{ item.path }} {{ storage_pool_target }}/{{ item.path | basename }}
+    - name: Copy each compressed chunk to the Storage Pool
+      copy:
+        src: "{{ item.path }}"
+        dest: "{{ storage_pool_target }}/{{ item.path | basename }}"
+        remote_src: yes
+        owner: almalinux
+        group: almalinux
+        mode: '0644'
       loop: "{{ gz_chunk_files.files }}"
       loop_control:
         label: "{{ item.path }}"
+
