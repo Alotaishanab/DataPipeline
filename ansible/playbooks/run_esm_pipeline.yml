@@ -70,6 +70,7 @@
     - name: Start new controller.py in background
       shell: |
         source {{ venv_path }}/bin/activate
-        nohup python {{ controller_remote_path }} > controller.log 2>&1 &
+        PYTHONPATH=/home/almalinux nohup python {{ controller_remote_path }} > controller.log 2>&1 &
       args:
         chdir: "{{ controller_dir }}"
+

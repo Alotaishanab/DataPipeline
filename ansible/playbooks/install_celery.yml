@@ -41,11 +41,11 @@
 
           [Service]
           Type=simple
-          User={{ esm_user }}
-          Group={{ esm_user }}
-          WorkingDirectory={{ celery_app_path }}
-          Environment="PYTHONUNBUFFERED=1"
-          ExecStart={{ venv_path }}/bin/celery -A celery_app worker --loglevel=info --logfile={{ celery_app_path }}/celery.log --concurrency=3
+          User=almalinux
+          Group=almalinux
+          WorkingDirectory=/home/almalinux/celery_app
+          Environment=PYTHONPATH=/home/almalinux
+          ExecStart=/opt/esm/venv/bin/celery -A celery_app.celery_worker worker --loglevel=info --logfile=/home/almalinux/celery_app/celery.log --concurrency=3
           Restart=always
           RestartSec=10
 
