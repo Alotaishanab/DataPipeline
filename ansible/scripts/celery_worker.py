@@ -36,7 +36,6 @@ log.info("✅ Model loaded and ready.")
 @app.task(name='celery_worker.infer_fasta_file')
 def infer_fasta_file(path):
     log.info(f"📥 Task started for: {path}")
-    
     try:
         if path.endswith(".gz"):
             fasta_path = path[:-3]
@@ -51,13 +50,11 @@ def infer_fasta_file(path):
         log.info(f"📖 Reading sequences from: {fasta_path}")
         results = []
         batch = []
-
         for record in SeqIO.parse(fasta_path, "fasta"):
             seq = str(record.seq)
             if len(seq) > MAX_SEQ_LEN:
                 seq = seq[:MAX_SEQ_LEN]
             batch.append((record.id, seq))
-
             if len(batch) == BATCH_SIZE:
                 log.info("⚙️ Processing batch...")
                 _, _, tokens = batch_converter(batch)
@@ -68,7 +65,6 @@ def infer_fasta_file(path):
                     embedding = reps[i, 1:len(seq)+1].mean(0).tolist()
                     results.append({"id": label, "sequence": seq, "embedding": embedding})
                 batch = []
-
         if batch:
             log.info("⚙️ Processing remaining batch...")
             _, _, tokens = batch_converter(batch)
@@ -78,26 +74,21 @@ def infer_fasta_file(path):
             for i, (label, seq) in enumerate(batch):
                 embedding = reps[i, 1:len(seq)+1].mean(0).tolist()
                 results.append({"id": label, "sequence": seq, "embedding": embedding})
-
-        # 🧠 Decide output dir
+        # Decide output directory based on file path
         if "/user_chunks/" in fasta_path:
             OUTPUT_DIR = os.path.join(RESULT_ROOT, "user_outputs")
         else:
             OUTPUT_DIR = os.path.join(RESULT_ROOT, "internal_outputs")
-
         os.makedirs(OUTPUT_DIR, exist_ok=True)
         base = os.path.basename(fasta_path).replace(".fasta", ".json").replace(".gz", "")
         output_path = os.path.join(OUTPUT_DIR, base)
         log.info(f"💾 Writing output to: {output_path}")
         with open(output_path, 'w') as f:
             json.dump(results, f)
-
         log.info("✅ Task complete.")
-    
     except Exception as e:
         log.error(f"❌ Error processing {fasta_path}: {e}")
         log.exception("Traceback:")
-
     return "done"
 
 # CLI support
