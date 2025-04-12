@@ -16,7 +16,7 @@
         group: almalinux
         mode: '0755'
 
-    - name: Create __init__.py to expose Celery app
+    - name: Create __init__.py to expose Celery worker app
       copy:
         dest: "{{ celery_app_path }}/__init__.py"
         content: |
@@ -58,7 +58,7 @@
         group: almalinux
         mode: '0755'
 
-    - name: Copy minimal celery app.py to mgmt node
+    - name: Copy minimal Celery client (app.py) to mgmt node
       copy:
         src: "../scripts/celery_app_app.py"
         dest: "{{ celery_app_path }}/app.py"
@@ -66,24 +66,14 @@
         group: almalinux
         mode: '0644'
 
-    - name: Create __init__.py on mgmt node
+    - name: Create __init__.py that exposes minimal app (no torch)
       copy:
         dest: "{{ celery_app_path }}/__init__.py"
         content: |
-          from .celery_worker import app as celery
+          from .app import app as celery
         owner: almalinux
         group: almalinux
         mode: '0644'
-
-    - name: Copy celery_worker.py to mgmt node
-      copy:
-        src: "../scripts/celery_worker.py"
-        dest: "{{ celery_app_path }}/celery_worker.py"
-        owner: almalinux
-        group: almalinux
-        mode: '0755'
-        force: yes
-
 
 
 - name: Trigger ESM controller on mgmt node
