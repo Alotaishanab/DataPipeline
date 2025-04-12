@@ -6,10 +6,10 @@
     chunk_dir: "{{ dataset_dir }}/chunks"
     dataset_url: "https://ftp.uniprot.org/pub/databases/uniprot/uniref/uniref50/uniref50.fasta.gz"
     chunk_count: 32
-    storage_pool_target: "/mnt/data_volume/datasets/uni_chunks"
+    storage_pool_target: "/mnt/data_volume/datasets/internal_chunks"  # ✅ Updated to match controller
   tasks:
     - name: Install required packages (wget and pigz)
-      ansible.builtin.package:
+      package:
         name:
           - wget
           - pigz
@@ -17,7 +17,7 @@
         update_cache: yes
 
     - name: Ensure dataset and chunk directories exist
-      ansible.builtin.file:
+      file:
         path: "{{ item }}"
         state: directory
         mode: '0755'
@@ -26,19 +26,19 @@
         - "{{ chunk_dir }}"
 
     - name: Check if UniRef50 FASTA dataset is already present (decompressed)
-      ansible.builtin.stat:
+      stat:
         path: "{{ dataset_dir }}/uniref50.fasta"
       register: uniref_dataset
 
     - name: Download UniRef50 FASTA (compressed)
-      ansible.builtin.command: >
+      command: >
         wget -O {{ dataset_dir }}/uniref50.fasta.gz {{ dataset_url }}
       args:
         creates: "{{ dataset_dir }}/uniref50.fasta.gz"
       when: not uniref_dataset.stat.exists
 
     - name: Decompress the FASTA using pigz
-      ansible.builtin.command: >
+      command: >
         pigz -d -f {{ dataset_dir }}/uniref50.fasta.gz
       args:
         removes: "{{ dataset_dir }}/uniref50.fasta.gz"
@@ -46,20 +46,20 @@
       when: not uniref_dataset.stat.exists
 
     - name: Count how many sequences are in the FASTA
-      ansible.builtin.shell: "grep '^>' {{ dataset_dir }}/uniref50.fasta | wc -l"
+      shell: "grep '^>' {{ dataset_dir }}/uniref50.fasta | wc -l"
       register: seq_count
 
     - name: Calculate number of sequences per chunk
-      ansible.builtin.set_fact:
+      set_fact:
         chunk_size: "{{ (seq_count.stdout|int / chunk_count) | round(0, 'ceil') }}"
 
     - name: Check if splitting has already been done
-      ansible.builtin.stat:
+      stat:
         path: "{{ chunk_dir }}/chunk_001.fasta"
       register: chunk_check
 
     - name: Split the FASTA by sequence using awk
-      ansible.builtin.shell: >
+      shell: >
         awk -v chunk_size={{ chunk_size }} -v out="{{ chunk_dir }}" '
           BEGIN { file_n = 1; seq_seen = 0; }
           /^>/ { seq_seen++; if (seq_seen > chunk_size) { seq_seen=1; file_n++; } }
@@ -70,39 +70,39 @@
       when: not chunk_check.stat.exists
 
     - name: Find created chunk files
-      ansible.builtin.find:
+      find:
         paths: "{{ chunk_dir }}"
         patterns: "chunk_*.fasta"
       register: chunk_files
 
     - name: Compress each chunk with pigz
-      ansible.builtin.command: pigz -f {{ item.path }}
+      command: pigz -f {{ item.path }}
       loop: "{{ chunk_files.files }}"
       loop_control:
         label: "{{ item.path }}"
 
     - name: Ensure target Storage Pool directory exists
-      ansible.builtin.file:
+      file:
         path: "{{ storage_pool_target }}"
         state: directory
         mode: '0775'
 
     - name: Set ownership to almalinux on Storage Pool target
-      ansible.builtin.file:
+      file:
         path: "{{ storage_pool_target }}"
         owner: almalinux
         group: almalinux
         recurse: yes
 
     - name: Find compressed chunk files
-      ansible.builtin.find:
+      find:
         paths: "{{ chunk_dir }}"
         patterns: "chunk_*.fasta.gz"
       register: gz_chunk_files
 
     - name: Copy each compressed chunk to the Storage Pool as almalinux
       become_user: almalinux
-      ansible.builtin.command: cp {{ item.path }} {{ storage_pool_target }}/{{ item.path | basename }}
+      command: cp {{ item.path }} {{ storage_pool_target }}/{{ item.path | basename }}
       loop: "{{ gz_chunk_files.files }}"
       loop_control:
         label: "{{ item.path }}"

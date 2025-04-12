@@ -5,7 +5,7 @@ import glob
 import time
 from datetime import datetime, timedelta
 from kombu.exceptions import OperationalError
-from celery_app.app import app  # ✅ Note the change here
+from celery_app.app import app
 
 CHUNK_DIRS = {
     "internal": "/mnt/data_volume/datasets/internal_chunks",
@@ -19,12 +19,16 @@ LOG_PATH = "/mnt/data_volume/results/controller_submit_log.txt"
 MAX_PENDING = 4
 WAIT_FOR_IDLE_DELAY = 30  # seconds
 
-
 def get_worker_load():
     try:
         i = app.control.inspect()
-        active = i.active() or {}
-        stats = i.stats() or {}
+        active = i.active()
+        stats = i.stats()
+
+        if not active or not stats:
+            print("⚠️ Celery returned no active task info or no stats.")
+            return None
+
         load = {}
         for worker, tasks in active.items():
             concurrency = stats.get(worker, {}).get("pool", {}).get("max-concurrency", 4)
@@ -35,12 +39,12 @@ def get_worker_load():
         return load
     except Exception as e:
         print(f"⚠️ Failed to fetch worker stats: {e}")
-        return {}
+        return None
 
 def all_workers_idle(worker_load):
     return all(w["active"] == 0 for w in worker_load.values())
 
-# 🔄 Purge existing Celery tasks before starting
+# 🔄 Purge any stuck tasks
 try:
     print("🧹 Purging any leftover Celery tasks from Redis...")
     purged = app.control.purge()
@@ -48,7 +52,6 @@ try:
 except OperationalError as e:
     print(f"❌ Failed to purge tasks: {e}")
 
-# Ensure log dir
 os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
 
 end_time = datetime.now() + timedelta(hours=24)
@@ -85,11 +88,14 @@ with open(LOG_PATH, "a") as log_file:
             for path in files_to_process:
                 while True:
                     worker_load = get_worker_load()
-                    chosen = next((w for w, l in worker_load.items() if l["active"] < MAX_PENDING), None)
+                    if worker_load:
+                        chosen = next((w for w, l in worker_load.items() if l["active"] < MAX_PENDING), None)
+                    else:
+                        chosen = None
 
                     if not chosen:
-                        print("⏳ All workers busy, waiting 30s...")
-                        log_file.write("⏳ All workers busy, waiting 30s...\n")
+                        print("⏳ All workers busy or unreachable. Waiting...")
+                        log_file.write("⏳ All workers busy or unreachable. Waiting...\n")
                         log_file.flush()
                         time.sleep(WAIT_FOR_IDLE_DELAY)
                     else:
@@ -98,11 +104,13 @@ with open(LOG_PATH, "a") as log_file:
                         app.send_task("celery_worker.infer_fasta_file", args=[path])
                         break
 
+            # Wait for tasks to finish
             print("⌛ Waiting for all workers to finish current batch...")
             log_file.write("⌛ Waiting for all workers to finish current batch...\n")
             log_file.flush()
             while True:
-                if all_workers_idle(get_worker_load()):
+                worker_load = get_worker_load()
+                if worker_load and all_workers_idle(worker_load):
                     print("✅ All workers are idle. Proceeding to next iteration.")
                     log_file.write("✅ All workers are idle. Proceeding to next iteration.\n")
                     log_file.flush()

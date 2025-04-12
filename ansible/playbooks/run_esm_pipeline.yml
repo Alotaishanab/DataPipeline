@@ -5,7 +5,7 @@
   vars:
     venv_path: "/opt/esm/venv"
     celery_app_path: "/home/almalinux/celery_app"
-    chunks_dir: "/mnt/data_volume/datasets/uni_chunks"
+    chunks_dir: "/mnt/data_volume/datasets/internal_chunks"  # ✅ Updated to match Gluster location
 
   tasks:
     - name: Ensure celery app directory exists
@@ -41,7 +41,6 @@
         group: almalinux
         mode: '0775'
 
-
 - name: Deploy Celery app on mgmt node for controller support
   hosts: localhost
   become: yes
@@ -74,7 +73,6 @@
         owner: almalinux
         group: almalinux
         mode: '0644'
-
 
 - name: Trigger ESM controller on mgmt node
   hosts: localhost
