@@ -3,6 +3,7 @@
 import os
 import glob
 import time
+import random
 from datetime import datetime, timedelta
 from kombu.exceptions import OperationalError
 from celery_app.app import app
@@ -12,9 +13,9 @@ CHUNK_DIRS = {
     "user": "/mnt/data_volume/datasets/user_chunks"
 }
 LOG_PATH = "/mnt/data_volume/results/controller_submit_log.txt"
-MAX_PENDING = 4
+MAX_PENDING = 1  # Only one file per worker
 WAIT_FOR_IDLE_DELAY = 30  # seconds
-GZ_SUBMIT_DELAY = 20  # seconds to wait after submitting a .gz
+GZ_SUBMIT_DELAY = 20      # seconds to wait after submitting a .gz
 
 def get_worker_load():
     try:
@@ -39,7 +40,7 @@ def get_worker_load():
 def all_workers_idle(worker_load):
     return all(w["active"] == 0 for w in worker_load.values())
 
-# 🔄 Purge stuck tasks on startup
+# 🔄 Purge leftover tasks at startup
 try:
     print("🧹 Purging leftover tasks...")
     purged = app.control.purge()
@@ -62,7 +63,7 @@ with open(LOG_PATH, "a") as log_file:
         log_file.write(f"\n--- Iteration #{iteration} at {timestamp} ---\n")
 
         for kind, chunk_dir in CHUNK_DIRS.items():
-            # Get all available chunks: .fasta and .fasta.gz
+            # Get all .fasta and .fasta.gz files
             fasta_files = sorted(
                 glob.glob(os.path.join(chunk_dir, "*.fasta")) +
                 glob.glob(os.path.join(chunk_dir, "*.fasta.gz"))
@@ -72,7 +73,9 @@ with open(LOG_PATH, "a") as log_file:
                 while True:
                     worker_load = get_worker_load()
                     if worker_load:
-                        chosen = next((w for w, l in worker_load.items() if l["active"] < MAX_PENDING), None)
+                        workers = list(worker_load.items())
+                        random.shuffle(workers)
+                        chosen = next((w for w, l in workers if l["active"] < MAX_PENDING), None)
                     else:
                         chosen = None
 
@@ -87,7 +90,6 @@ with open(LOG_PATH, "a") as log_file:
                         app.send_task("celery_worker.infer_fasta_file", args=[path])
                         log_file.flush()
 
-                        # Add delay for .gz to allow decompression before queue fills
                         if path.endswith(".gz"):
                             print("🕓 Delaying for gzip decompression...")
                             log_file.write("🕓 Delaying for gzip decompression...\n")
@@ -95,7 +97,7 @@ with open(LOG_PATH, "a") as log_file:
                             time.sleep(GZ_SUBMIT_DELAY)
                         break
 
-        # Wait for all workers to finish before next iteration
+        # Wait until all workers are idle
         print("⌛ Waiting for all workers to finish current batch...")
         log_file.write("⌛ Waiting for all workers to finish current batch...\n")
         log_file.flush()
