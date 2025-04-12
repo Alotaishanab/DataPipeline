@@ -40,18 +40,6 @@
         owner: almalinux
         group: almalinux
         mode: '0775'
-        
-    - name: 🚀 Start fresh Celery worker in background
-      shell: |
-        source {{ venv_path }}/bin/activate
-        cd {{ celery_app_path }}
-        nohup celery -A celery_worker worker \
-          --loglevel=info \
-          --logfile={{ celery_app_path }}/celery.log \
-          --concurrency=3 \
-          --hostname=celery@{{ inventory_hostname }} &
-      args:
-        executable: /bin/bash
 
 - name: Deploy Celery app on mgmt node for controller support
   hosts: localhost
