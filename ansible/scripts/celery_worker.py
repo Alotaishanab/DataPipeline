@@ -9,14 +9,14 @@ from Bio import SeqIO
 from celery import Celery
 import traceback
 
-# Set up logging
+# Setup logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s [%(levelname)s] %(message)s'
 )
 log = logging.getLogger(__name__)
 
-# Celery configuration
+# Celery config
 app = Celery(
     'worker',
     broker='redis://mgmtnode:6379/0',
@@ -27,13 +27,18 @@ MAX_SEQ_LEN = 3000
 RESULT_ROOT = "/mnt/data_volume/results"
 BATCH_SIZE = 8
 
-log.info("🧠 Loading ESM2 model into memory...")
-model, alphabet = esm.pretrained.esm2_t30_150M_UR50D()
-model.eval()
-batch_converter = alphabet.get_batch_converter()
-log.info("✅ Model loaded and ready.")
+# Load ESM model once
+try:
+    log.info("🧠 Loading ESM2 model into memory...")
+    model, alphabet = esm.pretrained.esm2_t30_150M_UR50D()
+    model.eval()
+    batch_converter = alphabet.get_batch_converter()
+    log.info("✅ Model loaded and ready.")
+except Exception as e:
+    log.exception("❌ Failed to load ESM model")
+    raise
 
-@app.task(name='celery_worker.infer_fasta_file')
+@app.task(name='celery_worker.infer_fasta_file', acks_late=True)
 def infer_fasta_file(path):
     log.info(f"📥 Task started for: {path}")
     try:
@@ -41,7 +46,16 @@ def infer_fasta_file(path):
             fasta_path = path[:-3]
             if not os.path.exists(fasta_path):
                 log.info(f"🔓 Decompressing {path}...")
-                subprocess.run(["pigz", "-d", "-f", path], check=True)
+                try:
+                    result = subprocess.run(
+                        ["pigz", "-d", "-f", path],
+                        check=True,
+                        capture_output=True,
+                        text=True
+                    )
+                except subprocess.CalledProcessError as e:
+                    log.error(f"❌ Decompression failed: {e.stderr}")
+                    raise
             else:
                 log.info(f"🟢 Already decompressed: {fasta_path}")
         else:
@@ -50,11 +64,13 @@ def infer_fasta_file(path):
         log.info(f"📖 Reading sequences from: {fasta_path}")
         results = []
         batch = []
+
         for record in SeqIO.parse(fasta_path, "fasta"):
             seq = str(record.seq)
             if len(seq) > MAX_SEQ_LEN:
                 seq = seq[:MAX_SEQ_LEN]
             batch.append((record.id, seq))
+
             if len(batch) == BATCH_SIZE:
                 log.info("⚙️ Processing batch...")
                 _, _, tokens = batch_converter(batch)
@@ -65,6 +81,7 @@ def infer_fasta_file(path):
                     embedding = reps[i, 1:len(seq)+1].mean(0).tolist()
                     results.append({"id": label, "sequence": seq, "embedding": embedding})
                 batch = []
+
         if batch:
             log.info("⚙️ Processing remaining batch...")
             _, _, tokens = batch_converter(batch)
@@ -74,21 +91,26 @@ def infer_fasta_file(path):
             for i, (label, seq) in enumerate(batch):
                 embedding = reps[i, 1:len(seq)+1].mean(0).tolist()
                 results.append({"id": label, "sequence": seq, "embedding": embedding})
-        # Decide output directory based on file path
+
+        # Determine output path
         if "/user_chunks/" in fasta_path:
             OUTPUT_DIR = os.path.join(RESULT_ROOT, "user_outputs")
         else:
             OUTPUT_DIR = os.path.join(RESULT_ROOT, "internal_outputs")
         os.makedirs(OUTPUT_DIR, exist_ok=True)
+
         base = os.path.basename(fasta_path).replace(".fasta", ".json").replace(".gz", "")
         output_path = os.path.join(OUTPUT_DIR, base)
+
         log.info(f"💾 Writing output to: {output_path}")
         with open(output_path, 'w') as f:
             json.dump(results, f)
+
         log.info("✅ Task complete.")
+
     except Exception as e:
-        log.error(f"❌ Error processing {fasta_path}: {e}")
-        log.exception("Traceback:")
+        log.exception(f"❌ Error processing {path}")
+
     return "done"
 
 # CLI support

@@ -6,6 +6,7 @@
     - name: Flush Redis DB 0 (remove all pending Celery tasks)
       command: redis-cli -n 0 FLUSHDB
       register: flush_result
+
     - name: Display flush output
       debug:
         var: flush_result.stdout
@@ -27,6 +28,7 @@
     - name: Kill any running controller.py processes
       shell: pkill -f controller.py || true
       ignore_errors: yes
+
     - name: Start new controller.py in background with proper PYTHONPATH
       shell: |
         source /opt/esm/venv/bin/activate
@@ -42,8 +44,11 @@
     - name: Check active tasks on all workers using the celery_worker app module
       shell: |
         source /opt/esm/venv/bin/activate
+        export PYTHONPATH=/home/almalinux
         celery -A celery_app.celery_worker inspect active
       register: celery_status
+      ignore_errors: yes
+
     - name: Print Celery workers active tasks
       debug:
         var: celery_status.stdout_lines
