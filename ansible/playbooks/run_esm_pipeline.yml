@@ -5,7 +5,7 @@
   vars:
     venv_path: "/opt/esm/venv"
     celery_app_path: "/home/almalinux/celery_app"
-    chunks_dir: "/mnt/data_volume/datasets/internal_chunks"  # ✅ Updated to match Gluster location
+    chunks_dir: "/mnt/data_volume/datasets/internal_chunks"
 
   tasks:
     - name: Ensure celery app directory exists
@@ -40,6 +40,26 @@
         owner: almalinux
         group: almalinux
         mode: '0775'
+
+    # 🔄 One-time restart of Celery worker processes
+    - name: 🔄 One-time: Kill stuck Celery workers (if any)
+      shell: "pkill -f 'celery worker' || true"
+
+    - name: 🕐 Wait briefly for processes to terminate
+      wait_for:
+        timeout: 5
+
+    - name: 🚀 Start fresh Celery worker in background
+      shell: |
+        source {{ venv_path }}/bin/activate
+        cd {{ celery_app_path }}
+        nohup celery -A celery_worker worker \
+          --loglevel=info \
+          --logfile={{ celery_app_path }}/celery.log \
+          --concurrency=3 \
+          --hostname=celery@{{ inventory_hostname }} &
+      args:
+        executable: /bin/bash
 
 - name: Deploy Celery app on mgmt node for controller support
   hosts: localhost
