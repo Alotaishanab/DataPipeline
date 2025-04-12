@@ -1,20 +1,19 @@
 ---
-- name: Flush Celery tasks from Redis on mgmtnode
+- name: Flush Celery tasks from Redis on Management Node
   hosts: localhost
   become: yes
   tasks:
-    - name: Flush Redis DB (all celery tasks will be removed)
+    - name: Flush Redis DB 0 (removes all pending celery tasks)
       shell: redis-cli -n 0 FLUSHDB
       register: flush_result
       changed_when: "'OK' in flush_result.stdout"
       ignore_errors: yes
-      # You can verify the flushed keys by running "redis-cli -n 0 keys '*'" afterwards if needed.
 
 - name: Restart Celery Workers on Worker Nodes
   hosts: worker_inventory
   become: yes
   tasks:
-    - name: Restart celery-worker service
+    - name: Restart celery-worker service via systemd
       systemd:
         name: celery-worker.service
         state: restarted
@@ -28,24 +27,22 @@
       shell: pkill -f controller.py || true
       ignore_errors: yes
 
-    - name: Start controller.py in background
+    - name: Start new controller.py in background
       shell: |
         source /opt/esm/venv/bin/activate
         cd /home/almalinux/esm_pipeline
         nohup python controller.py > /mnt/data_volume/results/controller_submit_log.txt 2>&1 &
       args:
         chdir: "/home/almalinux/esm_pipeline"
-      async: 0
-      poll: 0
 
-- name: Verify Celery status (optional)
+- name: (Optional) Verify Celery Workers Status
   hosts: localhost
   become: yes
   tasks:
-    - name: Check celery status from management node
+    - name: Check active tasks on all workers using the correct app module
       shell: |
         source /opt/esm/venv/bin/activate
-        celery -A celery_app.app status
-      register: celery_status
+        celery -A celery_app.celery_worker inspect active
+      register: celery_active
     - debug:
-        var: celery_status.stdout
+        var: celery_active.stdout
