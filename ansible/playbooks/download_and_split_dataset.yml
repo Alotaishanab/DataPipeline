@@ -5,8 +5,9 @@
     dataset_dir: "/data"
     chunk_dir: "{{ dataset_dir }}/chunks"
     dataset_url: "https://ftp.uniprot.org/pub/databases/uniprot/uniref/uniref50/uniref50.fasta.gz"
-    chunk_count: 32
-    storage_pool_target: "/mnt/data_volume/datasets/internal_chunks"  # ✅ Updated to match controller
+    chunk_count: 64
+    storage_pool_target: "/mnt/data_volume/datasets/internal_chunks"
+
   tasks:
     - name: Install required packages (wget and pigz)
       package:
@@ -51,7 +52,7 @@
 
     - name: Calculate number of sequences per chunk
       set_fact:
-        chunk_size: "{{ (seq_count.stdout|int / chunk_count) | round(0, 'ceil') }}"
+        chunk_size: "{{ ((seq_count.stdout | int) + chunk_count - 1) // chunk_count }}"
 
     - name: Check if splitting has already been done
       stat:
@@ -62,7 +63,13 @@
       shell: >
         awk -v chunk_size={{ chunk_size }} -v out="{{ chunk_dir }}" '
           BEGIN { file_n = 1; seq_seen = 0; }
-          /^>/ { seq_seen++; if (seq_seen > chunk_size) { seq_seen=1; file_n++; } }
+          /^>/ {
+            if (seq_seen >= chunk_size) {
+              file_n++;
+              seq_seen = 0;
+            }
+            seq_seen++;
+          }
           { outFile = sprintf("%s/chunk_%03d.fasta", out, file_n); print >> outFile; }
         ' {{ dataset_dir }}/uniref50.fasta
       args:
@@ -111,4 +118,3 @@
       loop: "{{ gz_chunk_files.files }}"
       loop_control:
         label: "{{ item.path }}"
-
