@@ -58,6 +58,14 @@
         group: almalinux
         mode: '0755'
 
+    - name: Copy minimal celery app.py to mgmt node
+      copy:
+        src: "../scripts/celery_app_app.py"
+        dest: "{{ celery_app_path }}/app.py"
+        owner: almalinux
+        group: almalinux
+        mode: '0644'
+
     - name: Create __init__.py on mgmt node
       copy:
         dest: "{{ celery_app_path }}/__init__.py"
@@ -75,6 +83,7 @@
         group: almalinux
         mode: '0755'
         force: yes
+
 
 
 - name: Trigger ESM controller on mgmt node

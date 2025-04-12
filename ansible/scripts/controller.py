@@ -4,9 +4,8 @@ import os
 import glob
 import time
 from datetime import datetime, timedelta
-from celery import Celery
 from kombu.exceptions import OperationalError
-from celery_app import celery as app
+from celery_app.app import app  # ✅ Note the change here
 
 CHUNK_DIRS = {
     "internal": "/mnt/data_volume/datasets/internal_chunks",
