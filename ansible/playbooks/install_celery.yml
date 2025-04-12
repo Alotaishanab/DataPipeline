@@ -68,6 +68,13 @@
         state: restarted
         enabled: yes
 
+    - name: Force restart Celery worker
+      systemd:
+        name: celery-worker.service
+        state: restarted
+        enabled: yes
+
+
 
 - name: Install Celery and Redis modules on Management Node (localhost)
   hosts: localhost
