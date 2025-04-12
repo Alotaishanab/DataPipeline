@@ -1,13 +1,14 @@
 ---
-- name: Flush pending Celery tasks from Redis (DB 0) on Management Node
+- name: Flush Celery tasks from Redis on Management Node
   hosts: localhost
   become: yes
   tasks:
-    - name: Flush Redis DB 0 (removes all pending celery tasks)
-      shell: redis-cli -n 0 FLUSHDB
+    - name: Flush Redis DB 0 (remove all pending Celery tasks)
+      command: redis-cli -n 0 FLUSHDB
       register: flush_result
-      changed_when: "'OK' in flush_result.stdout"
-      ignore_errors: yes
+    - name: Display flush output
+      debug:
+        var: flush_result.stdout
 
 - name: Restart Celery Workers on Worker Nodes
   hosts: worker_inventory
@@ -23,27 +24,23 @@
   hosts: localhost
   become: yes
   tasks:
-    - name: Kill any running controller.py processes (ignore errors)
-      shell: pkill -f controller.py || true
+    - name: Kill any running controller.py processes
+      shell: "pkill -f controller.py || true"
       ignore_errors: yes
-
-    - name: Start new controller.py in background
+    - name: Start controller.py in background with proper PYTHONPATH
       shell: |
-        source /opt/esm/venv/bin/activate
-        cd /home/almalinux/esm_pipeline
-        nohup python controller.py > /mnt/data_volume/results/controller_submit_log.txt 2>&1 &
+        source /opt/esm/venv/bin/activate && env PYTHONPATH=/home/almalinux nohup python /home/almalinux/esm_pipeline/controller.py > /mnt/data_volume/results/controller_submit_log.txt 2>&1 &
       args:
         chdir: /home/almalinux/esm_pipeline
 
-- name: (Optional) Verify Celery Workers Status using correct module name
+- name: Verify Celery Workers Status (Optional)
   hosts: localhost
   become: yes
   tasks:
-    - name: Check active tasks on all workers
+    - name: Run celery inspect active to show tasks on workers
       shell: |
-        source /opt/esm/venv/bin/activate
-        celery -A celery_app.celery_worker inspect active
-      register: celery_active
-      failed_when: false
-    - debug:
-        var: celery_active.stdout
+        source /opt/esm/venv/bin/activate && celery -A celery_app.celery_worker inspect active
+      register: celery_status
+    - name: Print Celery workers active tasks
+      debug:
+        var: celery_status.stdout_lines
