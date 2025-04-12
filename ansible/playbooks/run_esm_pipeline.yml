@@ -40,16 +40,7 @@
         owner: almalinux
         group: almalinux
         mode: '0775'
-
-    # 🔄 One-time restart of Celery worker processes
-    - name: Kill stuck Celery workers (if any)
-      shell: "pkill -f 'celery worker' || true"
-      ignore_errors: yes
-
-    - name: 🕐 Wait briefly for processes to terminate
-      wait_for:
-        timeout: 5
-
+        
     - name: 🚀 Start fresh Celery worker in background
       shell: |
         source {{ venv_path }}/bin/activate
