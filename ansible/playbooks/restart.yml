@@ -25,21 +25,24 @@
   become: yes
   tasks:
     - name: Kill any running controller.py processes
-      shell: "pkill -f controller.py || true"
+      shell: pkill -f controller.py || true
       ignore_errors: yes
-    - name: Start controller.py in background with proper PYTHONPATH
+    - name: Start new controller.py in background with proper PYTHONPATH
       shell: |
-        source /opt/esm/venv/bin/activate && env PYTHONPATH=/home/almalinux nohup python /home/almalinux/esm_pipeline/controller.py > /mnt/data_volume/results/controller_submit_log.txt 2>&1 &
+        source /opt/esm/venv/bin/activate
+        export PYTHONPATH=/home/almalinux
+        nohup python /home/almalinux/esm_pipeline/controller.py > /mnt/data_volume/results/controller_submit_log.txt 2>&1 &
       args:
         chdir: /home/almalinux/esm_pipeline
 
-- name: Verify Celery Workers Status (Optional)
+- name: (Optional) Verify Celery Workers Status from Management Node
   hosts: localhost
   become: yes
   tasks:
-    - name: Run celery inspect active to show tasks on workers
+    - name: Check active tasks on all workers using the celery_worker app module
       shell: |
-        source /opt/esm/venv/bin/activate && celery -A celery_app.celery_worker inspect active
+        source /opt/esm/venv/bin/activate
+        celery -A celery_app.celery_worker inspect active
       register: celery_status
     - name: Print Celery workers active tasks
       debug:
