@@ -1,4 +1,3 @@
-// src/pages/Home.js
 import React, { useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import './Home.css';
@@ -22,7 +21,7 @@ export default function Home() {
 
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('email', email); // Add email to the backend request
+    formData.append('email', email);
 
     try {
       const response = await fetch('/upload', {
@@ -49,17 +48,26 @@ export default function Home() {
   return (
     <div className="home-container">
       <div className="home-box">
-        <h1 className="home-title">🧬 UniRef50 Dataset Processor</h1>
+        <h1 className="home-title">UniRef50 Dataset Processor</h1>
         <p className="home-description">
-          Upload your FASTA file for vector embedding and processing with our ESM2-powered pipeline.
-          We'll email you when your results are ready!
+          Upload your FASTA or FASTA.GZ file to generate embeddings using the ESM2 model.
+          You’ll receive an email once your results are ready. Check the "Processed Results" tab to view them.
         </p>
-        <Link to="/datasets" className="home-button">📂 Browse Datasets</Link>
-        <Link to="/results" className="home-button">📁 View Processed Results</Link>    
+
+        <div className="home-nav-buttons">
+          <Link to="/datasets" className="home-button">Browse Datasets</Link>
+          <Link to="/results" className="home-button">View Processed Results</Link>
+        </div>
 
         <hr className="home-divider" />
 
-        <h2 className="upload-title">Upload & Get Notified</h2>
+        <h2 className="upload-title">Upload Your File</h2>
+        <p className="upload-instructions">
+          Accepted formats: <strong>.fasta</strong> or <strong>.fasta.gz</strong>  
+          <br />
+          Results will be available after processing is complete.
+        </p>
+
         <form onSubmit={handleUpload} className="upload-form">
           <div className="custom-upload-wrapper">
             <button
@@ -67,11 +75,11 @@ export default function Home() {
               className="custom-file-button"
               onClick={() => fileInputRef.current.click()}
             >
-              {file ? `✅ ${file.name}` : '📂 Choose a FASTA File'}
+              {file ? `Selected: ${file.name}` : 'Choose a FASTA or FASTA.GZ File'}
             </button>
             <input
               type="file"
-              accept=".fasta"
+              accept=".fasta,.gz"
               onChange={handleFileChange}
               ref={fileInputRef}
               style={{ display: 'none' }}
@@ -92,7 +100,7 @@ export default function Home() {
             className="upload-button"
             disabled={uploading}
           >
-            {uploading ? '⏳ Uploading...' : '🚀 Submit'}
+            {uploading ? 'Uploading...' : 'Submit'}
           </button>
         </form>
 
