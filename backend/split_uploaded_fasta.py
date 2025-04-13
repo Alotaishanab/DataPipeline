@@ -23,7 +23,7 @@ if input_file.endswith('.gz'):
 gluster_base = "/mnt/data_volume"
 chunk_dir = os.path.join(gluster_base, "tmp_chunks")
 final_target = os.path.join(gluster_base, "datasets/user_chunks")
-chunk_count = 32
+chunk_count = 64
 
 os.makedirs(chunk_dir, exist_ok=True)
 os.makedirs(final_target, exist_ok=True)

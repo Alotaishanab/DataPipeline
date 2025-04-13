@@ -41,7 +41,7 @@
         group: almalinux
         mode: '0775'
 
-- name: Deploy Celery app on mgmt node for controller support
+- name: Deploy Celery client on mgmt node for controller
   hosts: localhost
   become: yes
   become_user: almalinux
@@ -57,22 +57,13 @@
         group: almalinux
         mode: '0755'
 
-    - name: Copy minimal Celery client (app.py) to mgmt node
+    - name: Copy Celery client to mgmt node
       copy:
         src: "../scripts/celery_app_app.py"
         dest: "{{ celery_app_path }}/app.py"
         owner: almalinux
         group: almalinux
         mode: '0644'
-
-    - name: Copy celery_worker.py to mgmt node (needed for inspect and controller)
-      copy:
-        src: "../scripts/celery_worker.py"
-        dest: "{{ celery_app_path }}/celery_worker.py"
-        owner: almalinux
-        group: almalinux
-        mode: '0755'
-        force: yes
 
     - name: Create __init__.py that exposes minimal app (no torch)
       copy:
