@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import './Results.css'; // Use the same styling
+import './Results.css';
 
 export default function Datasets() {
   const [files, setFiles] = useState([]);
@@ -9,8 +9,8 @@ export default function Datasets() {
       try {
         const res = await fetch('/api/datasets');
         const data = await res.json();
-        if (data.files) {
-          setFiles(data.files);
+        if (data.datasets) {
+          setFiles(data.datasets);
         } else {
           setFiles([]);
         }
@@ -31,8 +31,12 @@ export default function Datasets() {
           <ul className="results-list">
             {files.map((file, i) => (
               <li key={i}>
-                <a href={`/datasets/${file}`} target="_blank" rel="noreferrer">
-                  {file}
+                <a
+                  href={`/datasets/${file.type}/${file.name}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {file.name} ({file.type})
                 </a>
               </li>
             ))}
