@@ -6,7 +6,7 @@
     esm_dest: "/opt/esm"
     torch_version: "2.0.1+cpu"
     torch_url: "https://download.pytorch.org/whl/cpu/torch_stable.html"
-    esm_model: "esm2_t30_150M_UR50D"
+    esm_model: "esm2_t6_8M_UR50D"
 
   tasks:
     - name: Create a directory on extra disk for pip temp/cache

@@ -32,7 +32,7 @@ BATCH_SIZE = 8
 
 # Model loading happens ONCE per worker
 log.info("🧠 Loading ESM2 model...")
-model, alphabet = esm.pretrained.esm2_t30_150M_UR50D()
+model, alphabet = esm.pretrained.esm2_t6_8M_UR50D()
 model.eval()
 batch_converter = alphabet.get_batch_converter()
 log.info("✅ ESM2 model loaded.")
