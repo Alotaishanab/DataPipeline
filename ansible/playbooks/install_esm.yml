@@ -57,7 +57,7 @@
 
     - name: Copy minimal Celery client (app.py) to mgmt node
       copy:
-        src: "../scripts/celery_app_app.py"
+        src: "../scripts/app.py"
         dest: "{{ celery_app_path }}/app.py"
         owner: almalinux
         group: almalinux
