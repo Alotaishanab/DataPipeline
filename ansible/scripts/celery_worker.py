@@ -35,7 +35,7 @@ log.info("🧠 Loading ESM2 model...")
 model, alphabet = esm.pretrained.esm2_t6_8M_UR50D()
 model.eval()
 batch_converter = alphabet.get_batch_converter()
-log.info("✅ ESM2 model loaded.")
+log.info(f"✅ ESM2 model loaded with {model.num_layers} layers.")
 
 @app.task(name='celery_worker.infer_fasta_file', acks_late=True)
 def infer_fasta_file(path):
@@ -83,8 +83,8 @@ def infer_fasta_file(path):
 def run_batch(batch):
     _, _, tokens = batch_converter(batch)
     with torch.no_grad():
-        out = model(tokens, repr_layers=[30], return_contacts=False)
-    reps = out["representations"][30]
+        out = model(tokens, repr_layers=[model.num_layers], return_contacts=False)
+    reps = out["representations"][model.num_layers]
     return [
         {
             "id": label,

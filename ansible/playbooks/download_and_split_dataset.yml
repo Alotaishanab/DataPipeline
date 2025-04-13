@@ -5,15 +5,16 @@
     dataset_dir: "/data"
     chunk_dir: "{{ dataset_dir }}/chunks"
     dataset_url: "https://ftp.uniprot.org/pub/databases/uniprot/uniref/uniref50/uniref50.fasta.gz"
-    chunk_count: 64
     storage_pool_target: "/mnt/data_volume/datasets/internal_chunks"
+    chunk_size_mb: 256
 
   tasks:
-    - name: Install required packages (wget and pigz)
+    - name: Install required packages (wget, pigz, coreutils)
       package:
         name:
           - wget
           - pigz
+          - coreutils
         state: present
         update_cache: yes
 
@@ -46,34 +47,28 @@
         creates: "{{ dataset_dir }}/uniref50.fasta"
       when: not uniref_dataset.stat.exists
 
-    - name: Count how many sequences are in the FASTA
-      shell: "grep '^>' {{ dataset_dir }}/uniref50.fasta | wc -l"
-      register: seq_count
-
-    - name: Calculate number of sequences per chunk
-      set_fact:
-        chunk_size: "{{ ((seq_count.stdout | int) + chunk_count - 1) // chunk_count }}"
-
     - name: Check if splitting has already been done
       stat:
         path: "{{ chunk_dir }}/chunk_001.fasta"
       register: chunk_check
 
-    - name: Split the FASTA by sequence using awk
+    - name: Split FASTA file into size-based chunks (~{{ chunk_size_mb }}M each)
       shell: >
-        awk -v chunk_size={{ chunk_size }} -v out="{{ chunk_dir }}" '
-          BEGIN { file_n = 1; seq_seen = 0; }
-          /^>/ {
-            if (seq_seen >= chunk_size) {
-              file_n++;
-              seq_seen = 0;
-            }
-            seq_seen++;
-          }
-          { outFile = sprintf("%s/chunk_%03d.fasta", out, file_n); print >> outFile; }
-        ' {{ dataset_dir }}/uniref50.fasta
+        split --numeric-suffixes=1 --suffix-length=3 -C {{ chunk_size_mb }}m \
+        --additional-suffix=.fasta {{ dataset_dir }}/uniref50.fasta {{ chunk_dir }}/chunk_
       args:
         creates: "{{ chunk_dir }}/chunk_001.fasta"
+      when: not chunk_check.stat.exists
+
+    - name: Rename chunk files to standard names (chunk_###.fasta)
+      shell: |
+        i=1
+        for f in {{ chunk_dir }}/chunk_*; do
+          mv "$f" "{{ chunk_dir }}/chunk_$(printf '%03d' $i).fasta"
+          ((i++))
+        done
+      args:
+        executable: /bin/bash
       when: not chunk_check.stat.exists
 
     - name: Find created chunk files
