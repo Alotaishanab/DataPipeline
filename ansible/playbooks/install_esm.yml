@@ -1,105 +1,126 @@
-- name: Deploy ESM pipeline to workers
+- name: Setup ESM Pretrained Model Environment on Worker Nodes
   hosts: worker_inventory
   become: yes
-  become_user: almalinux
   vars:
-    venv_path: "/opt/esm/venv"
-    celery_app_path: "/home/almalinux/celery_app"
-    chunks_dir: "/mnt/data_volume/datasets/internal_chunks"
+    esm_repo: "https://github.com/facebookresearch/esm.git"
+    esm_dest: "/opt/esm"
+    torch_version: "2.0.1+cpu"
+    torch_url: "https://download.pytorch.org/whl/cpu/torch_stable.html"
+    esm_model: "esm2_t30_150M_UR50D"
+
   tasks:
-    - name: Ensure celery app directory exists
+    - name: Create a directory on extra disk for pip temp/cache
       file:
-        path: "{{ celery_app_path }}"
+        path: "/mnt/data/pip-tmp"
         state: directory
-        owner: almalinux
-        group: almalinux
-        mode: '0755'
+        mode: '0777'
 
-    - name: Create __init__.py to expose Celery worker app
-      copy:
-        dest: "{{ celery_app_path }}/__init__.py"
-        content: |
-          from .celery_worker import app as celery
-        owner: almalinux
-        group: almalinux
-        mode: '0644'
+    - name: Ensure required system packages are installed for ESM
+      dnf:
+        name:
+          - git
+          - python3
+          - python3-pip
+        state: present
+        update_cache: yes
 
-    - name: Copy celery_worker.py to celery app
-      copy:
-        src: "../scripts/celery_worker.py"
-        dest: "{{ celery_app_path }}/celery_worker.py"
-        owner: almalinux
-        group: almalinux
-        mode: '0755'
-        force: yes
+    - name: Upgrade system pip to the latest version
+      pip:
+        name: pip
+        executable: pip3
+        state: latest
 
-    - name: Ensure GlusterFS chunk directory is writable
-      file:
-        path: "{{ chunks_dir }}"
-        owner: almalinux
-        group: almalinux
-        mode: '0775'
+    - name: Uninstall existing torch if present (on system pip)
+      pip:
+        name: torch
+        state: absent
+        executable: pip3
 
-- name: Deploy Celery app on management node for controller support
-  hosts: localhost
-  become: yes
-  become_user: almalinux
-  vars:
-    celery_app_path: "/home/almalinux/celery_app"
-  tasks:
-    - name: Ensure celery app directory exists on mgmt node
-      file:
-        path: "{{ celery_app_path }}"
-        state: directory
-        owner: almalinux
-        group: almalinux
-        mode: '0755'
+    - name: Clone the ESM repository
+      git:
+        repo: "{{ esm_repo }}"
+        dest: "{{ esm_dest }}"
+        version: "main"
 
-    - name: Copy minimal Celery client (app.py) to mgmt node
-      copy:
-        src: "../scripts/app.py"
-        dest: "{{ celery_app_path }}/app.py"
-        owner: almalinux
-        group: almalinux
-        mode: '0644'
+    - name: Check if ESM requirements file exists
+      stat:
+        path: "{{ esm_dest }}/requirements.txt"
+      register: esm_req_file
 
-    - name: Create __init__.py that exposes minimal app (no torch)
-      copy:
-        dest: "{{ celery_app_path }}/__init__.py"
-        content: |
-          from .app import app as celery
-        owner: almalinux
-        group: almalinux
-        mode: '0644'
+    - name: Remove any Torch lines from requirements.txt if present
+      lineinfile:
+        path: "{{ esm_dest }}/requirements.txt"
+        regexp: '^torch==.*$'
+        state: absent
+      when: esm_req_file.stat.exists
 
-- name: Trigger ESM controller on management node
-  hosts: localhost
-  become: yes
-  become_user: almalinux
-  vars:
-    venv_path: "/opt/esm/venv"
-    controller_dir: "/home/almalinux/esm_pipeline"
-    controller_remote_path: "{{ controller_dir }}/controller.py"
-  tasks:
-    - name: Ensure controller directory exists
-      file:
-        path: "{{ controller_dir }}"
-        state: directory
-        owner: almalinux
-        group: almalinux
-        mode: '0755'
-
-    - name: Copy updated controller.py to mgmt node
-      copy:
-        src: "../scripts/controller.py"
-        dest: "{{ controller_remote_path }}"
-        owner: almalinux
-        group: almalinux
-        mode: '0755'
-
-    - name: Start new controller.py in background
-      shell: |
-        source {{ venv_path }}/bin/activate
-        PYTHONPATH=/home/almalinux nohup python {{ controller_remote_path }} > /mnt/data_volume/results/controller_submit_log.txt 2>&1 &
+    - name: Create Python virtual environment for ESM
+      command: /usr/bin/python3 -m venv "{{ esm_dest }}/venv"
       args:
-        chdir: "{{ controller_dir }}"
+        creates: "{{ esm_dest }}/venv"
+
+    - name: Remove incorrect python3 symlink (if any)
+      file:
+        path: "{{ esm_dest }}/venv/bin/python3"
+        state: absent
+
+    - name: Create correct python3 symlink pointing to /usr/bin/python3
+      file:
+        src: /usr/bin/python3
+        dest: "{{ esm_dest }}/venv/bin/python3"
+        state: link
+
+    - name: Ensure 'python' symlink points to 'python3'
+      file:
+        src: python3
+        dest: "{{ esm_dest }}/venv/bin/python"
+        state: link
+
+    - name: Install ESM dependencies (except Torch)
+      pip:
+        requirements: "{{ esm_dest }}/requirements.txt"
+        virtualenv: "{{ esm_dest }}/venv"
+        state: present
+      when: esm_req_file.stat.exists
+    
+    - name: Install biopython for FASTA parsing
+      pip:
+        name: biopython
+        virtualenv: "{{ esm_dest }}/venv"
+        state: present
+      environment:
+        TMPDIR: "/mnt/data/pip-tmp"
+        PIP_CACHE_DIR: "/mnt/data/pip-tmp"
+
+    - name: Install CPU-only PyTorch in the ESM virtual environment
+      pip:
+        name: "torch=={{ torch_version }}"
+        virtualenv: "{{ esm_dest }}/venv"
+        state: present
+        extra_args: "--find-links {{ torch_url }}"
+      environment:
+        TMPDIR: "/mnt/data/pip-tmp"
+        PIP_CACHE_DIR: "/mnt/data/pip-tmp"
+
+    - name: Install ESM package in the virtual environment
+      command: "{{ esm_dest }}/venv/bin/pip install -e {{ esm_dest }}"
+      args:
+        chdir: "{{ esm_dest }}"
+
+    ################################################
+    # Force NumPy below 2.x to avoid "compiled with
+    # NumPy 1.x" warnings & potential incompat
+    ################################################
+    - name: Install pinned NumPy version (<2) in the ESM virtual environment
+      pip:
+        name: "numpy<2"
+        virtualenv: "{{ esm_dest }}/venv"
+        state: present
+      environment:
+        TMPDIR: "/mnt/data/pip-tmp"
+        PIP_CACHE_DIR: "/mnt/data/pip-tmp"
+
+    - name: Download pretrained ESM model ({{ esm_model }})
+      command: "{{ esm_dest }}/venv/bin/python -m esm.pretrained download {{ esm_model }}"
+      args:
+        chdir: "{{ esm_dest }}"
