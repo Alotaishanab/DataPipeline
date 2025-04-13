@@ -2,23 +2,23 @@ import React, { useEffect, useState } from 'react';
 import './Results.css';
 
 export default function Results() {
-  const [results, setResults] = useState([]);
-  const [datasets, setDatasets] = useState([]);
+  const [internalResults, setInternalResults] = useState([]);
+  const [userResults, setUserResults] = useState([]);
 
-  const fetchFiles = async (path, setter) => {
+  const fetchResults = async (path, setter) => {
     try {
       const res = await fetch(path);
       const text = await res.text();
-      const matches = [...text.matchAll(/href="(.*?\.json|\.fasta(?:\.gz)?)"/g)].map(m => m[1]);
+      const matches = [...text.matchAll(/href="(.*?\.json)"/g)].map(m => m[1]);
       setter(matches);
     } catch (err) {
-      console.error(`Failed to fetch ${path}:`, err);
+      console.error(`❌ Failed to fetch ${path}:`, err);
     }
   };
 
   useEffect(() => {
-    fetchFiles('/results/', setResults);
-    fetchFiles('/datasets/', setDatasets);
+    fetchResults('/results/internal/', setInternalResults);
+    fetchResults('/results/user/', setUserResults);
   }, []);
 
   const renderSection = (title, files, basePath) => (
@@ -33,15 +33,15 @@ export default function Results() {
           ))}
         </ul>
       ) : (
-        <p className="no-results">🚫 No files found.</p>
+        <p className="no-results">🚫 No results yet.</p>
       )}
     </div>
   );
 
   return (
     <div className="results-container">
-      {renderSection('🧬 Datasets', datasets, '/datasets/')}
-      {renderSection('🧪 Processed Results', results, '/results/')}
+      {renderSection('🧪 Internal Results', internalResults, '/results/internal/')}
+      {renderSection('🧪 User Results', userResults, '/results/user/')}
     </div>
   );
 }
