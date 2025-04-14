@@ -1,1 +1,557 @@
-# 📦 Placeholder test file: test_playbooks.yml
+- name: Provision Workers with Terraform and Inventory Generation
+  hosts: localhost
+  gather_facts: no
+  become: yes
+
+  tasks:
+    - name: Check if terraform binary exists
+      stat:
+        path: /usr/local/bin/terraform
+      register: terraform_check
+
+    - name: Check if terraform-inventory binary exists
+      stat:
+        path: /usr/local/bin/terraform-inventory
+      register: inventory_check
+
+    - name: Assert Terraform and Inventory Tools are Present
+      assert:
+        that:
+          - terraform_check.stat.exists
+          - inventory_check.stat.exists
+        fail_msg: "Terraform or inventory binary missing"
+
+    - name: Check if static inventory file was generated
+      stat:
+        path: /home/almalinux/DataPipeline/ansible/inventory.ini
+      register: inventory_file
+
+    - name: Assert inventory file exists and is not empty
+      assert:
+        that:
+          - inventory_file.stat.exists
+          - inventory_file.stat.size > 0
+        fail_msg: "Inventory generation failed or file is empty"
+
+    - name: Check if worker instances are reachable
+      command: ansible all -i /home/almalinux/DataPipeline/ansible/inventory.ini -m ping
+      register: ping_result
+      changed_when: false
+
+    - name: Assert all workers responded to ping
+      assert:
+        that:
+          - "'SUCCESS' in ping_result.stdout"
+        fail_msg: "One or more worker nodes did not respond to ping"
+
+- name: Host Dependencies and Alert Manager Setup
+  hosts: localhost
+  gather_facts: yes
+  become: yes
+
+  tasks:
+    - name: Check if community.general collection is installed
+      command: ansible-galaxy collection list
+      register: galaxy_collections
+
+    - name: Assert community.general collection is installed
+      assert:
+        that:
+          - "'community.general' in galaxy_collections.stdout"
+        fail_msg: "community.general collection is missing"
+
+    - name: Check if httpd is installed
+      command: rpm -q httpd
+      register: httpd_pkg
+      failed_when: false
+
+    - name: Assert httpd is installed
+      assert:
+        that:
+          - httpd_pkg.rc == 0
+        fail_msg: "httpd package is not installed"
+
+    - name: Check if httpd service is active
+      command: systemctl is-active httpd
+      register: httpd_status
+      failed_when: false
+
+    - name: Assert httpd service is running
+      assert:
+        that:
+          - httpd_status.stdout == "active"
+        fail_msg: "httpd service is not running"
+
+- name: Verify Common Packages and Services
+  hosts: all
+  become: yes
+  tasks:
+    - name: Check if firewalld is installed
+      shell: rpm -q firewalld
+      register: firewalld_check
+      failed_when: false
+
+    - name: Assert firewalld is installed
+      assert:
+        that:
+          - firewalld_check.rc == 0
+        fail_msg: "firewalld is not installed on some nodes"
+
+    - name: Check if httpd service is running
+      shell: systemctl is-active httpd
+      register: httpd_status
+      failed_when: false
+
+    - name: Assert httpd is active
+      assert:
+        that:
+          - httpd_status.stdout == "active"
+        fail_msg: "httpd service is not active"
+
+    - name: Check if virtualenv is installed via pip3
+      shell: pip3 show virtualenv
+      register: virtualenv_check
+      failed_when: false
+
+    - name: Assert virtualenv is installed
+      assert:
+        that:
+          - virtualenv_check.rc == 0
+        fail_msg: "virtualenv is not installed"
+
+- name: Check Hostname Setup
+  hosts: all
+  become: yes
+  tasks:
+    - name: Get current hostname
+      command: hostname
+      register: current_hostname
+
+    - name: Assert hostname is set correctly
+      assert:
+        that:
+          - current_hostname.stdout is search("(mgmtnode|workernode[1-4])")
+        fail_msg: "Hostname is not set to expected pattern"
+
+
+- name: Validate SSH Key Distribution
+  hosts: all
+  become: yes
+  tasks:
+    - name: Check authorized_keys contains localhost key
+      shell: grep almalinux /home/almalinux/.ssh/authorized_keys
+      register: ssh_key_check
+      failed_when: false
+
+    - name: Assert SSH key is present
+      assert:
+        that:
+          - ssh_key_check.rc == 0
+        fail_msg: "SSH key for almalinux not found in authorized_keys"
+
+- name: Confirm Basic Firewall Port Accessibility
+  hosts: all
+  become: yes
+  tasks:
+    - name: Check port 6379/tcp is open (Redis)
+      shell: firewall-cmd --list-ports | grep 6379/tcp
+      register: redis_port
+      failed_when: false
+
+    - name: Assert Redis port is open
+      assert:
+        that:
+          - redis_port.rc == 0
+        fail_msg: "Redis port 6379/tcp is not open in firewalld"
+
+
+- name: Verify partition and mount setup on workers (/dev/vdb -> /data)
+  hosts: worker_inventory
+  become: yes
+  gather_facts: yes
+  tasks:
+    - name: Check if /data is mounted
+      command: mountpoint /data
+      register: data_mount
+      failed_when: data_mount.rc != 0
+
+    - name: Check if datasets and results directories exist
+      stat:
+        path: "/data/{{ item }}"
+      loop:
+        - datasets
+        - results
+      register: data_dirs
+
+    - name: Assert that datasets and results directories exist
+      assert:
+        that:
+          - item.stat.exists
+      loop: "{{ data_dirs.results }}"
+
+
+- name: Verify GlusterFS preparation on workers
+  hosts: worker_inventory
+  become: yes
+  gather_facts: yes
+  tasks:
+    - name: Check GlusterFS brick directory exists
+      stat:
+        path: /data/gluster/brick1
+      register: gluster_brick
+
+    - name: Assert brick directory exists
+      assert:
+        that:
+          - gluster_brick.stat.isdir
+
+
+- name: Verify GlusterFS mounted on mgmt node
+  hosts: localhost
+  become: yes
+  gather_facts: yes
+  tasks:
+    - name: Check if /mnt/data_volume is mounted
+      command: mountpoint /mnt/data_volume
+      register: mgmt_mount
+      failed_when: mgmt_mount.rc != 0
+
+    - name: Verify ownership is set to almalinux
+      command: stat -c "%U %G" /mnt/data_volume
+      register: ownership
+
+    - name: Assert ownership is correct
+      assert:
+        that:
+          - ownership.stdout == "almalinux almalinux"
+
+
+- name: Verify GlusterFS mounted on workers
+  hosts: worker_inventory
+  become: yes
+  gather_facts: no
+  tasks:
+    - name: Check if /mnt/data_volume is mounted
+      command: mountpoint /mnt/data_volume
+      register: worker_mount
+      failed_when: worker_mount.rc != 0
+
+- name: Validate ESM environment setup on worker nodes
+  hosts: worker_inventory
+  become: yes
+  tasks:
+    - name: Check if ESM repo directory exists
+      stat:
+        path: /opt/esm
+      register: esm_repo
+
+    - name: Assert ESM repo was cloned
+      assert:
+        that:
+          - esm_repo.stat.exists
+
+    - name: Check if ESM virtualenv exists
+      stat:
+        path: /opt/esm/venv/bin/activate
+      register: esm_venv
+
+    - name: Assert ESM virtualenv was created
+      assert:
+        that:
+          - esm_venv.stat.exists
+
+    - name: Check if esm2 model was downloaded
+      shell: "ls /root/.cache/torch/hub/checkpoints | grep esm2_t6_8M_UR50D"
+      register: esm_model_download
+      changed_when: false
+      failed_when: esm_model_download.rc != 0
+
+- name: Validate Celery worker setup on worker nodes
+  hosts: worker_inventory
+  become: yes
+  tasks:
+    - name: Check if celery_worker.py exists
+      stat:
+        path: /home/almalinux/celery_app/celery_worker.py
+      register: celery_script
+
+    - name: Assert celery worker script is deployed
+      assert:
+        that:
+          - celery_script.stat.exists
+
+    - name: Check Celery systemd service status
+      systemd:
+        name: celery-worker
+      register: celery_service
+
+    - name: Assert Celery service is enabled and running
+      assert:
+        that:
+          - celery_service.status.ActiveState == "active"
+          - celery_service.status.SubState == "running"
+
+- name: Validate Celery installation on mgmt node
+  hosts: localhost
+  become: yes
+  tasks:
+    - name: Check if Celery is installed in virtualenv
+      command: "/opt/esm/venv/bin/pip show celery"
+      register: celery_installed
+      changed_when: false
+      failed_when: celery_installed.rc != 0
+
+    - name: Check if Redis is installed in virtualenv
+      command: "/opt/esm/venv/bin/pip show redis"
+      register: redis_installed
+      changed_when: false
+      failed_when: redis_installed.rc != 0
+
+- name: Validate Redis installation and config
+  hosts: localhost
+  become: yes
+  tasks:
+    - name: Check if Redis is running
+      systemd:
+        name: redis
+      register: redis_service
+
+    - name: Assert Redis is active
+      assert:
+        that:
+          - redis_service.status.ActiveState == "active"
+
+    - name: Check Redis config for 0.0.0.0 binding
+      shell: "grep '^bind 0.0.0.0' /etc/redis/redis.conf"
+      register: redis_bind
+      changed_when: false
+      failed_when: redis_bind.rc != 0
+
+    - name: Check Redis config for protected-mode off
+      shell: "grep '^protected-mode no' /etc/redis/redis.conf"
+      register: redis_protection
+      changed_when: false
+      failed_when: redis_protection.rc != 0
+
+- name: Validate ESM environment setup on worker nodes
+  hosts: worker_inventory
+  become: yes
+  tasks:
+    - name: Check if ESM repo directory exists
+      stat:
+        path: /opt/esm
+      register: esm_repo
+
+    - name: Assert ESM repo was cloned
+      assert:
+        that:
+          - esm_repo.stat.exists
+
+    - name: Check if ESM virtualenv exists
+      stat:
+        path: /opt/esm/venv/bin/activate
+      register: esm_venv
+
+    - name: Assert ESM virtualenv was created
+      assert:
+        that:
+          - esm_venv.stat.exists
+
+    - name: Check if esm2 model was downloaded
+      shell: "ls /root/.cache/torch/hub/checkpoints | grep esm2_t6_8M_UR50D"
+      register: esm_model_download
+      changed_when: false
+      failed_when: esm_model_download.rc != 0
+
+- name: Validate Celery worker setup on worker nodes
+  hosts: worker_inventory
+  become: yes
+  tasks:
+    - name: Check if celery_worker.py exists
+      stat:
+        path: /home/almalinux/celery_app/celery_worker.py
+      register: celery_script
+
+    - name: Assert celery worker script is deployed
+      assert:
+        that:
+          - celery_script.stat.exists
+
+    - name: Check Celery systemd service status
+      systemd:
+        name: celery-worker
+      register: celery_service
+
+    - name: Assert Celery service is enabled and running
+      assert:
+        that:
+          - celery_service.status.ActiveState == "active"
+          - celery_service.status.SubState == "running"
+
+- name: Validate Celery installation on mgmt node
+  hosts: localhost
+  become: yes
+  tasks:
+    - name: Check if Celery is installed in virtualenv
+      command: "/opt/esm/venv/bin/pip show celery"
+      register: celery_installed
+      changed_when: false
+      failed_when: celery_installed.rc != 0
+
+    - name: Check if Redis is installed in virtualenv
+      command: "/opt/esm/venv/bin/pip show redis"
+      register: redis_installed
+      changed_when: false
+      failed_when: redis_installed.rc != 0
+
+- name: Validate Redis installation and config
+  hosts: localhost
+  become: yes
+  tasks:
+    - name: Check if Redis is running
+      systemd:
+        name: redis
+      register: redis_service
+
+    - name: Assert Redis is active
+      assert:
+        that:
+          - redis_service.status.ActiveState == "active"
+
+    - name: Check Redis config for 0.0.0.0 binding
+      shell: "grep '^bind 0.0.0.0' /etc/redis/redis.conf"
+      register: redis_bind
+      changed_when: false
+      failed_when: redis_bind.rc != 0
+
+    - name: Check Redis config for protected-mode off
+      shell: "grep '^protected-mode no' /etc/redis/redis.conf"
+      register: redis_protection
+      changed_when: false
+      failed_when: redis_protection.rc != 0
+
+- name: Validate Flask upload webserver setup
+  hosts: localhost
+  become: yes
+  tasks:
+    - name: Check Flask app script exists
+      stat:
+        path: /opt/data_pipeline/flask_server.py
+      register: flask_script
+
+    - name: Assert Flask script is present
+      assert:
+        that:
+          - flask_script.stat.exists
+
+    - name: Check if Flask service is running
+      systemd:
+        name: flask_upload_ui
+      register: flask_service
+
+    - name: Assert Flask upload UI is active
+      assert:
+        that:
+          - flask_service.status.ActiveState == "active"
+
+- name: Validate React frontend deployment
+  hosts: localhost
+  become: yes
+  tasks:
+    - name: Check Apache web root has React build
+      stat:
+        path: /var/www/html/index.html
+      register: react_index
+
+    - name: Assert React build was copied
+      assert:
+        that:
+          - react_index.stat.exists
+
+- name: Validate dataset download and chunk split
+  hosts: worker1
+  become: yes
+  tasks:
+    - name: Check if dataset file was downloaded
+      stat:
+        path: /data/uniref50.fasta
+      register: fasta_file
+
+    - name: Assert FASTA file exists
+      assert:
+        that:
+          - fasta_file.stat.exists
+
+    - name: Check if compressed chunks exist
+      find:
+        paths: /data/chunks
+        patterns: "chunk_*.fasta.gz"
+      register: chunks
+
+    - name: Assert chunks were generated and compressed
+      assert:
+        that:
+          - chunks.matched > 0
+
+
+- name: Validate Prometheus and Grafana setup
+  hosts: localhost
+  become: yes
+  tasks:
+    - name: Check if Prometheus is running
+      systemd:
+        name: prometheus
+      register: prom_service
+
+    - name: Assert Prometheus is active
+      assert:
+        that:
+          - prom_service.status.ActiveState == "active"
+
+    - name: Check if Grafana is running
+      systemd:
+        name: grafana-server
+      register: grafana_service
+
+    - name: Assert Grafana is active
+      assert:
+        that:
+          - grafana_service.status.ActiveState == "active"
+
+- name: Validate Node Exporter on workers
+  hosts: worker_inventory
+  become: yes
+  tasks:
+    - name: Check if Node Exporter is running
+      systemd:
+        name: node_exporter
+      register: node_exporter_status
+
+    - name: Assert Node Exporter is active
+      assert:
+        that:
+          - node_exporter_status.status.ActiveState == "active"
+
+- name: Validate controller.py is deployed and running
+  hosts: localhost
+  become: yes
+  tasks:
+    - name: Check controller script exists
+      stat:
+        path: /home/almalinux/esm_pipeline/controller.py
+      register: controller_script
+
+    - name: Assert controller script is present
+      assert:
+        that:
+          - controller_script.stat.exists
+
+    - name: Check controller log exists
+      stat:
+        path: /mnt/data_volume/results/controller_submit_log.txt
+      register: controller_log
+
+    - name: Assert controller log file exists
+      assert:
+        that:
+          - controller_log.stat.exists
