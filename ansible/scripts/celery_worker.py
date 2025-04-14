@@ -5,6 +5,7 @@ import subprocess
 import torch
 import esm
 import logging
+import gzip
 from Bio import SeqIO
 from celery import Celery
 
@@ -41,27 +42,26 @@ log.info(f"✅ ESM2 model loaded with {model.num_layers} layers.")
 def infer_fasta_file(path):
     log.info(f"📥 Task started: {path}")
     try:
-        if path.endswith(".gz"):
-            fasta_path = path[:-3]
-            if not os.path.exists(fasta_path):
-                subprocess.run(["pigz", "-d", "-f", path], check=True)
-        else:
-            fasta_path = path
+        # Use gzip.open if the file is compressed, else regular open
+        open_func = gzip.open if path.endswith(".gz") else open
 
         results = []
         batch = []
-        for record in SeqIO.parse(fasta_path, "fasta"):
-            seq = str(record.seq)[:MAX_SEQ_LEN]
-            batch.append((record.id, seq))
 
-            if len(batch) == BATCH_SIZE:
-                results.extend(run_batch(batch))
-                batch = []
+        with open_func(path, "rt") as handle:
+            for record in SeqIO.parse(handle, "fasta"):
+                seq = str(record.seq)[:MAX_SEQ_LEN]
+                batch.append((record.id, seq))
+
+                if len(batch) == BATCH_SIZE:
+                    results.extend(run_batch(batch))
+                    batch = []
 
         if batch:
             results.extend(run_batch(batch))
 
-        if "/user_chunks/" in fasta_path:
+        # Determine output directory
+        if "/user_chunks/" in path:
             output_dir = os.path.join(RESULT_ROOT, "user_outputs")
         else:
             output_dir = os.path.join(RESULT_ROOT, "internal_outputs")
@@ -69,7 +69,7 @@ def infer_fasta_file(path):
 
         output_file = os.path.join(
             output_dir,
-            os.path.basename(fasta_path).replace(".fasta", ".json").replace(".gz", "")
+            os.path.basename(path).replace(".fasta", ".json").replace(".gz", "")
         )
 
         with open(output_file, 'w') as f:
