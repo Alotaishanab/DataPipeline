@@ -45,7 +45,7 @@
           Group=almalinux
           WorkingDirectory=/home/almalinux/celery_app
           Environment=PYTHONPATH=/home/almalinux
-          ExecStart=/opt/esm/venv/bin/celery -A celery_app.celery_worker worker --loglevel=info --logfile=/home/almalinux/celery_app/celery.log --concurrency=1 --pool=solo
+          ExecStart=/opt/esm/venv/bin/celery -A celery_app worker --loglevel=info --logfile=/home/almalinux/celery_app/celery.log --concurrency=1 --pool=solo
           Restart=always
           RestartSec=10
           LimitNOFILE=65535
