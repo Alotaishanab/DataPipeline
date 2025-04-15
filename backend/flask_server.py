@@ -22,7 +22,6 @@ def upload():
     if not file or not (file.filename.endswith('.fasta') or file.filename.endswith('.fasta.gz')):
         return jsonify({'status': 'error', 'message': 'Only .fasta or .fasta.gz files are allowed'}), 400
 
-    # Generate job ID and create subdirectory
     job_id = str(uuid.uuid4())
     job_dir = os.path.join(app.config['UPLOAD_FOLDER'], job_id)
     os.makedirs(job_dir, exist_ok=True)
@@ -31,7 +30,6 @@ def upload():
     local_path = os.path.join(job_dir, filename)
     file.save(local_path)
 
-    # Run split script
     split_command = f"python3 {SPLIT_SCRIPT} {local_path} {job_id}"
     result = subprocess.run(split_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
@@ -53,12 +51,21 @@ def list_datasets():
     try:
         def list_files(folder, label):
             dataset_entries = []
-            for subdir in sorted(os.listdir(folder)):
-                subpath = os.path.join(folder, subdir)
-                if os.path.isdir(subpath):
-                    for f in os.listdir(subpath):
-                        if f.endswith('.gz'):
-                            dataset_entries.append({'name': f, 'type': label, 'job_id': subdir})
+
+            # Internal datasets are stored flat (not in subfolders)
+            if label == 'internal':
+                for f in sorted(os.listdir(folder)):
+                    full_path = os.path.join(folder, f)
+                    if os.path.isfile(full_path) and f.endswith('.gz'):
+                        dataset_entries.append({'name': f, 'type': label})
+            else:
+                # User datasets are stored in job_id subfolders
+                for subdir in sorted(os.listdir(folder)):
+                    subpath = os.path.join(folder, subdir)
+                    if os.path.isdir(subpath):
+                        for f in os.listdir(subpath):
+                            if f.endswith('.gz'):
+                                dataset_entries.append({'name': f, 'type': label, 'job_id': subdir})
             return dataset_entries
 
         internal = list_files(INTERNAL_DATASETS_FOLDER, 'internal')

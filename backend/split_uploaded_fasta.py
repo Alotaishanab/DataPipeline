@@ -30,27 +30,42 @@ manifest_path = os.path.join(final_target, "manifest.json")
 os.makedirs(chunk_dir, exist_ok=True)
 os.makedirs(final_target, exist_ok=True)
 
-# Split by file size (~30MB)
-split_cmd = f"""
-split --numeric-suffixes=1 --suffix-length=3 -C 30m \
---additional-suffix=.fasta {input_file} {chunk_dir}/chunk_
-"""
-subprocess.run(split_cmd, shell=True, check=True)
-
-# Compress and move
+file_size_bytes = os.path.getsize(input_file)
 chunk_files = []
-for fname in sorted(os.listdir(chunk_dir)):
-    if fname.endswith(".fasta"):
-        fpath = os.path.join(chunk_dir, fname)
-        subprocess.run(f"pigz -f {fpath}", shell=True)
 
-for fname in sorted(os.listdir(chunk_dir)):
-    if fname.endswith(".gz"):
-        src = os.path.join(chunk_dir, fname)
-        dst = os.path.join(final_target, fname)
-        shutil.move(src, dst)
-        chunk_files.append(fname)
+if file_size_bytes < 30 * 1024 * 1024:  # < 30MB
+    print("📦 File is small, no need to split. Copying as single chunk...")
+
+    single_chunk = os.path.join(final_target, "chunk_001.fasta")
+    shutil.copyfile(input_file, single_chunk)
+
+    subprocess.run(f"pigz -f {single_chunk}", shell=True)
+    chunk_files.append("chunk_001.fasta.gz")
+
+else:
+    print("🔪 Splitting file into ~30MB chunks...")
+
+    # Split by file size (~30MB)
+    split_cmd = f"""
+    split --numeric-suffixes=1 --suffix-length=3 -C 30m \
+    --additional-suffix=.fasta {input_file} {chunk_dir}/chunk_
+    """
+    subprocess.run(split_cmd, shell=True, check=True)
+
+    for fname in sorted(os.listdir(chunk_dir)):
+        if fname.endswith(".fasta"):
+            fpath = os.path.join(chunk_dir, fname)
+            subprocess.run(f"pigz -f {fpath}", shell=True)
+
+    for fname in sorted(os.listdir(chunk_dir)):
+        if fname.endswith(".gz"):
+            src = os.path.join(chunk_dir, fname)
+            dst = os.path.join(final_target, fname)
+            shutil.move(src, dst)
+            chunk_files.append(fname)
 
 # Save manifest
 with open(manifest_path, "w") as mf:
     json.dump({"job_id": job_id, "chunks": chunk_files}, mf, indent=2)
+
+print("✅ Done. Manifest saved.")
