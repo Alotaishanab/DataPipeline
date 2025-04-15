@@ -36,61 +36,7 @@
     #####################################################################
     ## COMMENTED OUT: UniRef50 Download + Splitting Logic
     #####################################################################
-    # - name: Check if UniRef50 FASTA dataset is already present (decompressed)
-    #   stat:
-    #     path: "{{ dataset_dir }}/uniref50.fasta"
-    #   register: uniref_dataset
-
-    # - name: Download UniRef50 FASTA (compressed)
-    #   command: >
-    #     wget -O {{ dataset_dir }}/uniref50.fasta.gz {{ dataset_url }}
-    #   args:
-    #     creates: "{{ dataset_dir }}/uniref50.fasta.gz"
-    #   when: not uniref_dataset.stat.exists
-
-    # - name: Decompress the FASTA using pigz
-    #   command: >
-    #     pigz -d -f {{ dataset_dir }}/uniref50.fasta.gz
-    #   args:
-    #     removes: "{{ dataset_dir }}/uniref50.fasta.gz"
-    #     creates: "{{ dataset_dir }}/uniref50.fasta"
-    #   when: not uniref_dataset.stat.exists
-
-    # - name: Check if splitting has already been done
-    #   stat:
-    #     path: "{{ chunk_dir }}/chunk_001.fasta"
-    #   register: chunk_check
-
-    # - name: Split FASTA file into size-based chunks (~{{ chunk_size_mb }}M each)
-    #   shell: >
-    #     split --numeric-suffixes=1 --suffix-length=3 -C {{ chunk_size_mb }}m \
-    #     --additional-suffix=.fasta {{ dataset_dir }}/uniref50.fasta {{ chunk_dir }}/chunk_
-    #   args:
-    #     creates: "{{ chunk_dir }}/chunk_001.fasta"
-    #   when: not chunk_check.stat.exists
-
-    # - name: Rename chunk files to standard names (chunk_###.fasta)
-    #   shell: |
-    #     i=1
-    #     for f in {{ chunk_dir }}/chunk_*; do
-    #       mv "$f" "{{ chunk_dir }}/chunk_$(printf '%03d' $i).fasta"
-    #       ((i++))
-    #     done
-    #   args:
-    #     executable: /bin/bash
-    #   when: not chunk_check.stat.exists
-
-    # - name: Find created chunk files
-    #   find:
-    #     paths: "{{ chunk_dir }}"
-    #     patterns: "chunk_*.fasta"
-    #   register: chunk_files
-
-    # - name: Compress each chunk with pigz
-    #   command: pigz -f {{ item.path }}
-    #   loop: "{{ chunk_files.files }}"
-    #   loop_control:
-    #     label: "{{ item.path }}"
+    # (unchanged; safe to leave commented)
 
     #####################################################################
     ## ✅ TEST CHUNK GENERATION INSTEAD
@@ -130,18 +76,26 @@
       args:
         creates: "{{ test_chunk_dir }}/chunk_006.fasta"
 
+    - name: Find generated test FASTA files
+      find:
+        paths: "{{ test_chunk_dir }}"
+        patterns: "chunk_*.fasta"
+      register: test_fasta_files
+
     - name: Compress each test chunk
-      command: pigz -f {{ item }}
-      with_fileglob:
-        - "{{ test_chunk_dir }}/chunk_*.fasta"
+      command: pigz -f {{ item.path }}
+      loop: "{{ test_fasta_files.files }}"
+      loop_control:
+        label: "{{ item.path }}"
 
     - name: Copy test chunks to storage pool
       copy:
-        src: "{{ item }}"
-        dest: "{{ storage_pool_target }}/{{ item | basename }}"
+        src: "{{ item.path | regex_replace('\\.fasta$', '.fasta.gz') }}"
+        dest: "{{ storage_pool_target }}/{{ item.path | basename | regex_replace('\\.fasta$', '.fasta.gz') }}"
         remote_src: yes
         owner: almalinux
         group: almalinux
         mode: '0644'
-      with_fileglob:
-        - "{{ test_chunk_dir }}/chunk_*.fasta.gz"
+      loop: "{{ test_fasta_files.files }}"
+      loop_control:
+        label: "{{ item.path }}"
