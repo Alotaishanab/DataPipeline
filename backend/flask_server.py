@@ -68,7 +68,7 @@ def list_datasets():
                                 dataset_entries.append({'name': f, 'type': label, 'job_id': subdir})
             return dataset_entries
 
-        internal = list_files(INTERNAL_DATASETS_FOLDER, 'internal')
+        internal = list_files(INTERNAL_DATASETS_FOLDER, 'internal', limit=20)
         user = list_files(USER_DATASETS_FOLDER, 'user')
         return jsonify({'datasets': internal + user})
     except Exception as e:
