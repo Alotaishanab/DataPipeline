@@ -5,7 +5,7 @@
     venv_path: "/opt/esm/venv"
     celery_app_path: "/home/almalinux/celery_app"
     esm_user: "almalinux"
-    concurrency: 4
+    concurrency: 1 
     pool_type: "solo"  
 
   tasks:
