@@ -9,18 +9,18 @@ import time
 from Bio import SeqIO
 from celery import Celery
 
-# Threading control (important for CPU usage efficiency)
+# Threading control
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
 
-# Logging setup
+# Logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s [%(levelname)s] %(message)s'
 )
 log = logging.getLogger(__name__)
 
-# Celery app config
+# Celery setup
 app = Celery(
     'worker',
     broker='redis://mgmtnode:6379/0',
@@ -32,12 +32,22 @@ RESULT_ROOT = "/mnt/data_volume/results"
 BENCHMARK_FILE = os.path.join(RESULT_ROOT, "benchmark_log.jsonl")
 BATCH_SIZE = 8
 
-# Load model ONCE per worker
+# Load model once
 log.info("🧠 Loading ESM2 model...")
 model, alphabet = esm.pretrained.esm2_t6_8M_UR50D()
 model.eval()
 batch_converter = alphabet.get_batch_converter()
 log.info(f"✅ ESM2 model loaded with {model.num_layers} layers.")
+
+def human_readable_size(size_bytes):
+    if size_bytes < 1024:
+        return f"{size_bytes}B"
+    elif size_bytes < 1024 ** 2:
+        return f"{size_bytes / 1024:.1f}K"
+    elif size_bytes < 1024 ** 3:
+        return f"{size_bytes / (1024 ** 2):.1f}M"
+    else:
+        return f"{size_bytes / (1024 ** 3):.1f}G"
 
 @app.task(name='celery_worker.infer_fasta_file', acks_late=True)
 def infer_fasta_file(path):
@@ -47,7 +57,7 @@ def infer_fasta_file(path):
     try:
         open_func = gzip.open if path.endswith(".gz") else open
 
-        # Determine output directory
+        # Determine output dir
         if "/user_chunks/" in path:
             output_dir = os.path.join(RESULT_ROOT, "user_outputs")
         else:
@@ -60,7 +70,8 @@ def infer_fasta_file(path):
         )
 
         sequence_count = 0
-        file_size_mb = os.path.getsize(path) / (1024 * 1024)
+        file_size_bytes = os.path.getsize(path)
+        file_size_str = human_readable_size(file_size_bytes)
 
         with open_func(path, "rt") as handle, open(output_file, 'w') as f_out:
             f_out.write("[\n")
@@ -88,18 +99,16 @@ def infer_fasta_file(path):
 
             f_out.write("\n]\n")
 
-        end = time.time()
-        duration = end - start
+        duration = time.time() - start
 
-        log.info(f"📊 Stats: {sequence_count} sequences, {file_size_mb:.2f} MB input")
+        log.info(f"📊 Stats: {sequence_count} sequences, {file_size_str} input")
         log.info(f"✅ Completed: {output_file} in {duration:.2f} seconds")
 
-        # Dump benchmark result
         benchmark_data = {
             "input_file": path,
             "output_file": output_file,
             "num_sequences": sequence_count,
-            "input_file_size_mb": round(file_size_mb, 2),
+            "input_file_size": file_size_str,
             "time_seconds": round(duration, 2),
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
         }

@@ -68,5 +68,25 @@ def serve_internal_result(filename):
 def serve_user_result(filename):
     return send_from_directory(os.path.join(RESULTS_FOLDER, 'user_outputs'), filename)
 
+
+@app.route('/results/internal/')
+def list_internal_results():
+    try:
+        files = sorted(os.listdir(os.path.join(RESULTS_FOLDER, 'internal_outputs')))
+        files = [f for f in files if f.endswith('.json')]
+        return "\n".join(f'<a href="/results/internal/{f}">{f}</a><br>' for f in files)
+    except Exception as e:
+        return f"<p>Error: {e}</p>", 500
+
+@app.route('/results/user/')
+def list_user_results():
+    try:
+        files = sorted(os.listdir(os.path.join(RESULTS_FOLDER, 'user_outputs')))
+        files = [f for f in files if f.endswith('.json')]
+        return "\n".join(f'<a href="/results/user/{f}">{f}</a><br>' for f in files)
+    except Exception as e:
+        return f"<p>Error: {e}</p>", 500
+
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080)

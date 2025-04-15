@@ -1,4 +1,4 @@
-- name: Prepare and Test FASTA Chunk Processing on Worker1
+- name: Download and Split UniRef50 in Background on Worker1
   hosts: worker1
   become: yes
   vars:
@@ -6,11 +6,8 @@
     chunk_dir: "{{ dataset_dir }}/chunks"
     dataset_url: "https://ftp.uniprot.org/pub/databases/uniprot/uniref/uniref50/uniref50.fasta.gz"
     storage_pool_target: "/mnt/data_volume/datasets/internal_chunks"
-    chunk_size_mb: 256
-    test_chunk_dir: "/data/test_chunks"
-    num_chunks: 6
-    seq_per_file: 5
-    seq_length: 200
+    chunk_size_mb: 30
+    log_file: "/data/uniref_setup.log"
 
   tasks:
     - name: Install required packages (wget, pigz, coreutils)
@@ -22,7 +19,7 @@
         state: present
         update_cache: yes
 
-    - name: Ensure dataset, chunk, and test directories exist
+    - name: Ensure dataset, chunk, and storage directories exist
       file:
         path: "{{ item }}"
         state: directory
@@ -30,126 +27,46 @@
       loop:
         - "{{ dataset_dir }}"
         - "{{ chunk_dir }}"
-        - "{{ test_chunk_dir }}"
         - "{{ storage_pool_target }}"
 
-    #####################################################################
-    ## COMMENTED OUT: UniRef50 Download + Splitting Logic
-    #####################################################################
-    # - name: Check if UniRef50 FASTA dataset is already present (decompressed)
-    #   stat:
-    #     path: "{{ dataset_dir }}/uniref50.fasta"
-    #   register: uniref_dataset
+    - name: Start UniRef50 download and preprocessing as background job
+      shell: |
+        nohup bash -c '
+          echo "[START] UniRef50 setup: $(date)"
 
-    # - name: Download UniRef50 FASTA (compressed)
-    #   command: >
-    #     wget -O {{ dataset_dir }}/uniref50.fasta.gz {{ dataset_url }}
-    #   args:
-    #     creates: "{{ dataset_dir }}/uniref50.fasta.gz"
-    #   when: not uniref_dataset.stat.exists
+          if [ ! -f {{ dataset_dir }}/uniref50.fasta ]; then
+            if [ ! -f {{ dataset_dir }}/uniref50.fasta.gz ]; then
+              echo "[INFO] Downloading UniRef50..."
+              wget -O {{ dataset_dir }}/uniref50.fasta.gz {{ dataset_url }}
+            fi
+            echo "[INFO] Decompressing..."
+            pigz -d -f {{ dataset_dir }}/uniref50.fasta.gz
+          fi
 
-    # - name: Decompress the FASTA using pigz
-    #   command: >
-    #     pigz -d -f {{ dataset_dir }}/uniref50.fasta.gz
-    #   args:
-    #     removes: "{{ dataset_dir }}/uniref50.fasta.gz"
-    #     creates: "{{ dataset_dir }}/uniref50.fasta"
-    #   when: not uniref_dataset.stat.exists
+          if [ ! -f {{ chunk_dir }}/chunk_001.fasta ]; then
+            echo "[INFO] Splitting into {{ chunk_size_mb }}MB chunks..."
+            split --numeric-suffixes=1 --suffix-length=3 -C {{ chunk_size_mb }}m \
+              --additional-suffix=.fasta {{ dataset_dir }}/uniref50.fasta {{ chunk_dir }}/chunk_
+            
+            echo "[INFO] Renaming chunks..."
+            i=1
+            for f in {{ chunk_dir }}/chunk_*; do
+              mv "$f" "{{ chunk_dir }}/chunk_$(printf "%03d" $i).fasta"
+              ((i++))
+            done
 
-    # - name: Check if splitting has already been done
-    #   stat:
-    #     path: "{{ chunk_dir }}/chunk_001.fasta"
-    #   register: chunk_check
+            echo "[INFO] Compressing chunks..."
+            pigz -f {{ chunk_dir }}/chunk_*.fasta
 
-    # - name: Split FASTA file into size-based chunks (~{{ chunk_size_mb }}M each)
-    #   shell: >
-    #     split --numeric-suffixes=1 --suffix-length=3 -C {{ chunk_size_mb }}m \
-    #     --additional-suffix=.fasta {{ dataset_dir }}/uniref50.fasta {{ chunk_dir }}/chunk_
-    #   args:
-    #     creates: "{{ chunk_dir }}/chunk_001.fasta"
-    #   when: not chunk_check.stat.exists
+            echo "[INFO] Copying chunks to storage pool..."
+            for f in {{ chunk_dir }}/chunk_*.fasta.gz; do
+              cp "$f" "{{ storage_pool_target }}/$(basename $f)"
+              chown almalinux:almalinux "{{ storage_pool_target }}/$(basename $f)"
+              chmod 644 "{{ storage_pool_target }}/$(basename $f)"
+            done
+          fi
 
-    # - name: Rename chunk files to standard names (chunk_###.fasta)
-    #   shell: |
-    #     i=1
-    #     for f in {{ chunk_dir }}/chunk_*; do
-    #       mv "$f" "{{ chunk_dir }}/chunk_$(printf '%03d' $i).fasta"
-    #       ((i++))
-    #     done
-    #   args:
-    #     executable: /bin/bash
-    #   when: not chunk_check.stat.exists
-
-    # - name: Find created chunk files
-    #   find:
-    #     paths: "{{ chunk_dir }}"
-    #     patterns: "chunk_*.fasta"
-    #   register: chunk_files
-
-    # - name: Compress each chunk with pigz
-    #   command: pigz -f {{ item.path }}
-    #   loop: "{{ chunk_files.files }}"
-    #   loop_control:
-    #     label: "{{ item.path }}"
-
-    #####################################################################
-    ## ✅ TEST CHUNK GENERATION WITH VARYING SIZES
-    #####################################################################
-
-    - name: Ensure biopython is installed
-      pip:
-        name: biopython
-        virtualenv: /opt/esm/venv
-        state: present
-
-    - name: Generate synthetic small FASTA files with varying sizes
-      copy:
-        dest: "{{ test_chunk_dir }}/generate_fasta.py"
-        content: |
-          import os
-          import random
-          from Bio.Seq import Seq
-          from Bio.SeqRecord import SeqRecord
-          from Bio import SeqIO
-
-          aa = "ACDEFGHIKLMNPQRSTVWY"
-          os.makedirs("{{ test_chunk_dir }}", exist_ok=True)
-
-          for idx, length in enumerate([50, 200, 500, 1000, 1500, 2500], start=1):
-              records = []
-              for j in range({{ seq_per_file }}):
-                  sequence = ''.join(random.choices(aa, k=length))
-                  records.append(SeqRecord(Seq(sequence), id=f"test_{idx}_{j}", description=""))
-
-              outpath = os.path.join("{{ test_chunk_dir }}", f"chunk_{idx:03d}.fasta")
-              with open(outpath, "w") as out:
-                  SeqIO.write(records, out, "fasta")
-
-    - name: Run FASTA generation script
-      command: /opt/esm/venv/bin/python3 {{ test_chunk_dir }}/generate_fasta.py
-      args:
-        creates: "{{ test_chunk_dir }}/chunk_006.fasta"
-
-    - name: Find generated test FASTA files
-      find:
-        paths: "{{ test_chunk_dir }}"
-        patterns: "chunk_*.fasta"
-      register: test_fasta_files
-
-    - name: Compress each test chunk
-      command: pigz -f {{ item.path }}
-      loop: "{{ test_fasta_files.files }}"
-      loop_control:
-        label: "{{ item.path }}"
-
-    - name: Copy test chunks to storage pool
-      copy:
-        src: "{{ item.path | regex_replace('\\.fasta$', '.fasta.gz') }}"
-        dest: "{{ storage_pool_target }}/{{ item.path | basename | regex_replace('\\.fasta$', '.fasta.gz') }}"
-        remote_src: yes
-        owner: almalinux
-        group: almalinux
-        mode: '0644'
-      loop: "{{ test_fasta_files.files }}"
-      loop_control:
-        label: "{{ item.path }}"
+          echo "[COMPLETE] UniRef50 setup finished: $(date)"
+        ' > {{ log_file }} 2>&1 &
+      async: 1
+      poll: 0
