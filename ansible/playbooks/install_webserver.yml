@@ -26,7 +26,7 @@
 
     - name: Ensure upload directory exists
       file:
-        path: /mnt/uploads
+        path: /mnt/data_volume/uploads
         state: directory
         owner: almalinux
         group: almalinux
