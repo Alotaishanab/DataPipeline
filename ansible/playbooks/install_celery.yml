@@ -5,6 +5,8 @@
     venv_path: "/opt/esm/venv"
     celery_app_path: "/home/almalinux/celery_app"
     esm_user: "almalinux"
+    concurrency: 4 
+    pool_type: "prefork"  
 
   tasks:
     - name: Create Celery app directory
@@ -45,7 +47,7 @@
           Group=almalinux
           WorkingDirectory=/home/almalinux/celery_app
           Environment=PYTHONPATH=/home/almalinux
-          ExecStart=/opt/esm/venv/bin/celery -A celery_app worker --loglevel=info --logfile=/home/almalinux/celery_app/celery.log --concurrency=1 --pool=solo
+          ExecStart=/opt/esm/venv/bin/celery -A celery_app.celery_worker worker --loglevel=info --logfile=/home/almalinux/celery_app/celery.log --concurrency={{ concurrency }} --pool={{ pool_type }}
           Restart=always
           RestartSec=10
           LimitNOFILE=65535
@@ -55,9 +57,6 @@
       notify:
         - Reload systemd
         - Restart Celery Worker
-
-
-
 
   handlers:
     - name: Reload systemd
@@ -70,7 +69,7 @@
         state: restarted
         enabled: yes
 
-
+# Optional: Install dependencies on mgmt node (used by controller.py)
 - name: Install Celery and Redis modules on Management Node (localhost)
   hosts: localhost
   become: yes
@@ -96,4 +95,3 @@
           - celery
           - redis
         state: latest
-

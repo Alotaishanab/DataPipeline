@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import os
 import json
-import subprocess
 import torch
 import esm
 import logging
@@ -9,7 +8,7 @@ import gzip
 from Bio import SeqIO
 from celery import Celery
 
-# Threading control (important for CPU usage)
+# Threading control (important for CPU usage efficiency)
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
 
@@ -20,7 +19,7 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
-# Celery config
+# Celery app config
 app = Celery(
     'worker',
     broker='redis://mgmtnode:6379/0',
@@ -31,7 +30,7 @@ MAX_SEQ_LEN = 3000
 RESULT_ROOT = "/mnt/data_volume/results"
 BATCH_SIZE = 8
 
-# Model loading happens ONCE per worker
+# Load model ONCE per worker
 log.info("🧠 Loading ESM2 model...")
 model, alphabet = esm.pretrained.esm2_t6_8M_UR50D()
 model.eval()
@@ -42,23 +41,7 @@ log.info(f"✅ ESM2 model loaded with {model.num_layers} layers.")
 def infer_fasta_file(path):
     log.info(f"📥 Task started: {path}")
     try:
-        # Use gzip.open if the file is compressed, else regular open
         open_func = gzip.open if path.endswith(".gz") else open
-
-        results = []
-        batch = []
-
-        with open_func(path, "rt") as handle:
-            for record in SeqIO.parse(handle, "fasta-pearson"):
-                seq = str(record.seq)[:MAX_SEQ_LEN]
-                batch.append((record.id, seq))
-
-                if len(batch) == BATCH_SIZE:
-                    results.extend(run_batch(batch))
-                    batch = []
-
-        if batch:
-            results.extend(run_batch(batch))
 
         # Determine output directory
         if "/user_chunks/" in path:
@@ -72,8 +55,30 @@ def infer_fasta_file(path):
             os.path.basename(path).replace(".fasta", ".json").replace(".gz", "")
         )
 
-        with open(output_file, 'w') as f:
-            json.dump(results, f)
+        with open_func(path, "rt") as handle, open(output_file, 'w') as f_out:
+            f_out.write("[\n")
+            first = True
+            batch = []
+
+            for record in SeqIO.parse(handle, "fasta-pearson"):
+                seq = str(record.seq)[:MAX_SEQ_LEN]
+                batch.append((record.id, seq))
+
+                if len(batch) == BATCH_SIZE:
+                    batch_result = run_batch(batch)
+                    if not first:
+                        f_out.write(",\n")
+                    f_out.write(json.dumps(batch_result)[1:-1])  # remove brackets
+                    first = False
+                    batch = []
+
+            if batch:
+                batch_result = run_batch(batch)
+                if not first:
+                    f_out.write(",\n")
+                f_out.write(json.dumps(batch_result)[1:-1])
+
+            f_out.write("\n]\n")
 
         log.info(f"✅ Completed: {output_file}")
     except Exception as e:
