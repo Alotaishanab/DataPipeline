@@ -5,8 +5,8 @@
     venv_path: "/opt/esm/venv"
     celery_app_path: "/home/almalinux/celery_app"
     esm_user: "almalinux"
-    concurrency: 1 
-    pool_type: "prefork"  
+    concurrency: 4
+    pool_type: "solo"  
 
   tasks:
     - name: Create Celery app directory
