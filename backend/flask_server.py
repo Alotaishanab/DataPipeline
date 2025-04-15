@@ -11,7 +11,7 @@ USER_DATASETS_FOLDER = '/mnt/data_volume/datasets/user_chunks'
 INTERNAL_DATASETS_FOLDER = '/mnt/data_volume/datasets/internal_chunks'
 RESULTS_FOLDER = '/mnt/data_volume/results'
 
-SPLIT_SCRIPT = './scripts/split_uploaded_fasta.py'
+SPLIT_SCRIPT = './split_uploaded_fasta.py'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 

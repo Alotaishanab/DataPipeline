@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import './Panels.css';
 
 export default function Datasets() {
-  const [files, setFiles] = useState([]);
+  const [internalFiles, setInternalFiles] = useState([]);
+  const [userFiles, setUserFiles] = useState([]);
   const [query, setQuery] = useState('');
 
   useEffect(() => {
@@ -11,21 +12,58 @@ export default function Datasets() {
         const res = await fetch('/api/datasets');
         const data = await res.json();
         if (data.datasets) {
-          setFiles(data.datasets);
-        } else {
-          setFiles([]);
+          const internal = data.datasets.filter(d => d.type === 'internal');
+          const user = data.datasets.filter(d => d.type === 'user');
+          setInternalFiles(internal);
+          setUserFiles(user);
         }
       } catch (err) {
         console.error(err);
-        setFiles([]);
+        setInternalFiles([]);
+        setUserFiles([]);
       }
     };
 
     fetchDatasets();
   }, []);
 
-  const filteredFiles = files.filter(file =>
-    file.name.toLowerCase().includes(query.toLowerCase())
+  const filter = (files) =>
+    files.filter(f =>
+      f.name.toLowerCase().includes(query.toLowerCase()) ||
+      (f.job_id && f.job_id.toLowerCase().includes(query.toLowerCase()))
+    );
+
+  const renderSection = (title, files) => (
+    <div className="results-card">
+      <h2 className="results-title">{title}</h2>
+      {files.length > 0 ? (
+        <ul className="results-list">
+          {files.map((file, i) => {
+            const link =
+              file.type === 'user'
+                ? `/datasets/user/${file.job_id}/${file.name}`
+                : `/datasets/internal/${file.name}`;
+            return (
+              <li key={i}>
+                <a
+                  className="results-link"
+                  href={link}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  📄 {file.name}{' '}
+                  <span style={{ fontSize: '0.85rem', color: '#888' }}>
+                    ({file.type}{file.job_id ? ` - ${file.job_id}` : ''})
+                  </span>
+                </a>
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <p className="no-results">🚫 No datasets found yet.</p>
+      )}
+    </div>
   );
 
   return (
@@ -38,32 +76,16 @@ export default function Datasets() {
 
         <input
           type="text"
-          placeholder="🔍 Search dataset by name..."
+          placeholder="🔍 Search dataset by name or job ID..."
           className="results-search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
       </div>
 
-      <div className="results-card">
-        {filteredFiles.length > 0 ? (
-          <ul className="results-list">
-            {filteredFiles.map((file, i) => (
-              <li key={i}>
-                <a
-                  className="results-link"
-                  href={`/datasets/${file.type}/${file.name}`}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  📄 {file.name} <span style={{ fontSize: '0.85rem', color: '#888' }}>({file.type})</span>
-                </a>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="no-results">🚫 No datasets found yet.</p>
-        )}
+      <div className="results-grid">
+        {renderSection('⚙️ Internal Datasets', filter(internalFiles))}
+        {renderSection('🧑‍💻 User Datasets', filter(userFiles))}
       </div>
     </div>
   );
