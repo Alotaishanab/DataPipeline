@@ -60,7 +60,7 @@ def infer_fasta_file(path):
             first = True
             batch = []
 
-            for record in SeqIO.parse(handle, "fasta-pearson"):
+            for record in SeqIO.parse(handle, "fasta"):
                 seq = str(record.seq)[:MAX_SEQ_LEN]
                 batch.append((record.id, seq))
 
