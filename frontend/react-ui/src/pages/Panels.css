@@ -1,0 +1,119 @@
+/* Results.css */
+body {
+  background-color: #0b0e1a;
+  margin: 0;
+  font-family: 'Segoe UI', 'Roboto', sans-serif;
+}
+
+.results-container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 2rem;
+  font-family: 'Inter', sans-serif;
+  color: #fff;
+  background: linear-gradient(to bottom right, #0f0c29, #302b63, #24243e);
+  min-height: 100vh;
+}
+
+.results-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.results-main-title {
+  font-size: 2.5rem;
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+  background: linear-gradient(90deg, #00c6ff, #0072ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.results-description {
+  font-size: 1rem;
+  color: #ddd;
+  line-height: 1.6;
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+.results-grid {
+  display: grid;
+  gap: 2rem;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+}
+
+.results-card {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 1.5rem;
+  border-radius: 1rem;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+  transition: all 0.3s ease;
+}
+
+.results-card:hover {
+  transform: scale(1.02);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+}
+
+.results-title {
+  font-size: 1.25rem;
+  margin-bottom: 1rem;
+  color: #fff;
+  border-bottom: 1px solid #444;
+  padding-bottom: 0.5rem;
+}
+
+.results-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.results-link {
+  color: #00c6ff;
+  text-decoration: none;
+  display: inline-block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+}
+
+.results-link:hover {
+  text-decoration: underline;
+}
+
+.no-results {
+  color: #bbb;
+  font-style: italic;
+}
+
+.results-search {
+  width: 100%;
+  max-width: 400px;
+  padding: 0.6rem 1rem;
+  font-size: 1rem;
+  margin-top: 1rem;
+  margin-bottom: 2rem;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  outline: none;
+  transition: 0.2s ease;
+}
+
+.results-search:focus {
+  border-color: #7b61ff;
+  box-shadow: 0 0 0 2px rgba(123, 97, 255, 0.2);
+}
+
+
+
+@keyframes fadeSlideIn {
+  0% {
+    transform: translateY(30px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
