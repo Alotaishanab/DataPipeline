@@ -69,7 +69,6 @@
         state: restarted
         enabled: yes
 
-# Optional: Install dependencies on mgmt node (used by controller.py)
 - name: Install Celery and Redis modules on Management Node (localhost)
   hosts: localhost
   become: yes

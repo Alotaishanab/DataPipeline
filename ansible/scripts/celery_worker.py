@@ -5,6 +5,7 @@ import torch
 import esm
 import logging
 import gzip
+import time
 from Bio import SeqIO
 from celery import Celery
 
@@ -28,6 +29,7 @@ app = Celery(
 
 MAX_SEQ_LEN = 3000
 RESULT_ROOT = "/mnt/data_volume/results"
+BENCHMARK_FILE = os.path.join(RESULT_ROOT, "benchmark_log.jsonl")
 BATCH_SIZE = 8
 
 # Load model ONCE per worker
@@ -40,6 +42,8 @@ log.info(f"✅ ESM2 model loaded with {model.num_layers} layers.")
 @app.task(name='celery_worker.infer_fasta_file', acks_late=True)
 def infer_fasta_file(path):
     log.info(f"📥 Task started: {path}")
+    start = time.time()
+
     try:
         open_func = gzip.open if path.endswith(".gz") else open
 
@@ -55,6 +59,9 @@ def infer_fasta_file(path):
             os.path.basename(path).replace(".fasta", ".json").replace(".gz", "")
         )
 
+        sequence_count = 0
+        file_size_mb = os.path.getsize(path) / (1024 * 1024)
+
         with open_func(path, "rt") as handle, open(output_file, 'w') as f_out:
             f_out.write("[\n")
             first = True
@@ -63,12 +70,13 @@ def infer_fasta_file(path):
             for record in SeqIO.parse(handle, "fasta"):
                 seq = str(record.seq)[:MAX_SEQ_LEN]
                 batch.append((record.id, seq))
+                sequence_count += 1
 
                 if len(batch) == BATCH_SIZE:
                     batch_result = run_batch(batch)
                     if not first:
                         f_out.write(",\n")
-                    f_out.write(json.dumps(batch_result)[1:-1])  # remove brackets
+                    f_out.write(json.dumps(batch_result)[1:-1])
                     first = False
                     batch = []
 
@@ -80,7 +88,25 @@ def infer_fasta_file(path):
 
             f_out.write("\n]\n")
 
-        log.info(f"✅ Completed: {output_file}")
+        end = time.time()
+        duration = end - start
+
+        log.info(f"📊 Stats: {sequence_count} sequences, {file_size_mb:.2f} MB input")
+        log.info(f"✅ Completed: {output_file} in {duration:.2f} seconds")
+
+        # Dump benchmark result
+        benchmark_data = {
+            "input_file": path,
+            "output_file": output_file,
+            "num_sequences": sequence_count,
+            "input_file_size_mb": round(file_size_mb, 2),
+            "time_seconds": round(duration, 2),
+            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
+        }
+
+        with open(BENCHMARK_FILE, "a") as bench_out:
+            bench_out.write(json.dumps(benchmark_data) + "\n")
+
     except Exception as e:
         log.exception(f"❌ Error processing {path}")
     return "done"
