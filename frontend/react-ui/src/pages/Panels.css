@@ -94,19 +94,47 @@ body {
 }
 
 .results-link {
-  display: block;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   color: #00e6b8;
+  background-color: #202538;
+  padding: 10px 14px;
+  margin-bottom: 10px;
+  border-radius: 12px;
+  border: 1px solid transparent;
   text-decoration: none;
   font-weight: 500;
-  margin-bottom: 10px;
-  transition: color 0.2s ease;
+  transition: all 0.2s ease;
 }
 
 .results-link:hover {
+  background-color: #262c42;
   color: #33ffd4;
-  text-decoration: underline;
+  border-color: #00e6b866;
+  text-decoration: none;
 }
 
+.results-link span {
+  font-size: 0.85rem;
+  color: #bbb;
+}
+
+.results-card button {
+  font-size: 0.95rem;
+  margin-bottom: 15px;
+  background: #2a2d41;
+  padding: 10px 18px;
+  color: #eee;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.results-card button:hover {
+  background-color: #353a55;
+}
 .no-results {
   color: #bbb;
   font-style: italic;

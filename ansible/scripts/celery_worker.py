@@ -57,17 +57,25 @@ def infer_fasta_file(path):
     try:
         open_func = gzip.open if path.endswith(".gz") else open
 
-        # Determine output dir
+        # Determine output dir and filename
         if "/user_chunks/" in path:
-            output_dir = os.path.join(RESULT_ROOT, "user_outputs")
+            # Extract job ID from path
+            parts = path.split("/user_chunks/")
+            job_id = parts[1].split("/")[0] if len(parts) > 1 else "unknown_job"
+
+            output_dir = os.path.join(RESULT_ROOT, "user_outputs", job_id)
+            os.makedirs(output_dir, exist_ok=True)
+
+            chunk_name = os.path.basename(path).replace(".fasta", "").replace(".fasta.gz", "")
+            output_file = os.path.join(output_dir, f"{chunk_name}.json")
         else:
             output_dir = os.path.join(RESULT_ROOT, "internal_outputs")
-        os.makedirs(output_dir, exist_ok=True)
+            os.makedirs(output_dir, exist_ok=True)
 
-        output_file = os.path.join(
-            output_dir,
-            os.path.basename(path).replace(".fasta", ".json").replace(".gz", "")
-        )
+            output_file = os.path.join(
+                output_dir,
+                os.path.basename(path).replace(".fasta", ".json").replace(".gz", "")
+            )
 
         sequence_count = 0
         file_size_bytes = os.path.getsize(path)
