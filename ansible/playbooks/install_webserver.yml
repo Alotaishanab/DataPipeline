@@ -83,6 +83,13 @@
 
             ProxyPreserveHost On
 
+            # Allow very large uploads (0 = unlimited; set explicit
+            # byte value if you want a hard cap, e.g. 2147483648 for 2 GB)
+
+            LimitRequestBody 2147483648
+            ProxyTimeout 600
+          
+
             ProxyPass /upload http://127.0.0.1:8080/upload
             ProxyPassReverse /upload http://127.0.0.1:8080/upload
 
