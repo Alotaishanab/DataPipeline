@@ -49,28 +49,42 @@ def upload():
 @app.route('/api/datasets', methods=['GET'])
 def list_datasets():
     try:
-        def list_files(folder, label):
-            dataset_entries = []
+        def list_internal_files(folder, limit=20):
+            files = sorted([
+                f for f in os.listdir(folder)
+                if os.path.isfile(os.path.join(folder, f)) and f.endswith('.gz')
+            ])
+            return [{'name': f, 'type': 'internal'} for f in files[:limit]]
 
-            # Internal datasets are stored flat (not in subfolders)
-            if label == 'internal':
-                for f in sorted(os.listdir(folder)):
-                    full_path = os.path.join(folder, f)
-                    if os.path.isfile(full_path) and f.endswith('.gz'):
-                        dataset_entries.append({'name': f, 'type': label})
-            else:
-                # User datasets are stored in job_id subfolders
-                for subdir in sorted(os.listdir(folder)):
-                    subpath = os.path.join(folder, subdir)
-                    if os.path.isdir(subpath):
-                        for f in os.listdir(subpath):
-                            if f.endswith('.gz'):
-                                dataset_entries.append({'name': f, 'type': label, 'job_id': subdir})
-            return dataset_entries
+        def list_user_folders(folder):
+            folders = sorted([
+                f for f in os.listdir(folder)
+                if os.path.isdir(os.path.join(folder, f))
+            ])
+            return [{'name': f, 'type': 'user_folder'} for f in folders]
 
-        internal = list_files(INTERNAL_DATASETS_FOLDER, 'internal', limit=20)
-        user = list_files(USER_DATASETS_FOLDER, 'user')
-        return jsonify({'datasets': internal + user})
+        internal = list_internal_files(INTERNAL_DATASETS_FOLDER)
+        user_folders = list_user_folders(USER_DATASETS_FOLDER)
+
+        return jsonify({'datasets': internal + user_folders})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/datasets/user/<job_id>', methods=['GET'])
+def list_files_in_user_folder(job_id):
+    try:
+        folder_path = os.path.join(USER_DATASETS_FOLDER, job_id)
+        if not os.path.exists(folder_path):
+            return jsonify({'error': 'Job ID not found'}), 404
+
+        files = sorted([
+            f for f in os.listdir(folder_path)
+            if os.path.isfile(os.path.join(folder_path, f)) and f.endswith('.gz')
+        ])
+        return jsonify({
+            'job_id': job_id,
+            'files': files
+        })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

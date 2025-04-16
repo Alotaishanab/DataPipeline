@@ -22,11 +22,6 @@ mgmt_vm_tags = {
   # Webserver 
   "condenser_ingress_webserver_hostname"      = "ucabbaa-webserver"
 
-  # Flower (Celery Monitoring)
-  "condenser_ingress_flower_hostname"         = "ucabbaa-flower"
-  "condenser_ingress_flower_port"             = "5555"
-
-
   # Global Ingress Control
   "condenser_ingress_isAllowed"               = "true"
   "condenser_ingress_isEnabled"               = "true"
