@@ -3,28 +3,34 @@ import './Panels.css';
 
 export default function Results() {
   const [internalResults, setInternalResults] = useState([]);
-  const [userFolders, setUserFolders] = useState([]);
-  const [folderFiles, setFolderFiles] = useState([]);
-  const [activeFolder, setActiveFolder] = useState(null);
-  const [query, setQuery] = useState('');
+  const [userFolders,   setUserFolders]   = useState([]);
+  const [folderFiles,   setFolderFiles]   = useState([]);
+  const [activeFolder,  setActiveFolder]  = useState(null);
+  const [query,         setQuery]         = useState('');
 
+  // helper fetch
+  const fetchResults = async () => {
+    try {
+      const res  = await fetch('/api/results');
+      const data = await res.json();
+      setInternalResults(data.internal || []);
+      setUserFolders(data.user_folders || []);
+    } catch (err) {
+      console.error('❌ Failed to fetch results:', err);
+    }
+  };
+
+  // initial + 30 s refresh
   useEffect(() => {
-    const fetchResults = async () => {
-      try {
-        const res = await fetch('/api/results');
-        const data = await res.json();
-        setInternalResults(data.internal || []);
-        setUserFolders(data.user_folders || []);
-      } catch (err) {
-        console.error('❌ Failed to fetch results:', err);
-      }
-    };
     fetchResults();
+    const id = setInterval(fetchResults, 30_000);
+    return () => clearInterval(id);
   }, []);
 
+  // fetch files inside a user result folder
   const handleFolderClick = async (jobId) => {
     try {
-      const res = await fetch(`/api/results/user/${jobId}`);
+      const res  = await fetch(`/api/results/user/${jobId}`);
       const data = await res.json();
       setFolderFiles(data.files || []);
       setActiveFolder(jobId);
@@ -33,13 +39,15 @@ export default function Results() {
     }
   };
 
-  const filter = (items) =>
-    items.filter(item => item.toLowerCase().includes(query.toLowerCase()));
+  const filter = (arr) => arr.filter(x =>
+    x.toLowerCase().includes(query.toLowerCase())
+  );
 
-  const renderSection = (title, items, isFolder = false) => (
+  /* ---------- render helpers ------------------------------------------------ */
+  const renderSection = (title, items, isFolder=false) => (
     <div className="results-card">
       <h2 className="results-title">{title}</h2>
-      {items.length > 0 ? (
+      {items.length ? (
         <ul className="results-list">
           {items.map((item, i) => (
             <li key={i}>
@@ -51,8 +59,7 @@ export default function Results() {
                 <a
                   className="results-link"
                   href={`/results/internal/${item}`}
-                  target="_blank"
-                  rel="noreferrer"
+                  target="_blank" rel="noreferrer"
                 >
                   📄 {item}
                 </a>
@@ -60,51 +67,48 @@ export default function Results() {
             </li>
           ))}
         </ul>
-      ) : (
-        <p className="no-results">🚫 No items found.</p>
-      )}
+      ) : <p className="no-results">🚫 No items found.</p>}
     </div>
   );
 
   const renderFolderContents = () => (
     <div className="results-card">
       <h2 className="results-title">📂 Files in {activeFolder}</h2>
-      <button onClick={() => { setActiveFolder(null); setFolderFiles([]); }}> 🔙 Back to Folders</button>
-      {folderFiles.length > 0 ? (
+      <button onClick={() => { setActiveFolder(null); setFolderFiles([]); }}>
+        🔙 Back to Folders
+      </button>
+      {folderFiles.length ? (
         <ul className="results-list">
           {folderFiles.map((file, i) => (
             <li key={i}>
               <a
                 className="results-link"
                 href={`/results/user/${activeFolder}/${file}`}
-                target="_blank"
-                rel="noreferrer"
+                target="_blank" rel="noreferrer"
               >
                 📄 {file}
               </a>
             </li>
           ))}
         </ul>
-      ) : (
-        <p className="no-results">🚫 No files found in this folder.</p>
-      )}
+      ) : <p className="no-results">🚫 No files found in this folder.</p>}
     </div>
   );
 
+  /* ---------- main render --------------------------------------------------- */
   return (
     <div className="results-container">
       <div className="results-header">
         <h1 className="results-main-title">📊 Processed Dataset Chunks</h1>
         <p className="results-description">
-          View results from internal and user-submitted jobs. You can browse by folder or search by job ID.
+          View results from internal and user‑submitted jobs. Browse by folder or search filenames.
         </p>
-
         <input
           type="text"
-          placeholder="🔍 Search by filename or job ID..."
           className="results-search"
+          placeholder="🔍 Search..."
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={e => setQuery(e.target.value)}
         />
       </div>
 
