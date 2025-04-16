@@ -29,6 +29,11 @@
         state: present
         update_cache: yes
 
+    - name: Install pytest using pip3
+      pip:
+        name: pytest
+        executable: pip3
+
     - name: Install httpd
       yum:
         name: httpd
@@ -39,4 +44,3 @@
         name: httpd
         state: started
         enabled: yes
-

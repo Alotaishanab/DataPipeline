@@ -10,7 +10,7 @@ from celery_app.app import app
 # ===========================
 # ✅ CONFIG
 # ===========================
-ONLY_USER_MODE = True  # Set True to skip stress loop and only monitor user chunks
+ONLY_USER_MODE = False  # Set True to skip stress loop and only monitor user chunks
 
 CHUNK_DIRS = {
     "internal": "/mnt/data_volume/datasets/internal_chunks",
