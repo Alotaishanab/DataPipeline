@@ -1,7 +1,8 @@
-// App.test.js
+// frontend/react-ui/src/__tests__/App.test.js
+import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import App from '../../frontend/react-ui/src/App';
+import App from '../App';
 
 describe('App routing', () => {
   test('renders Home component on root route', () => {
@@ -19,7 +20,7 @@ describe('App routing', () => {
         <App />
       </MemoryRouter>
     );
-    expect(screen.getByText(/Internal Results/i)).toBeInTheDocument();
+    expect(screen.getByText(/Processed Dataset Chunks/i)).toBeInTheDocument();
   });
 
   test('renders Datasets page on /datasets route', () => {
