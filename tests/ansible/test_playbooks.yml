@@ -23,7 +23,7 @@
 
     - name: Check if static inventory file was generated
       stat:
-        path: /home/almalinux/DataPipeline/ansible/inventory.ini
+        path: /home/almalinux/DataPipeline/ansible/inventory/inventory.json
       register: inventory_file
 
     - name: Assert inventory file exists and is not empty
@@ -34,7 +34,7 @@
         fail_msg: "Inventory generation failed or file is empty"
 
     - name: Check if worker instances are reachable
-      command: ansible all -i /home/almalinux/DataPipeline/ansible/inventory.ini -m ping
+      command: ansible all -i /home/almalinux/DataPipeline/ansible/inventory/inventory.json -m ping
       register: ping_result
       changed_when: false
 
@@ -43,6 +43,7 @@
         that:
           - "'SUCCESS' in ping_result.stdout"
         fail_msg: "One or more worker nodes did not respond to ping"
+
 
 - name: Host Dependencies and Alert Manager Setup
   hosts: localhost
