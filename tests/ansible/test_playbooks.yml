@@ -34,7 +34,11 @@
         fail_msg: "Inventory generation failed or file is empty"
 
     - name: Check if worker instances are reachable
-      command: ansible all -i /home/almalinux/DataPipeline/ansible/inventory/inventory.json -m ping
+      command: >
+        ansible all
+        -i /home/almalinux/DataPipeline/ansible/inventory/inventory.json
+        -m ping
+        --ssh-extra-args='-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
       register: ping_result
       changed_when: false
 
@@ -43,6 +47,7 @@
         that:
           - "'SUCCESS' in ping_result.stdout"
         fail_msg: "One or more worker nodes did not respond to ping"
+
 
 
 - name: Host Dependencies and Alert Manager Setup
