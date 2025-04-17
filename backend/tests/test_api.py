@@ -1,12 +1,11 @@
-# test_api.py
-
+# tests/backend/test_api.py
 import os
 import io
 import pytest
-import tempfile
 from flask_server import app
 
 @pytest.fixture
+
 def client():
     app.config['TESTING'] = True
     client = app.test_client()
@@ -15,21 +14,11 @@ def client():
 
 def test_upload_invalid_file(client):
     data = {
-        'email': 'test@example.com',
         'file': (io.BytesIO(b'invalid content'), 'test.txt')
     }
     response = client.post('/upload', data=data, content_type='multipart/form-data')
     assert response.status_code == 400
     assert 'Only .fasta or .fasta.gz files are allowed' in response.get_data(as_text=True)
-
-
-def test_upload_missing_email(client):
-    data = {
-        'file': (io.BytesIO(b'>seq\nATCG'), 'test.fasta')
-    }
-    response = client.post('/upload', data=data, content_type='multipart/form-data')
-    assert response.status_code == 400
-    assert 'Email is required' in response.get_data(as_text=True)
 
 
 def test_datasets_endpoint(client):

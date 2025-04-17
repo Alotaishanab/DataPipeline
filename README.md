@@ -64,6 +64,8 @@ run npm test
 
 to run backend tests
 cd DataPipeline
+export PYTHONPATH=$PWD/backend
+pytest backend/tests/
 
 
 
