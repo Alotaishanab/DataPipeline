@@ -5,6 +5,19 @@ cd DataPipeline
 cd terraform 
 .env input your 
 token and username 
+
+
+#### Add Required Variables
+
+Insert the following variables with your specific values:
+
+```hcl
+provider_token       = "YOUR_PROVIDER_TOKEN"
+provider_namespace   = "YOUR_PROVIDER_NAMESPACE"
+username             = "YOUR_USERNAME"
+network_name         = "YOUR_NETWORK_NAME"
+```
+
 then cd into terraform/host
 run terraform apply -auto approve
 
@@ -42,3 +55,30 @@ to run ansible test
 
 cd DataPipeline
 ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook   -i ansible/inventory/inventory.json   --ssh-common-args='-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'   tests/ansible/test_playbooks.yml
+
+
+to run frontend tests
+cd DataPipeline/frontend/react-ui
+run npm test
+
+
+to run backend tests
+cd DataPipeline
+
+
+
+## Accessing Monitoring Services
+
+After deployment, you can access the monitoring services using the following URLs. Replace `<USERNAME>` with your specific username:
+
+- **Prometheus:** https://<USERNAME>-prometheus.comp0235.condenser.arc.ucl.ac.uk/
+- **Grafana:** https://<USERNAME>-grafana.comp0235.condenser.arc.ucl.ac.uk/
+- **Node Exporter:** https://<USERNAME>-nodeexporter.comp0235.condenser.arc.ucl.ac.uk/
+- **Web Server:** https://<USERNAME>-webserver.comp0235.condenser.arc.ucl.ac.uk/
+
+## Grafana Credentials
+
+- **Username:** admin  
+- **Password:** admin  
+
+**Security Note:** It is highly recommended to change the default Grafana credentials after the initial setup to secure your monitoring dashboards.
