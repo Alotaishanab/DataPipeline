@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# move into repo root
+cd "$(dirname "$0")/.."
+
 # ----------------------------------------
 # 1) Ansible tests
 # ----------------------------------------
@@ -23,7 +26,6 @@ pytest backend/tests/
 # ----------------------------------------
 echo "==> Running React frontend tests…"
 pushd frontend/react-ui >/dev/null
-# CI=true ensures it exits after running, and --watchAll=false turns off watch mode
 CI=true npm test -- --watchAll=false
 popd >/dev/null
 
