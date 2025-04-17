@@ -2,13 +2,13 @@ import io
 import pytest
 from flask_server import app
 
-@ pytest.fixture
+@pytest.fixture
 def client():
     app.config['TESTING'] = True
     return app.test_client()
 
 # Test invalid upload: wrong file extension
-@ pytest.mark.parametrize('filename, content', [
+@pytest.mark.parametrize('filename, content', [
     ('test.txt', b'invalid content'),
     ('test.fa', b'invalid content')
 ])
@@ -18,14 +18,14 @@ def test_upload_invalid_file(client, filename, content):
     assert response.status_code == 400
     assert 'Only .fasta or .fasta.gz files are allowed' in response.get_data(as_text=True)
 
-# Test successful upload entry point (mock splitting script)
-@ pytest.fixture(autouse=True)
-private
+# Prevent actual subprocess calls in upload
+@pytest.fixture(autouse=True)
 def no_op_split(monkeypatch):
-    # Prevent actual subprocess calls in upload
-    monkeypatch.setattr('flask_server.subprocess.run', lambda *args, **kwargs: type('R', (), {'returncode':0, 'stderr':b''})())
+    monkeypatch.setattr('flask_server.subprocess.run',
+                        lambda *args, **kwargs: type('R', (), {'returncode': 0, 'stderr': b''})())
 
-@ pytest.mark.parametrize('filename', ['file.fasta', 'file.fasta.gz'])
+# Test successful upload entry point
+@pytest.mark.parametrize('filename', ['file.fasta', 'file.fasta.gz'])
 def test_upload_success_start_processing(client, filename):
     data = {'file': (io.BytesIO(b'>seq\nATCG'), filename)}
     response = client.post('/upload', data=data, content_type='multipart/form-data')
