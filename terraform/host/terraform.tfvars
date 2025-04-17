@@ -11,7 +11,7 @@ mgmt_cpu           = 2
 mgmt_memory        = "4Gi"
 mgmt_disk_size     = "10Gi"
 mgmt_vm_tags = {
-  # Prometheus + Grafana + NodeExporter
+  # ── Prometheus / Grafana / Node‑Exporter ───────────────────────────
   "condenser_ingress_prometheus_hostname"     = "ucabbaa-prometheus"
   "condenser_ingress_prometheus_port"         = "9090"
   "condenser_ingress_grafana_hostname"        = "ucabbaa-grafana"
@@ -19,13 +19,17 @@ mgmt_vm_tags = {
   "condenser_ingress_nodeexporter_hostname"   = "ucabbaa-nodeexporter"
   "condenser_ingress_nodeexporter_port"       = "9100"
 
-  # Webserver 
+  # ── Web‑server ingress ─────────────────────────────────────────────
   "condenser_ingress_webserver_hostname"      = "ucabbaa-webserver"
+  "condenser_ingress_webserver_port"                = "80"
+  "condenser_ingress_webserver_protocol"            = "http"
+  "condenser_ingress_webserver_nginx_proxy-body-size" = "2048m"
 
-  # Global Ingress Control
+  # ── Global ingress flags ───────────────────────────────────────────
   "condenser_ingress_isAllowed"               = "true"
   "condenser_ingress_isEnabled"               = "true"
 }
+
 
 
 
