@@ -37,10 +37,14 @@
       command: >
         ansible all
         -i /home/almalinux/DataPipeline/ansible/inventory/inventory.json
+        -u almalinux
+        --private-key=/home/almalinux/.ssh/ansible_v2
         -m ping
         --ssh-extra-args='-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
       register: ping_result
       changed_when: false
+      failed_when: false
+
 
     - name: Assert all workers responded to ping
       assert:
