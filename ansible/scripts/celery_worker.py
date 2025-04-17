@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-celery_worker.py – Celery task that embeds FASTA chunks with ESM‑2.
+celery_worker.py – Celery task that embeds FASTA chunks with ProtAlbert‑BFD (ProtTrans).
 • Writes user results into /results/user_outputs/<job_id>/<chunk>.json
 • Writes internal results into /results/internal_outputs/<chunk>.json
 • Appends both successes and failures to benchmark_log.jsonl
@@ -8,14 +8,13 @@ celery_worker.py – Celery task that embeds FASTA chunks with ESM‑2.
 
 import os
 import json
-import gzip
-import shutil
+gzip
 import logging
 import time
 from Bio import SeqIO
 from celery import Celery, current_task
 import torch
-import esm
+import prottrans.pretrained as pt
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Configuration
@@ -47,13 +46,13 @@ app = Celery(
 )
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Load ESM2 model once
+# Load ProtAlbert‑BFD model once
 # ──────────────────────────────────────────────────────────────────────────────
-log.info("🧠 Loading ESM‑2‑T6‑8M model (once per worker)…")
-model, alphabet = esm.pretrained.esm2_t6_8M_UR50D()
+log.info("🧠 Loading ProtAlbert‑BFD model (once per worker)…")
+model, alphabet = pt.prot_albert_bfd()
 model.eval()
 batch_converter = alphabet.get_batch_converter()
-log.info(f"✅ Model ready ({model.num_layers} layers).")
+log.info(f"✅ ProtAlbert‑BFD ready ({model.config.num_hidden_layers} layers).")
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Helpers
@@ -85,13 +84,14 @@ def strip_suffix(name: str) -> str:
 def run_batch(batch):
     _, _, toks = batch_converter(batch)
     with torch.no_grad():
-        out = model(toks, repr_layers=[model.num_layers])
-    reps = out["representations"][model.num_layers]
+        out = model(toks)
+    # Use CLS token representation (index 0)
+    reps = out["representations"][0]
     return [
         {
             "id":       lab,
             "sequence": seq,
-            "embedding": reps[i, 1:len(seq)+1].mean(0).tolist()
+            "embedding": reps[i].tolist()
         }
         for i, (lab, seq) in enumerate(batch)
     ]

@@ -4,11 +4,11 @@
 - import_playbook: firewall.yml
 - import_playbook: partition_and_mount.yml      # Partition and mount extra disks on workers
 - import_playbook: setup_gluster.yml
-- import_playbook: install_esm.yml              # Setup ESM environment on host
+- import_playbook: install_proTrans.yml              
 - import_playbook: install_celery.yml           # Set up Celery workers
 - import_playbook: install_redis.yml
 - import_playbook: install_webserver.yml   
 - import_playbook: install_react_ui.yml
-- import_playbook: download_and_split_dataset.yml  # Upload dataset into the NFS share (if needed)
+- import_playbook: download_and_split_dataset.yml  
 - import_playbook: monitoring_and_logging.yml     # Configure monitoring/logging
-- import_playbook: run_esm_pipeline.yml
+- import_playbook: run_pipeline.yml
