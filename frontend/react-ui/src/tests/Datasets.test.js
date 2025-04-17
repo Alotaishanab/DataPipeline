@@ -1,7 +1,7 @@
 // Datasets.test.js
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
-import Datasets from '../../src/pages/Datasets';
+import Datasets from '../pages/Datasets';
 
 beforeEach(() => {
   global.fetch = jest.fn(() =>
