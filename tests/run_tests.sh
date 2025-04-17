@@ -9,7 +9,7 @@ ANSIBLE_CONFIG=ansible/ansible.cfg \
   ansible-playbook \
     -i ansible/inventory/inventory.json \
     --ssh-common-args='-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null' \
-    tests/ansible/test_playbooks.yml
+    ansible/tests/test_playbooks.yml
 
 # ----------------------------------------
 # 2) Backend tests
