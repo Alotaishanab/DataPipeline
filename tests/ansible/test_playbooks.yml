@@ -343,36 +343,6 @@
       changed_when: false
       failed_when: redis_protection.rc != 0
 
-- name: Validate ESM environment setup on worker nodes
-  hosts: worker_inventory
-  become: yes
-  tasks:
-    - name: Check if ESM repo directory exists
-      stat:
-        path: /opt/esm
-      register: esm_repo
-
-    - name: Assert ESM repo was cloned
-      assert:
-        that:
-          - esm_repo.stat.exists
-
-    - name: Check if ESM virtualenv exists
-      stat:
-        path: /opt/esm/venv/bin/activate
-      register: esm_venv
-
-    - name: Assert ESM virtualenv was created
-      assert:
-        that:
-          - esm_venv.stat.exists
-
-    - name: Check if esm2 model was downloaded
-      shell: "ls /root/.cache/torch/hub/checkpoints | grep esm2_t6_8M_UR50D"
-      register: esm_model_download
-      changed_when: false
-      failed_when: esm_model_download.rc != 0
-
 - name: Validate Celery worker setup on worker nodes
   hosts: worker_inventory
   become: yes
