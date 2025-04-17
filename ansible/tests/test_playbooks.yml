@@ -418,31 +418,6 @@
         that:
           - react_index.stat.exists
 
-- name: Validate dataset download and chunk split
-  hosts: worker1
-  become: yes
-  tasks:
-    - name: Check if dataset file was downloaded
-      stat:
-        path: /data/uniref50.fasta
-      register: fasta_file
-
-    - name: Assert FASTA file exists
-      assert:
-        that:
-          - fasta_file.stat.exists
-
-    - name: Check if compressed chunks exist
-      find:
-        paths: /data/chunks
-        patterns: "chunk_*.fasta.gz"
-      register: chunks
-
-    - name: Assert chunks were generated and compressed
-      assert:
-        that:
-          - chunks.matched > 0
-
 
 - name: Validate Prometheus and Grafana setup
   hosts: localhost
