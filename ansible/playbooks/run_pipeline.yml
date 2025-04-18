@@ -1,4 +1,3 @@
----
 - name: Deploy ESM pipeline to workers
   hosts: worker_inventory
   become: yes
@@ -16,15 +15,6 @@
         group: almalinux
         mode: '0755'
 
-    - name: Create __init__.py to expose Celery worker app
-      copy:
-        dest: "{{ celery_app_path }}/__init__.py"
-        content: |
-          from .celery_worker import app as celery
-        owner: almalinux
-        group: almalinux
-        mode: '0644'
-
     - name: Copy celery_worker.py to celery app
       copy:
         src: "../scripts/celery_worker.py"
@@ -34,12 +24,24 @@
         mode: '0755'
         force: yes
 
-    - name: Ensure GlusterFS chunk directory is writable
+    - name: Create __init__.py to expose Celery worker app
+      copy:
+        dest: "{{ celery_app_path }}/__init__.py"
+        content: |
+          from .celery_worker import app as celery
+        owner: almalinux
+        group: almalinux
+        mode: '0644'
+
+    - name: Ensure internal chunk directory is writable
       file:
         path: "{{ chunks_dir }}"
+        state: directory
         owner: almalinux
         group: almalinux
         mode: '0775'
+
+# ─────────────────────────────────────────────────────────────────────────────
 
 - name: Deploy Celery client on management node for controller
   hosts: localhost
@@ -74,6 +76,8 @@
         group: almalinux
         mode: '0644'
 
+# ─────────────────────────────────────────────────────────────────────────────
+
 - name: Trigger ESM controller on management node
   hosts: localhost
   become: yes
@@ -104,7 +108,6 @@
       shell: |
         source {{ venv_path }}/bin/activate
         export PYTHONPATH=/home/almalinux
-        nohup python {{ controller_remote_path }} \
-          > /mnt/data_volume/results/controller_submit_log.txt 2>&1 &
+        nohup python {{ controller_remote_path }} > /mnt/data_volume/results/controller_submit_log.txt 2>&1 &
       args:
         chdir: "{{ controller_dir }}"

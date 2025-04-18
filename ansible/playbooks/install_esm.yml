@@ -4,18 +4,20 @@
   vars:
     esm_repo: "https://github.com/facebookresearch/esm.git"
     esm_dest: "/opt/esm"
+    venv_path: "/opt/esm/venv"
     torch_version: "2.0.1+cpu"
     torch_url: "https://download.pytorch.org/whl/cpu/torch_stable.html"
     esm_model: "esm2_t6_8M_UR50D"
+    pip_tmp_dir: "/mnt/data/pip-tmp"
 
   tasks:
-    - name: Create a directory on extra disk for pip temp/cache
+    - name: Create pip temp/cache directory
       file:
-        path: "/mnt/data/pip-tmp"
+        path: "{{ pip_tmp_dir }}"
         state: directory
         mode: '0777'
 
-    - name: Ensure required system packages are installed for ESM
+    - name: Ensure system packages are installed
       dnf:
         name:
           - git
@@ -24,103 +26,95 @@
         state: present
         update_cache: yes
 
-    - name: Upgrade system pip to the latest version
+    - name: Upgrade system pip
       pip:
         name: pip
         executable: pip3
         state: latest
 
-    - name: Uninstall existing torch if present (on system pip)
+    - name: Uninstall system-wide torch if present
       pip:
         name: torch
         state: absent
         executable: pip3
 
-    - name: Clone the ESM repository
+    - name: Clone ESM repository
       git:
         repo: "{{ esm_repo }}"
         dest: "{{ esm_dest }}"
         version: "main"
 
-    - name: Check if ESM requirements file exists
-      stat:
-        path: "{{ esm_dest }}/requirements.txt"
-      register: esm_req_file
+    - name: Create Python virtual environment for ESM
+      command: python3 -m venv "{{ venv_path }}"
+      args:
+        creates: "{{ venv_path }}"
 
-    - name: Remove any Torch lines from requirements.txt if present
+    - name: Fix symlinks for python/python3 in venv
+      block:
+        - name: Remove incorrect python3 symlink
+          file:
+            path: "{{ venv_path }}/bin/python3"
+            state: absent
+
+        - name: Create correct python3 symlink
+          file:
+            src: /usr/bin/python3
+            dest: "{{ venv_path }}/bin/python3"
+            state: link
+
+        - name: Ensure 'python' symlink points to python3
+          file:
+            src: python3
+            dest: "{{ venv_path }}/bin/python"
+            state: link
+
+    - name: Remove Torch from ESM requirements if exists
       lineinfile:
         path: "{{ esm_dest }}/requirements.txt"
         regexp: '^torch==.*$'
         state: absent
-      when: esm_req_file.stat.exists
+      when: ansible_facts['distribution'] == 'AlmaLinux'
 
-    - name: Create Python virtual environment for ESM
-      command: /usr/bin/python3 -m venv "{{ esm_dest }}/venv"
-      args:
-        creates: "{{ esm_dest }}/venv"
-
-    - name: Remove incorrect python3 symlink (if any)
-      file:
-        path: "{{ esm_dest }}/venv/bin/python3"
-        state: absent
-
-    - name: Create correct python3 symlink pointing to /usr/bin/python3
-      file:
-        src: /usr/bin/python3
-        dest: "{{ esm_dest }}/venv/bin/python3"
-        state: link
-
-    - name: Ensure 'python' symlink points to 'python3'
-      file:
-        src: python3
-        dest: "{{ esm_dest }}/venv/bin/python"
-        state: link
-
-    - name: Install ESM dependencies (except Torch)
+    - name: Install ESM dependencies (excluding torch)
       pip:
         requirements: "{{ esm_dest }}/requirements.txt"
-        virtualenv: "{{ esm_dest }}/venv"
+        virtualenv: "{{ venv_path }}"
         state: present
-      when: esm_req_file.stat.exists
-    
-    - name: Install biopython for FASTA parsing
+      when: ansible_facts['distribution'] == 'AlmaLinux'
+
+    - name: Install Biopython
       pip:
         name: biopython
-        virtualenv: "{{ esm_dest }}/venv"
+        virtualenv: "{{ venv_path }}"
         state: present
       environment:
-        TMPDIR: "/mnt/data/pip-tmp"
-        PIP_CACHE_DIR: "/mnt/data/pip-tmp"
+        TMPDIR: "{{ pip_tmp_dir }}"
+        PIP_CACHE_DIR: "{{ pip_tmp_dir }}"
 
-    - name: Install CPU-only PyTorch in the ESM virtual environment
+    - name: Install CPU-only PyTorch
       pip:
         name: "torch=={{ torch_version }}"
-        virtualenv: "{{ esm_dest }}/venv"
-        state: present
+        virtualenv: "{{ venv_path }}"
         extra_args: "--find-links {{ torch_url }}"
       environment:
-        TMPDIR: "/mnt/data/pip-tmp"
-        PIP_CACHE_DIR: "/mnt/data/pip-tmp"
+        TMPDIR: "{{ pip_tmp_dir }}"
+        PIP_CACHE_DIR: "{{ pip_tmp_dir }}"
 
-    - name: Install ESM package in the virtual environment
-      command: "{{ esm_dest }}/venv/bin/pip install -e {{ esm_dest }}"
+    - name: Install ESM package in editable mode
+      command: "{{ venv_path }}/bin/pip install -e {{ esm_dest }}"
       args:
         chdir: "{{ esm_dest }}"
 
-    ################################################
-    # Force NumPy below 2.x to avoid "compiled with
-    # NumPy 1.x" warnings & potential incompat
-    ################################################
-    - name: Install pinned NumPy version (<2) in the ESM virtual environment
+    - name: Pin numpy < 2.0
       pip:
         name: "numpy<2"
-        virtualenv: "{{ esm_dest }}/venv"
+        virtualenv: "{{ venv_path }}"
         state: present
       environment:
-        TMPDIR: "/mnt/data/pip-tmp"
-        PIP_CACHE_DIR: "/mnt/data/pip-tmp"
+        TMPDIR: "{{ pip_tmp_dir }}"
+        PIP_CACHE_DIR: "{{ pip_tmp_dir }}"
 
-    - name: Download pretrained ESM model ({{ esm_model }})
-      command: "{{ esm_dest }}/venv/bin/python -m esm.pretrained download {{ esm_model }}"
+    - name: Download pretrained ESM model
+      command: "{{ venv_path }}/bin/python -m esm.pretrained download {{ esm_model }}"
       args:
         chdir: "{{ esm_dest }}"
