@@ -3,7 +3,7 @@
   become: yes
 
   vars:
-    flask_app_path: /opt/data_pipeline/flask_server.py     
+    flask_app_path: /opt/data_pipeline/flask_server.py
     flask_app_port: 8080
     flask_work_dir: /opt/data_pipeline
     results_path: /mnt/results
@@ -41,15 +41,6 @@
         group: almalinux
       notify: restart_flask_upload_app
 
-    - name: Copy split_uploaded_fasta.py script
-      copy:
-        src: ../../backend/split_uploaded_fasta.py
-        dest: "{{ flask_work_dir }}/split_uploaded_fasta.py"
-        mode: '0755'
-        owner: almalinux
-        group: almalinux
-
-
     - name: Create systemd service for Flask Upload App
       copy:
         dest: /etc/systemd/system/flask_upload_ui.service
@@ -82,13 +73,8 @@
             ServerName your.hostname.com
 
             ProxyPreserveHost On
-
-            # Allow very large uploads (0 = unlimited; set explicit
-            # byte value if you want a hard cap, e.g. 2147483648 for 2 GB)
-
             LimitRequestBody 0
             ProxyTimeout 600
-          
 
             ProxyPass /upload http://127.0.0.1:8080/upload
             ProxyPassReverse /upload http://127.0.0.1:8080/upload
@@ -104,9 +90,9 @@
 
             DocumentRoot /var/www/html
             <Directory /var/www/html>
-                Options Indexes FollowSymLinks
-                AllowOverride All
-                Require all granted
+              Options Indexes FollowSymLinks
+              AllowOverride All
+              Require all granted
             </Directory>
           </VirtualHost>
       notify: restart_httpd
