@@ -1,9 +1,9 @@
+---
 - name: Deploy ESM pipeline to workers
   hosts: worker_inventory
   become: yes
   become_user: almalinux
   vars:
-    venv_path: "/opt/esm/venv"
     celery_app_path: "/home/almalinux/celery_app"
     chunks_dir: "/mnt/data_volume/datasets/internal_chunks"
 
@@ -41,7 +41,7 @@
         group: almalinux
         mode: '0775'
 
-- name: Deploy Celery client on mgmt node for controller
+- name: Deploy Celery client on management node for controller
   hosts: localhost
   become: yes
   become_user: almalinux
@@ -49,7 +49,7 @@
     celery_app_path: "/home/almalinux/celery_app"
 
   tasks:
-    - name: Ensure celery app directory exists on mgmt node
+    - name: Ensure celery app directory exists on management node
       file:
         path: "{{ celery_app_path }}"
         state: directory
@@ -57,7 +57,7 @@
         group: almalinux
         mode: '0755'
 
-    - name: Copy Celery client to mgmt node
+    - name: Copy Celery client (app.py) to management node
       copy:
         src: "../scripts/app.py"
         dest: "{{ celery_app_path }}/app.py"
@@ -65,7 +65,7 @@
         group: almalinux
         mode: '0644'
 
-    - name: Create __init__.py that exposes minimal app (no torch)
+    - name: Create __init__.py to expose minimal Celery app
       copy:
         dest: "{{ celery_app_path }}/__init__.py"
         content: |
@@ -74,7 +74,7 @@
         group: almalinux
         mode: '0644'
 
-- name: Trigger ESM controller on mgmt node
+- name: Trigger ESM controller on management node
   hosts: localhost
   become: yes
   become_user: almalinux
@@ -92,7 +92,7 @@
         group: almalinux
         mode: '0755'
 
-    - name: Copy updated controller.py to mgmt node
+    - name: Copy updated controller.py to management node
       copy:
         src: "../scripts/controller.py"
         dest: "{{ controller_remote_path }}"
@@ -100,10 +100,11 @@
         group: almalinux
         mode: '0755'
 
-    - name: Start new controller.py in background
+    - name: Start controller.py in background
       shell: |
         source {{ venv_path }}/bin/activate
         export PYTHONPATH=/home/almalinux
-        nohup python {{ controller_remote_path }} > /mnt/data_volume/results/controller_submit_log.txt 2>&1 &
+        nohup python {{ controller_remote_path }} \
+          > /mnt/data_volume/results/controller_submit_log.txt 2>&1 &
       args:
         chdir: "{{ controller_dir }}"

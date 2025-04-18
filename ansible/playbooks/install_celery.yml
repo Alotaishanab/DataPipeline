@@ -5,25 +5,42 @@
     venv_path: "/opt/esm/venv"
     celery_app_path: "/home/almalinux/celery_app"
     esm_user: "almalinux"
-    concurrency: 1 
-    pool_type: "solo"  
+    concurrency: 1
+    pool_type: "solo"
 
   tasks:
-    - name: Create Celery app directory
+    # 1) Ensure virtualenv exists
+    - name: Ensure Python venv directory exists
+      file:
+        path: "{{ venv_path }}"
+        state: directory
+        mode: '0755'
+
+    - name: Create Python virtualenv
+      command: python3 -m venv "{{ venv_path }}"
+      args:
+        creates: "{{ venv_path }}/bin/activate"
+
+    # 2) Install Celery + ESM deps into venv
+    - name: Install Celery, Redis, Biopython, torch, esm
+      pip:
+        virtualenv: "{{ venv_path }}"
+        name:
+          - celery
+          - redis
+          - biopython
+          - torch
+          - esm
+        state: latest
+
+    # 3) Deploy celery_app package
+    - name: Ensure celery_app directory exists
       file:
         path: "{{ celery_app_path }}"
         state: directory
         owner: "{{ esm_user }}"
         group: "{{ esm_user }}"
         mode: '0755'
-
-    - name: Install Celery and Redis
-      pip:
-        virtualenv: "{{ venv_path }}"
-        name:
-          - celery
-          - redis
-        state: latest
 
     - name: Upload celery_worker.py (Celery task)
       copy:
@@ -33,9 +50,22 @@
         group: "{{ esm_user }}"
         mode: '0755'
 
+    - name: Create __init__.py so celery_app is a package
+      copy:
+        dest: "{{ celery_app_path }}/__init__.py"
+        content: |
+          from .celery_worker import app
+        owner: "{{ esm_user }}"
+        group: "{{ esm_user }}"
+        mode: '0644'
+
+    # 4) Systemd unit
     - name: Create systemd unit file for Celery Worker
       copy:
-        dest: "/etc/systemd/system/celery-worker.service"
+        dest: /etc/systemd/system/celery-worker.service
+        owner: root
+        group: root
+        mode: '0644'
         content: |
           [Unit]
           Description=Celery Worker Service
@@ -43,11 +73,18 @@
 
           [Service]
           Type=simple
-          User=almalinux
-          Group=almalinux
-          WorkingDirectory=/home/almalinux/celery_app
-          Environment=PYTHONPATH=/home/almalinux
-          ExecStart=/opt/esm/venv/bin/celery -A celery_app.celery_worker worker --loglevel=info --logfile=/home/almalinux/celery_app/celery.log --concurrency={{ concurrency }} --pool={{ pool_type }}
+          User={{ esm_user }}
+          Group={{ esm_user }}
+          WorkingDirectory={{ celery_app_path }}
+          Environment=VIRTUAL_ENV={{ venv_path }}
+          Environment=PATH={{ venv_path }}/bin:{{ ansible_env.PATH }}
+          Environment=PYTHONPATH={{ celery_app_path }}
+          ExecStart={{ venv_path }}/bin/celery \
+            -A celery_app worker \
+            --loglevel=info \
+            --logfile={{ celery_app_path }}/celery.log \
+            --concurrency={{ concurrency }} \
+            --pool={{ pool_type }}
           Restart=always
           RestartSec=10
           LimitNOFILE=65535
@@ -68,6 +105,7 @@
         name: celery-worker.service
         state: restarted
         enabled: yes
+
 
 - name: Install Celery and Redis modules on Management Node (localhost)
   hosts: localhost
