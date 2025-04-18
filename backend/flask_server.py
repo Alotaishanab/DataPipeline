@@ -35,18 +35,25 @@ def upload():
     local_path = os.path.join(job_dir, filename)
     f.save(local_path)
 
-    # enqueue the split + schedule task
-    celery_app.send_task(
-        'celery_worker.split_and_schedule',
-        args=[local_path, job_id],
-        kwargs={}
-    )
+    # 💬 DEBUG LOGGING:
+    print("📨 Submitting task split_and_schedule for:", job_id, flush=True)
+
+    try:
+        result = celery_app.send_task(
+            'celery_worker.split_and_schedule',
+            args=[local_path, job_id]
+        )
+        print("📤 Task enqueued:", result.id, flush=True)
+    except Exception as e:
+        print("❌ Failed to enqueue task:", e, flush=True)
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
     return jsonify({
         'status':'success',
         'message':'File uploaded, splitting & scheduling in background',
         'job_id': job_id
     }), 200
+
 
 # ─────────────────────────── Dataset listing APIs ───────────────────────────
 @app.route('/api/datasets', methods=['GET'])
