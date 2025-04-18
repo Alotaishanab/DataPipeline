@@ -7,14 +7,16 @@ Phase 2  (steady‑state) : watch USER chunks only.
 
 If ONLY_USER_MODE is set True at launch, Phase 1 is skipped.
 """
-import os, glob, time, random
+import os
+import glob
+import time
 from datetime import datetime, timedelta
 from kombu.exceptions import OperationalError
 from celery_app.app import app
 
 # ===========================  CONFIG  ========================================
-STRESS_HOURS   = 24      # duration of Phase‑1 stress test
-ONLY_USER_MODE = False   # will flip to True automatically after Phase‑1
+STRESS_HOURS    = 24      # duration of Phase‑1 stress test
+ONLY_USER_MODE  = True   # will flip to True automatically after Phase‑1
 
 CHUNK_DIRS = {
     "internal": "/mnt/data_volume/datasets/internal_chunks",
@@ -25,13 +27,12 @@ OUTPUT_DIRS = {
     "user":     "/mnt/data_volume/results/user_outputs",
 }
 
-LOG_PATH           = "/mnt/data_volume/results/controller_submit_log.txt"
-MAX_PENDING        = 1         # max active tasks per worker
-WAIT_FOR_IDLE_DELAY = 30       # sec
-GZ_SUBMIT_DELAY     = 20       # sec extra wait after submitting *.gz
+LOG_PATH            = "/mnt/data_volume/results/controller_submit_log.txt"
+MAX_PENDING         = 1         # max active tasks per worker
+WAIT_FOR_IDLE_DELAY = 30        # sec
+GZ_SUBMIT_DELAY     = 20        # sec extra wait after submitting *.gz
 # ============================================================================
 
-# ----------------------- utility helpers ------------------------------------
 def get_worker_load():
     try:
         i      = app.control.inspect()
@@ -46,7 +47,7 @@ def get_worker_load():
         print(f"⚠️  Failed to fetch worker stats: {e}")
         return None
 
-def all_idle(load):  # True if every worker has 0 active
+def all_idle(load):
     return load and all(w["active"] == 0 for w in load.values())
 
 def wait_for_decompression(gz_path, delay=5, max_wait=60):
@@ -56,7 +57,6 @@ def wait_for_decompression(gz_path, delay=5, max_wait=60):
         time.sleep(delay)
         waited += delay
     return os.path.exists(target)
-# ---------------------------------------------------------------------------
 
 # ----------------------- initial purge --------------------------------------
 try:
@@ -80,7 +80,7 @@ if not ONLY_USER_MODE:
             log_file.write(f"\n--- Iteration #{iteration} at {ts} ---\n")
             print(f"\n⏱️  Iteration #{iteration}  —  {ts}")
 
-            # ---------- submit INTERNAL chunks ----------
+            # submit INTERNAL chunks
             chunk_dir  = CHUNK_DIRS["internal"]
             output_dir = OUTPUT_DIRS["internal"]
             os.makedirs(output_dir, exist_ok=True)
@@ -90,7 +90,7 @@ if not ONLY_USER_MODE:
                 out_name = os.path.basename(path).replace(".fasta", ".json").replace(".gz", ".json")
                 out_path = os.path.join(output_dir, out_name)
                 if os.path.exists(out_path):
-                    continue  # already done
+                    continue
 
                 # pick a worker with < MAX_PENDING active
                 while True:
@@ -111,12 +111,9 @@ if not ONLY_USER_MODE:
                     break
 
             # wait until workers are idle before next iteration
-            while True:
-                if all_idle(get_worker_load()):
-                    break
+            while not all_idle(get_worker_load()):
                 time.sleep(WAIT_FOR_IDLE_DELAY)
 
-    # --------------- end of stress window -----------------------------------
     print("\n🛑  Stress window finished – switching to USER‑only mode.")
     try:
         purge_count = app.control.purge()
@@ -129,22 +126,23 @@ if not ONLY_USER_MODE:
 print("\n🧑‍💻  Entering continuous USER chunk monitor ...")
 with open(LOG_PATH, "a") as log_file:
     while True:
-        chunk_dir  = CHUNK_DIRS["user"]
-        output_dir = OUTPUT_DIRS["user"]
-        os.makedirs(output_dir, exist_ok=True)
+        chunk_dir = CHUNK_DIRS["user"]
+        for path in sorted(glob.glob(os.path.join(chunk_dir, "**", "*.fasta*"), recursive=True)):
+            # derive job_id and mirror worker's output layout
+            rel = path.split("/user_chunks/")[1]
+            job_id = rel.split("/")[0]
+            out_dir = os.path.join(OUTPUT_DIRS["user"], job_id)
+            os.makedirs(out_dir, exist_ok=True)
 
-        files = sorted(glob.glob(os.path.join(chunk_dir, "**", "*.fasta*"), recursive=True))
-        for path in files:
             out_name = os.path.basename(path).replace(".fasta", ".json").replace(".gz", ".json")
-            out_path = os.path.join(output_dir, out_name)
+            out_path = os.path.join(out_dir, out_name)
             if os.path.exists(out_path):
                 continue
 
+            # wait for a free worker
             while True:
-                load = get_worker_load()
-                idle_worker = None
-                if load:
-                    idle_worker = next((w for w,l in load.items() if l["active"] < MAX_PENDING), None)
+                load = get_worker_load() or {}
+                idle_worker = next((w for w,l in load.items() if l["active"] < MAX_PENDING), None)
                 if not idle_worker:
                     time.sleep(WAIT_FOR_IDLE_DELAY)
                     continue

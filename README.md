@@ -1,15 +1,23 @@
-clone the repo
-https://github.com/Alotaishanab/DataPipeline.git
+# DataPipeline: Scalable Bioinformatics Processing Pipeline
 
-cd DataPipeline
-cd terraform 
-.env input your 
-token and username 
+This project provides a modular and scalable distributed pipeline for biological sequence analysis using the ESM2-T6-8M model. The system leverages infrastructure-as-code principles, distributed task scheduling, and shared storage to automate and streamline large-scale processing of protein sequences.
 
+## 🌐 Repository
+Access the full implementation and source code:
+👉 **[GitHub Repository](https://github.com/Alotaishanab/DataPipeline.git)**
 
-#### Add Required Variables
+---
 
-Insert the following variables with your specific values:
+## ⚙️ Setup Instructions
+
+### 1. Clone the Repository
+```bash
+git clone https://github.com/Alotaishanab/DataPipeline.git
+cd DataPipeline/terraform
+```
+
+### 2. Configure the `.env` File
+Create a `.env` file with the following variables filled in:
 
 ```hcl
 provider_token       = "YOUR_PROVIDER_TOKEN"
@@ -18,60 +26,115 @@ username             = "YOUR_USERNAME"
 network_name         = "YOUR_NETWORK_NAME"
 ```
 
-then cd into terraform/host
-run terraform apply -auto approve
-
-## 1. SSH into the Host Node
-
-Use your marker’s private key or the `ansible_ed25519` key generated on the VM you are using to SSH into the host node:
-
+### 3. Deploy Infrastructure
+Navigate to the host configuration directory and apply Terraform:
 ```bash
-ssh -i ~/.ssh/ansible_ed25519 almalinux@<HOST_IP_ADDRESS>
+cd terraform/host
+terraform apply -auto-approve
 ```
 
-**Note:** Replace `<HOST_IP_ADDRESS>` with the actual IP address of your host node.
+---
 
-#### Using the Proxy Jump (-J) Option
+## 🔐 SSH Access Instructions
 
-If you're accessing the host node through the condenser-proxy, use the `-J` option as shown:
-
+### SSH into the Management Node
 ```bash
-ssh -i ~/.ssh/ansible_ed25519 -J condenser-proxy almalinux@<HOST_IP_ADDRESS>
+ssh -i ~/.ssh/ansible_ed25519 almalinux@10.134.12.10
 ```
 
+### Or using Proxy Jump
+```bash
+ssh -i ~/.ssh/ansible_ed25519 -J condenser-proxy almalinux@10.134.12.10
+```
+
+---
+
+## 🚀 Running the Full Pipeline
+
+Once logged into the management node:
+```bash
 cd DataPipeline
-and run 
-./run_pipeline.sh 
+./run_pipeline.sh
+```
 
-and the whole pipeline will run and assemble itself 
+---
 
-you can visit your 
+## ✅ Running All Tests
 
-
-
-
-
-to run all testt ansible backend frontend
-
-cd Datapipeline/tests
+```bash
+cd DataPipeline/tests
 ./run_tests.sh
+```
 
+---
 
+## 📈 Accessing Monitoring Services
 
-
-
-## Accessing Monitoring Services
-
-After deployment, you can access the monitoring services using the following URLs. Replace `<USERNAME>` with your specific username:
+Replace `<USERNAME>` with your actual username:
 
 - **Prometheus:** https://<USERNAME>-prometheus.comp0235.condenser.arc.ucl.ac.uk/
 - **Grafana:** https://<USERNAME>-grafana.comp0235.condenser.arc.ucl.ac.uk/
 - **Node Exporter:** https://<USERNAME>-nodeexporter.comp0235.condenser.arc.ucl.ac.uk/
 - **Web Server:** https://<USERNAME>-webserver.comp0235.condenser.arc.ucl.ac.uk/
 
-## Grafana Credentials
+### Grafana Login
+- **Username:** `admin`
+- **Password:** `admin`  
+> ⚠️ You should change these credentials after first login!
 
-- **Username:** admin  
-- **Password:** admin  
+---
 
-**Security Note:** It is highly recommended to change the default Grafana credentials after the initial setup to secure your monitoring dashboards.
+## 📂 Directory Structure
+
+```text
+alotaishanab-datapipeline/
+├── README.md
+├── run_pipeline.sh
+├── ansible/
+│   ├── playbooks/
+│   ├── roles/
+│   ├── scripts/
+│   └── tests/
+├── backend/
+│   ├── flask_server.py
+│   ├── split_uploaded_fasta.py
+│   └── tests/
+├── benchmark_results/
+├── docs/
+├── frontend/
+│   └── react-ui/
+│       ├── public/
+│       ├── src/
+│       └── tests/
+├── terraform/
+│   ├── host/
+│   ├── workers/
+│   ├── scripts/
+│   └── keys/
+└── tests/
+    └── run_tests.sh
+```
+
+Each component is modular, with clear separation between infrastructure, orchestration, backend logic, and UI.
+
+---
+
+## 🧠 Worker Node IPs
+
+```
+Management Node: 10.134.12.10
+Worker 1:        10.134.12.161
+Worker 2:        10.134.12.60
+Worker 3:        10.134.12.42
+Worker 4:        10.134.12.160
+```
+
+---
+
+## 🔮 Future Improvements
+
+- Containerization using Docker
+- Kubernetes-based orchestration
+- S3-compatible object storage
+- User authentication and multi-user dashboards
+- Workflow engines like Airflow or Nextflow
