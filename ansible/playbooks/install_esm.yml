@@ -68,24 +68,12 @@
             dest: "{{ venv_path }}/bin/python"
             state: link
 
-    - name: Remove Torch from ESM requirements if exists
-      lineinfile:
-        path: "{{ esm_dest }}/requirements.txt"
-        regexp: '^torch==.*$'
-        state: absent
-      when: ansible_facts['distribution'] == 'AlmaLinux'
-
-    - name: Install ESM dependencies (excluding torch)
+    - name: Install required Python libraries for ESM (excluding torch)
       pip:
-        requirements: "{{ esm_dest }}/requirements.txt"
         virtualenv: "{{ venv_path }}"
-        state: present
-      when: ansible_facts['distribution'] == 'AlmaLinux'
-
-    - name: Install Biopython
-      pip:
-        name: biopython
-        virtualenv: "{{ venv_path }}"
+        name:
+          - fair-esm
+          - biopython
         state: present
       environment:
         TMPDIR: "{{ pip_tmp_dir }}"
