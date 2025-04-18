@@ -1,22 +1,21 @@
 from flask import Flask, request, jsonify, send_from_directory
 from werkzeug.utils import secure_filename
 import os
-import subprocess
 import uuid
 
-app = Flask(__name__)
+# import the celery app instance
+from celery_app.app import app as celery_app
 
 # ────────────────────────────────────────────────
 # Allow uploads up to 2 GB (adjust value if needed)
+app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024 * 1024  # 2 GB
 # ────────────────────────────────────────────────
 
-UPLOAD_FOLDER              = '/mnt/data_volume/uploads'
-USER_DATASETS_FOLDER       = '/mnt/data_volume/datasets/user_chunks'
-INTERNAL_DATASETS_FOLDER   = '/mnt/data_volume/datasets/internal_chunks'
-RESULTS_FOLDER             = '/mnt/data_volume/results'
-
-SPLIT_SCRIPT = './split_uploaded_fasta.py'
+UPLOAD_FOLDER            = '/mnt/data_volume/uploads'
+USER_DATASETS_FOLDER     = '/mnt/data_volume/datasets/user_chunks'
+INTERNAL_DATASETS_FOLDER = '/mnt/data_volume/datasets/internal_chunks'
+RESULTS_FOLDER           = '/mnt/data_volume/results'
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -24,31 +23,30 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 # ─────────────────────────── Upload endpoint ────────────────────────────────
 @app.route('/upload', methods=['POST'])
 def upload():
-    file = request.files.get('file')
-    if not file or not (file.filename.endswith('.fasta') or file.filename.endswith('.fasta.gz')):
-        return jsonify({'status': 'error',
-                        'message': 'Only .fasta or .fasta.gz files are allowed'}), 400
+    f = request.files.get('file')
+    if not f or not (f.filename.endswith('.fasta') or f.filename.endswith('.fasta.gz')):
+        return jsonify({'status':'error','message':'Only .fasta or .fasta.gz allowed'}), 400
 
-    job_id  = str(uuid.uuid4())
+    job_id = str(uuid.uuid4())
     job_dir = os.path.join(UPLOAD_FOLDER, job_id)
     os.makedirs(job_dir, exist_ok=True)
 
-    filename   = secure_filename(file.filename)
+    filename = secure_filename(f.filename)
     local_path = os.path.join(job_dir, filename)
-    file.save(local_path)
+    f.save(local_path)
 
-    cmd    = f"python3 {SPLIT_SCRIPT} {local_path} {job_id}"
-    result = subprocess.run(cmd, shell=True,
-                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    # enqueue the split + schedule task
+    celery_app.send_task(
+        'celery_worker.split_and_schedule',
+        args=[local_path, job_id],
+        kwargs={}
+    )
 
-    if result.returncode != 0:
-        return jsonify({'status': 'error',
-                        'message': result.stderr.decode(),
-                        'job_id': job_id}), 500
-
-    return jsonify({'status':  'success',
-                    'message': 'File uploaded and processing started.',
-                    'job_id':  job_id}), 200
+    return jsonify({
+        'status':'success',
+        'message':'File uploaded, splitting & scheduling in background',
+        'job_id': job_id
+    }), 200
 
 # ─────────────────────────── Dataset listing APIs ───────────────────────────
 @app.route('/api/datasets', methods=['GET'])
