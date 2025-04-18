@@ -58,9 +58,14 @@
           Group={{ esm_user }}
           WorkingDirectory={{ celery_app_path }}
           Environment=VIRTUAL_ENV={{ venv_path }}
-          Environment=PATH={{ venv_path }}/bin:{{ ansible_env.PATH }}
-          Environment=PYTHONPATH={{ celery_app_path }}
-          ExecStart={{ venv_path }}/bin/celery -A celery_app.celery_worker worker --concurrency={{ concurrency }} --pool={{ pool_type }} --loglevel=info --logfile={{ celery_app_path }}/celery.log
+          Environment=PATH={{ venv_path }}/bin:/usr/bin:/bin
+          Environment=PYTHONPATH=/home/almalinux
+          ExecStart={{ venv_path }}/bin/celery \
+            -A celery_app worker \
+            --concurrency={{ concurrency }} \
+            --pool={{ pool_type }} \
+            --loglevel=info \
+            --logfile={{ celery_app_path }}/celery.log
           Restart=always
           RestartSec=10
           LimitNOFILE=65535
