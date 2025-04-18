@@ -4,7 +4,7 @@
 - import_playbook: firewall.yml
 - import_playbook: partition_and_mount.yml      # Partition and mount extra disks on workers
 - import_playbook: setup_gluster.yml
-- import_playbook: install_proTrans.yml              
+- import_playbook: install_esm.yml              
 - import_playbook: install_celery.yml           # Set up Celery workers
 - import_playbook: install_redis.yml
 - import_playbook: install_webserver.yml   

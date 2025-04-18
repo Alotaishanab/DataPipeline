@@ -51,21 +51,12 @@ you can visit your
 
 
 
-to run ansible test 
+to run all testt ansible backend frontend
 
-cd DataPipeline
-ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook   -i ansible/inventory/inventory.json   --ssh-common-args='-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'   tests/ansible/test_playbooks.yml
-
-
-to run frontend tests
-cd DataPipeline/frontend/react-ui
-run npm test
+cd Datapipeline/tests
+./run_tests.sh
 
 
-to run backend tests
-cd DataPipeline
-export PYTHONPATH=$PWD/backend
-pytest backend/tests/
 
 
 

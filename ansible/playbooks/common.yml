@@ -7,7 +7,6 @@
       yum:
         name: epel-release
         state: present
-        # (No glusterfs repo to disable now, since we removed it above)
       when: ansible_os_family == "RedHat"
 
     - name: Install essential packages on RedHat-based systems (excluding virtualenv)
