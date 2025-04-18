@@ -39,12 +39,12 @@ terraform apply -auto-approve
 
 ### SSH into the Management Node
 ```bash
-ssh -i ~/.ssh/ansible_ed25519 almalinux@10.134.12.10
+ssh -i ~/.ssh/ansible_ed25519 almalinux@<IP_ADDRESS>
 ```
 
 ### Or using Proxy Jump
 ```bash
-ssh -i ~/.ssh/ansible_ed25519 -J condenser-proxy almalinux@10.134.12.10
+ssh -i ~/.ssh/ansible_ed25519 -J condenser-proxy almalinux@<IP_ADDRESS>
 ```
 
 ---
@@ -60,7 +60,7 @@ cd DataPipeline
 ---
 
 ## ✅ Running All Tests
-
+**Please note run the tests after running ./run_pipeline.sh and setting up the pipeline **
 ```bash
 cd DataPipeline/tests
 ./run_tests.sh
@@ -116,18 +116,6 @@ alotaishanab-datapipeline/
 ```
 
 Each component is modular, with clear separation between infrastructure, orchestration, backend logic, and UI.
-
----
-
-## 🧠 Worker Node IPs
-
-```
-Management Node: 10.134.12.10
-Worker 1:        10.134.12.161
-Worker 2:        10.134.12.60
-Worker 3:        10.134.12.42
-Worker 4:        10.134.12.160
-```
 
 ---
 
