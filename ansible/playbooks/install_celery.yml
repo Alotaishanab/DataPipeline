@@ -6,7 +6,6 @@
     celery_app_path: "/home/almalinux/celery_app"
     esm_user: "almalinux"
     concurrency: 1 
-    pool_type: "solo"  
 
   tasks:
     - name: Create Celery app directory
@@ -47,7 +46,7 @@
           Group=almalinux
           WorkingDirectory=/home/almalinux/celery_app
           Environment=PYTHONPATH=/home/almalinux
-          ExecStart=/opt/esm/venv/bin/celery -A celery_app.celery_worker worker --loglevel=info --logfile=/home/almalinux/celery_app/celery.log --concurrency={{ concurrency }} --pool={{ pool_type }}
+          ExecStart=/opt/esm/venv/bin/celery -A celery_app.celery_worker worker --loglevel=info --logfile=/home/almalinux/celery_app/celery.log --concurrency={{ concurrency }}
           Restart=always
           RestartSec=10
           LimitNOFILE=65535
