@@ -47,7 +47,7 @@ GitHub Repository: https://github.com/Alotaishanab/DataPipeline.git
    terraform apply -auto-approve
    ssh -i ~/.ssh/ansible_ed25519 almalinux@<HOST_VM_IP>
    ```
-4. Set up worker nodes:
+4. Set up worker nodes in host node:
    ```bash
    cd DataPipeline/terraform/workers/
    nano terraform.tfvars
