@@ -57,8 +57,8 @@
           User=almalinux
           Group=almalinux
           WorkingDirectory={{ flask_work_dir }}
-          Environment=PYTHONPATH={{ celery_module_base }}:{{ flask_work_dir }}
-          ExecStart=/bin/bash -c 'source {{ venv_path }}/bin/activate && exec python3 {{ flask_app_path }}'
+          Environment=PYTHONPATH=/home/almalinux:/opt/data_pipeline
+          ExecStart={{ venv_path }}/bin/python {{ flask_app_path }}
           Restart=always
           RestartSec=5
 
