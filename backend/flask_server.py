@@ -25,7 +25,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 def upload():
     f = request.files.get('file')
     if not f or not (f.filename.endswith('.fasta') or f.filename.endswith('.fasta.gz')):
-        return jsonify({'status':'error','message':'Only .fasta or .fasta.gz allowed'}), 400
+        return jsonify({'status': 'error', 'message': 'Only .fasta or .fasta.gz allowed'}), 400
 
     job_id = str(uuid.uuid4())
     job_dir = os.path.join(UPLOAD_FOLDER, job_id)
@@ -33,9 +33,13 @@ def upload():
 
     filename = secure_filename(f.filename)
     local_path = os.path.join(job_dir, filename)
+    print(f"💾 Saving upload to: {local_path}", flush=True)
     f.save(local_path)
 
-    # 💬 DEBUG LOGGING:
+    if not os.path.isfile(local_path):
+        print(f"❌ File not saved properly: {local_path}", flush=True)
+        return jsonify({'status': 'error', 'message': 'Upload failed to save'}), 500
+
     print("📨 Submitting task split_and_schedule for:", job_id, flush=True)
 
     try:
@@ -49,8 +53,8 @@ def upload():
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
     return jsonify({
-        'status':'success',
-        'message':'File uploaded, splitting & scheduling in background',
+        'status': 'success',
+        'message': 'File uploaded, splitting & scheduling in background',
         'job_id': job_id
     }), 200
 
