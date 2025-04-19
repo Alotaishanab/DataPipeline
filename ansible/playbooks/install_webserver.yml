@@ -3,14 +3,14 @@
   become: yes
 
   vars:
-    flask_app_path: /opt/data_pipeline/flask_server.py     
-    flask_app_port: 8080
+    flask_app_path: /opt/data_pipeline/flask_server.py
     flask_work_dir: /opt/data_pipeline
-    results_path: /mnt/results
+    flask_venv_path: /opt/esm/venv
 
   tasks:
-    - name: Install Flask for Upload App
+    - name: Ensure Flask and CORS are installed in the shared venv
       pip:
+        virtualenv: "{{ flask_venv_path }}"
         name:
           - flask
           - flask_cors
@@ -41,7 +41,6 @@
         group: almalinux
       notify: restart_flask_upload_app
 
-
     - name: Create systemd service for Flask Upload App
       copy:
         dest: /etc/systemd/system/flask_upload_ui.service
@@ -56,7 +55,9 @@
           User=almalinux
           Group=almalinux
           WorkingDirectory={{ flask_work_dir }}
-          ExecStart=/usr/bin/python3 {{ flask_app_path }}
+          Environment=VIRTUAL_ENV={{ flask_venv_path }}
+          Environment=PATH={{ flask_venv_path }}/bin:/usr/bin:/bin
+          ExecStart={{ flask_venv_path }}/bin/python {{ flask_app_path }}
           Restart=always
 
           [Install]
@@ -74,13 +75,8 @@
             ServerName your.hostname.com
 
             ProxyPreserveHost On
-
-            # Allow very large uploads (0 = unlimited; set explicit
-            # byte value if you want a hard cap, e.g. 2147483648 for 2 GB)
-
             LimitRequestBody 0
             ProxyTimeout 600
-          
 
             ProxyPass /upload http://127.0.0.1:8080/upload
             ProxyPassReverse /upload http://127.0.0.1:8080/upload
@@ -96,9 +92,9 @@
 
             DocumentRoot /var/www/html
             <Directory /var/www/html>
-                Options Indexes FollowSymLinks
-                AllowOverride All
-                Require all granted
+              Options Indexes FollowSymLinks
+              AllowOverride All
+              Require all granted
             </Directory>
           </VirtualHost>
       notify: restart_httpd
@@ -114,6 +110,7 @@
       systemd:
         name: flask_upload_ui
         state: restarted
+        enabled: yes
 
     - name: restart_httpd
       systemd:
