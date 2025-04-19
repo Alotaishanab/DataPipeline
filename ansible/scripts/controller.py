@@ -16,7 +16,7 @@ from celery_app.app import app
 
 # ===========================  CONFIG  ========================================
 STRESS_HOURS    = 24      # duration of Phase‑1 stress test
-ONLY_USER_MODE  = True    # if False, Phase 1 will run first, then switch
+ONLY_USER_MODE  = False    # if False, Phase 1 will run first, then switch
 
 CHUNK_DIRS = {
     "internal": "/mnt/data_volume/datasets/internal_chunks",

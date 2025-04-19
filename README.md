@@ -1,128 +1,124 @@
 # DataPipeline: Scalable Bioinformatics Processing Pipeline
 
-This project provides a modular and scalable distributed pipeline for biological sequence analysis using the ESM2-T6-8M model. The system leverages infrastructure-as-code principles, distributed task scheduling, and shared storage to automate and streamline large-scale processing of protein sequences.
+A distributed computational pipeline for protein sequence analysis using ESM2-T6-8M language models. Implements infrastructure-as-code and parallel processing for efficient large-scale biological data analysis.
 
-## 🌐 Repository
-Access the full implementation and source code:
-👉 **[GitHub Repository](https://github.com/Alotaishanab/DataPipeline.git)**
+GitHub Repository: https://github.com/Alotaishanab/DataPipeline.git
+
+## Table of Contents
+1. Setup Instructions
+2. SSH Access
+3. Testing
+4. Monitoring
+5. Project Structure
+6. Development Roadmap
 
 ---
 
-## ⚙️ Setup Instructions
+## SETUP INSTRUCTIONS
 
-### 1. Clone the Repository
-```bash
+### Requirements
+- Terraform v1.0 or later
+- Existing SSH key pair at ~/.ssh/ansible_ed25519
+- Valid UCL Condenser cluster credentials
+
+### Deployment Process
+
+1. Get the source code:
 git clone https://github.com/Alotaishanab/DataPipeline.git
 cd DataPipeline/terraform
-```
 
-### 2. Configure the `.env` File
-Create a `.env` file with the following variables filled in:
+2. Configure host node:
+cd host/
+nano terraform.tfvars
 
-```hcl
-provider_token       = "YOUR_PROVIDER_TOKEN"
-provider_namespace   = "YOUR_PROVIDER_NAMESPACE"
-username             = "YOUR_USERNAME"
-network_name         = "YOUR_NETWORK_NAME"
-```
+Required parameters:
+network_name       = "FILL THIS"
+provider_namespace = "FILL THIS"
+provider_endpoint  = "FILL THIS"
+provider_token     = "FILL THIS"
+username           = "FILL THIS"
 
-### 3. Deploy Infrastructure
-Navigate to the host configuration directory and apply Terraform:
-```bash
-cd terraform/host
+3. Initialize host environment:
 terraform apply -auto-approve
-```
+ssh -i ~/.ssh/ansible_ed25519 almalinux@<HOST_VM_IP>
 
----
+4. Set up worker nodes:
+cd DataPipeline/terraform/workers/
+nano terraform.tfvars
+Fill the same variables as in the host node
 
-## 🔐 SSH Access Instructions
+5. Optional: Enable test mode (skips full dataset):
+cd DataPipeline/ansible/scripts/controller.py
+Set: ONLY_USER_MODE = True
 
-### SSH into the Management Node
-```bash
-ssh -i ~/.ssh/ansible_ed25519 almalinux@<IP_ADDRESS>
-```
-
-### Or using Proxy Jump
-```bash
-ssh -i ~/.ssh/ansible_ed25519 -J condenser-proxy almalinux@<IP_ADDRESS>
-```
-
----
-
-## 🚀 Running the Full Pipeline
-
-Once logged into the management node:
-```bash
+6. Start the pipeline:
 cd DataPipeline
 ./run_pipeline.sh
-```
 
 ---
 
-## ✅ Running All Tests
-**Please note run the tests after running ./run_pipeline.sh and setting up the pipeline **
-```bash
-cd DataPipeline/tests
+## SSH ACCESS INSTRUCTIONS
+
+Standard connection:
+ssh -i ~/.ssh/ansible_ed25519 almalinux@<HOST_VM_IP>
+
+Through Condenser proxy:
+ssh -i ~/.ssh/ansible_ed25519 -J condenser-proxy almalinux@<HOST_VM_IP>
+
+---
+
+## TESTING PROCEDURE
+
+Run validation suite:
+cd tests
 ./run_tests.sh
-```
+
+Verifications performed:
+- API functionality checks
+- Sequence file handling
+- Task queue validation
+- Interface components
 
 ---
 
-## 📈 Accessing Monitoring Services
+## MONITORING ACCESS
 
-Replace `<USERNAME>` with your actual username:
+Default configuration uses ucabbaav2 (modify in terraform.tfvars)
+All endpoints are set to ucabbaav2 by default
 
-- **Prometheus:** https://<USERNAME>-prometheus.comp0235.condenser.arc.ucl.ac.uk/
-- **Grafana:** https://<USERNAME>-grafana.comp0235.condenser.arc.ucl.ac.uk/
-- **Node Exporter:** https://<USERNAME>-nodeexporter.comp0235.condenser.arc.ucl.ac.uk/
-- **Web Server:** https://<USERNAME>-webserver.comp0235.condenser.arc.ucl.ac.uk/
+Monitoring Endpoints:
+Prometheus:    https://[username]-prometheus.comp0235.condenser.arc.ucl.ac.uk
+Grafana:       https://[username]-grafana.comp0235.condenser.arc.ucl.ac.uk
+Node Exporter: https://[username]-nodeexporter.comp0235.condenser.arc.ucl.ac.uk
+Web Interface: https://[username]-webserver.comp0235.condenser.arc.ucl.ac.uk
 
-### Grafana Login
-- **Username:** `admin`
-- **Password:** `admin`  
-> ⚠️ You should change these credentials after first login!
-
----
-
-## 📂 Directory Structure
-
-```text
-alotaishanab-datapipeline/
-├── README.md
-├── run_pipeline.sh
-├── ansible/
-│   ├── playbooks/
-│   ├── roles/
-│   ├── scripts/
-│   └── tests/
-├── backend/
-│   ├── flask_server.py
-│   ├── split_uploaded_fasta.py
-│   └── tests/
-├── benchmark_results/
-├── docs/
-├── frontend/
-│   └── react-ui/
-│       ├── public/
-│       ├── src/
-│       └── tests/
-├── terraform/
-│   ├── host/
-│   ├── workers/
-│   ├── scripts/
-│   └── keys/
-└── tests/
-    └── run_tests.sh
-```
-
-Each component is modular, with clear separation between infrastructure, orchestration, backend logic, and UI.
+Initial Grafana access:
+User: admin
+Pass: admin
+(Change immediately after initial setup)
 
 ---
 
-## 🔮 Future Improvements
+## PROJECT STRUCTURE
 
-- Containerization using Docker
-- Kubernetes-based orchestration
-- S3-compatible object storage
-- User authentication and multi-user dashboards
-- Workflow engines like Airflow or Nextflow
+DataPipeline/
+├── ansible/              # Deployment automation
+├── backend/              # Core processing logic
+├── frontend/             # Visualization interface
+├── terraform/            # Infrastructure definitions
+│   ├── host/             # Control plane
+│   └── workers/          # Processing nodes
+├── benchmark_results/    # Performance data
+└── tests/                # Quality verification
+
+---
+
+## DEVELOPMENT PLANS
+
+### Feature Pipeline
+- Container deployment support
+- Kubernetes integration
+- Cloud storage compatibility
+- Multi-user access controls
+- Workflow system integration
+
