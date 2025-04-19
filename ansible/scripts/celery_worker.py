@@ -143,12 +143,13 @@ def infer_fasta_file(path: str):
     try:
         opener = gzip.open if path.endswith(".gz") else open
         base = os.path.basename(path)
+        base_name = os.path.splitext(os.path.splitext(base)[0])[0]  # remove .gz and .fasta
         out_dir = (INTERNAL_CHUNKS in path
             and os.path.join(RESULT_ROOT, "internal_outputs")
             or os.path.join(RESULT_ROOT, "user_outputs", path.split("/user_chunks/")[1].split("/")[0])
         )
         os.makedirs(out_dir, exist_ok=True)
-        out_fp = os.path.join(out_dir, base.replace(".fasta", ".json").replace(".gz", ".json"))
+        out_fp = os.path.join(out_dir, f"{base_name}.json")
 
         with opener(path, "rt") as hin, open(out_fp, "w") as fout:
             fout.write("[")
