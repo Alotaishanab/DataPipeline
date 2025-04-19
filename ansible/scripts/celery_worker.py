@@ -23,7 +23,6 @@ USER_CHUNKS   = os.path.join(GLUSTER_BASE, "datasets/user_chunks")
 INTERNAL_CHUNKS = os.path.join(GLUSTER_BASE, "datasets/internal_chunks")
 RESULT_ROOT   = "/mnt/data_volume/results"
 BENCHMARK_LOG = os.path.join(RESULT_ROOT, "benchmark_log.jsonl")
-# ──────────────────────────────────────────────────────────────────────────────
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger(__name__)
@@ -69,35 +68,41 @@ def run_batch(batch):
         for i,(lab,seq) in enumerate(batch)
     ]
 
+def is_gzipped(filepath):
+    try:
+        with open(filepath, 'rb') as f:
+            return f.read(2) == b'\x1f\x8b'
+    except Exception:
+        return False
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Task: split + schedule all chunks
 # ──────────────────────────────────────────────────────────────────────────────
 @app.task(name="celery_worker.split_and_schedule")
 def split_and_schedule(uploaded_path, job_id):
-    """
-    1) decompress if needed
-    2) split into ~30MB fasta chunks under USER_CHUNKS/job_id
-    3) write manifest.json
-    4) enqueue one infer_fasta_file per chunk
-    """
     log.info(f"✂️ Splitting upload {uploaded_path} for job {job_id}…")
-    # prepare dirs
     os.makedirs(CHUNK_TMP, exist_ok=True)
     target_dir = os.path.join(USER_CHUNKS, job_id)
     os.makedirs(target_dir, exist_ok=True)
 
-    # decompress
-    if uploaded_path.endswith(".gz"):
+    # decompress (safely)
+    if uploaded_path.endswith(".gz") and is_gzipped(uploaded_path):
         raw = uploaded_path[:-3]
-        with gzip.open(uploaded_path,"rb") as fi, open(raw,"wb") as fo:
-            shutil.copyfileobj(fi,fo)
-        uploaded_path = raw
+        try:
+            with gzip.open(uploaded_path,"rb") as fi, open(raw,"wb") as fo:
+                shutil.copyfileobj(fi,fo)
+            uploaded_path = raw
+        except Exception as e:
+            log.error(f"❌ Failed to decompress: {uploaded_path} — {e}")
+            raise
+    elif uploaded_path.endswith(".gz"):
+        log.warning(f"⚠️ File ends with .gz but is not a valid gzip. Using as-is: {uploaded_path}")
 
-    # decide split vs single
     size = os.path.getsize(uploaded_path)
-    chunk_files=[]
-    if size < 30*1024*1024:
-        single = os.path.join(target_dir,"chunk_001.fasta")
+    chunk_files = []
+
+    if size < 30 * 1024 * 1024:
+        single = os.path.join(target_dir, "chunk_001.fasta")
         shutil.copy(uploaded_path, single)
         subprocess.run(f"pigz -f {single}", shell=True, check=True)
         chunk_files.append("chunk_001.fasta.gz")
@@ -106,23 +111,23 @@ def split_and_schedule(uploaded_path, job_id):
             f"split --numeric-suffixes=1 --suffix-length=3 -C 30m "
             f"--additional-suffix=.fasta {uploaded_path} {CHUNK_TMP}/chunk_"
         )
+        log.info(f"🧪 Running split: {split_cmd}")
         subprocess.run(split_cmd, shell=True, check=True)
-        # compress & move
+
         for f in sorted(os.listdir(CHUNK_TMP)):
             if f.endswith(".fasta"):
-                p = os.path.join(CHUNK_TMP,f)
+                p = os.path.join(CHUNK_TMP, f)
                 subprocess.run(f"pigz -f {p}", shell=True, check=True)
+
         for f in sorted(os.listdir(CHUNK_TMP)):
             if f.endswith(".gz"):
-                shutil.move(os.path.join(CHUNK_TMP,f), os.path.join(target_dir,f))
+                shutil.move(os.path.join(CHUNK_TMP, f), os.path.join(target_dir, f))
                 chunk_files.append(f)
 
-    # write manifest
-    man = {"job_id":job_id,"chunks":chunk_files}
-    with open(os.path.join(target_dir,"manifest.json"),"w") as mf:
+    man = {"job_id": job_id, "chunks": chunk_files}
+    with open(os.path.join(target_dir, "manifest.json"), "w") as mf:
         json.dump(man, mf, indent=2)
 
-    # enqueue inference on each chunk
     for fname in chunk_files:
         chunk_path = os.path.join(target_dir, fname)
         log.info(f"🚀 Scheduling inference for {chunk_path}")
@@ -137,45 +142,61 @@ def infer_fasta_file(path: str):
     t0, seq_count = time.time(), 0
     try:
         opener = gzip.open if path.endswith(".gz") else open
-        base   = os.path.basename(path)
-        out_dir= (INTERNAL_CHUNKS in path
-                  and os.path.join(RESULT_ROOT,"internal_outputs")
-                  or os.path.join(RESULT_ROOT,"user_outputs", path.split("/user_chunks/")[1].split("/")[0]))
+        base = os.path.basename(path)
+        out_dir = (INTERNAL_CHUNKS in path
+            and os.path.join(RESULT_ROOT, "internal_outputs")
+            or os.path.join(RESULT_ROOT, "user_outputs", path.split("/user_chunks/")[1].split("/")[0])
+        )
         os.makedirs(out_dir, exist_ok=True)
-        out_fp = os.path.join(out_dir, base.replace(".fasta",".json").replace(".gz",".json"))
+        out_fp = os.path.join(out_dir, base.replace(".fasta", ".json").replace(".gz", ".json"))
 
-        with opener(path,"rt") as hin, open(out_fp,"w") as fout:
+        with opener(path, "rt") as hin, open(out_fp, "w") as fout:
             fout.write("[")
-            first=True; batch=[]
-            for rec in SeqIO.parse(hin,"fasta-pearson"):
-                seq=str(rec.seq)[:MAX_SEQ_LEN]; batch.append((rec.id,seq)); seq_count+=1
-                if len(batch)==BATCH_SIZE:
-                    res=run_batch(batch)
+            first = True
+            batch = []
+            for rec in SeqIO.parse(hin, "fasta-pearson"):
+                seq = str(rec.seq)[:MAX_SEQ_LEN]
+                batch.append((rec.id, seq))
+                seq_count += 1
+                if len(batch) == BATCH_SIZE:
+                    res = run_batch(batch)
                     if not first: fout.write(",")
                     fout.write(json.dumps(res)[1:-1])
-                    first=False; batch=[]
+                    first = False
+                    batch = []
             if batch:
-                res=run_batch(batch)
+                res = run_batch(batch)
                 if not first: fout.write(",")
                 fout.write(json.dumps(res)[1:-1])
             fout.write("]")
 
-        elapsed=time.time()-t0
-        entry={"input_file":path,"output_file":out_fp,
-               "num_sequences":seq_count,"input_file_size":hr_size(os.path.getsize(path)),
-               "time_seconds":round(elapsed,2),"worker":current_task.request.hostname,
-               "status":"success","timestamp":datetime.now().strftime("%F %T")}
+        elapsed = time.time() - t0
+        entry = {
+            "input_file": path,
+            "output_file": out_fp,
+            "num_sequences": seq_count,
+            "input_file_size": hr_size(os.path.getsize(path)),
+            "time_seconds": round(elapsed, 2),
+            "worker": current_task.request.hostname,
+            "status": "success",
+            "timestamp": datetime.now().strftime("%F %T")
+        }
         log_benchmark(entry)
         log.info(f"✅ Finished {out_fp} ({seq_count} seq in {elapsed:.1f}s)")
 
     except Exception as e:
-        elapsed=time.time()-t0
-        entry={"input_file":path,"output_file":out_fp if 'out_fp' in locals() else "",
-               "num_sequences":seq_count,
-               "input_file_size":os.path.getsize(path) if os.path.exists(path) else "",
-               "time_seconds":round(elapsed,2),"worker":current_task.request.hostname,
-               "status":"failure","error":str(e),"timestamp":datetime.now().strftime("%F %T")}
+        elapsed = time.time() - t0
+        entry = {
+            "input_file": path,
+            "output_file": out_fp if 'out_fp' in locals() else "",
+            "num_sequences": seq_count,
+            "input_file_size": os.path.getsize(path) if os.path.exists(path) else "",
+            "time_seconds": round(elapsed, 2),
+            "worker": current_task.request.hostname,
+            "status": "failure",
+            "error": str(e),
+            "timestamp": datetime.now().strftime("%F %T")
+        }
         log_benchmark(entry)
         log.exception(f"❌ Error on {path}")
-
     return "done"
