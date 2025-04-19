@@ -55,6 +55,7 @@
           User=almalinux
           Group=almalinux
           WorkingDirectory={{ flask_work_dir }}
+          Environment=PYTHONPATH={{ flask_work_dir }}
           ExecStart=/usr/bin/python3 {{ flask_app_path }}
           Restart=always
 
