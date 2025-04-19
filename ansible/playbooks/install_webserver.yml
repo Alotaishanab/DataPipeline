@@ -7,6 +7,8 @@
     flask_app_port: 8080
     flask_work_dir: /opt/data_pipeline
     results_path: /mnt/results
+    celery_module_base: /home/almalinux
+    venv_path: /opt/esm/venv
 
   tasks:
     - name: Install Flask for Upload App
@@ -55,9 +57,10 @@
           User=almalinux
           Group=almalinux
           WorkingDirectory={{ flask_work_dir }}
-          Environment=PYTHONPATH={{ flask_work_dir }}
-          ExecStart=/usr/bin/python3 {{ flask_app_path }}
+          Environment=PYTHONPATH={{ celery_module_base }}:{{ flask_work_dir }}
+          ExecStart=/bin/bash -c 'source {{ venv_path }}/bin/activate && exec python3 {{ flask_app_path }}'
           Restart=always
+          RestartSec=5
 
           [Install]
           WantedBy=multi-user.target
@@ -109,6 +112,7 @@
       systemd:
         name: flask_upload_ui
         state: restarted
+        daemon_reload: yes
 
     - name: restart_httpd
       systemd:
