@@ -41,14 +41,6 @@
         group: almalinux
       notify: restart_flask_upload_app
 
-    - name: Copy split_uploaded_fasta.py script
-      copy:
-        src: ../../backend/split_uploaded_fasta.py
-        dest: "{{ flask_work_dir }}/split_uploaded_fasta.py"
-        mode: '0755'
-        owner: almalinux
-        group: almalinux
-
 
     - name: Create systemd service for Flask Upload App
       copy:
